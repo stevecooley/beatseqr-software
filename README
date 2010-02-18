@@ -1,0 +1,21 @@
+Beatseqr Firmware for the arduino mega
+2009-2010 steve cooley
+
+ http://beatseqr.com for the latest and greatest....
+ 
+ beatseqr version 1.0
+ 2009-08-25 Steve Cooley
+ 2009-09-02 Steve Cooley - broken out into separate tabs... I know this can look a little intimidating, but I think this will help you figure out what does what and where it is.
+ 
+ beatseqr version 2.0
+ 2009-10-30 Steve Cooley - modified for use, exclusively, with ubirox instead of Roxor. Roxor is now deprecated.  Sniff.
+ 
+ beatseqr version 3.2
+ 2009-12-23 Steve Cooley - welp, I changed my mind and we're using ubirox, but I've rebranded it as roxor 2.0.  
+ 2009-12-23 Steve Cooley - There are a few changes in this release, everything is just getting tightened up so the controls react better and do what you expect. 
+ 
+ Beatseqr version 3.3
+ 2010-02-17 Steve Cooley - experimental code to light up the voice select LEDs as the current_step is advancing to visually show what voices are triggering.
+ 2010-02-17 Steve Cooley - Added a build number to the startup screen on the LCD.
+ 
+
