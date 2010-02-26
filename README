@@ -18,4 +18,6 @@ Beatseqr Firmware for the arduino mega
  2010-02-17 Steve Cooley - experimental code to light up the voice select LEDs as the current_step is advancing to visually show what voices are triggering.
  2010-02-17 Steve Cooley - Added a build number to the startup screen on the LCD.
  
-
+ Beatseqr version 3.4
+ 2010-02-25 Steve Cooley - took the build number off the startup screen on the LCD. 
+ 2010-02-25 Steve Cooley - tweaked the slider values in midi velocity mode so that they are able to zero out
