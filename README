@@ -1,23 +1,63 @@
-Beatseqr Firmware for the arduino mega
-2009-2010 steve cooley
+Beatseqr - a hardware interface for working with visuals and music software.
+http://beatseqr.com
+2009 - 2010 Steve Cooley
 
- http://beatseqr.com for the latest and greatest....
+Roxor - a Processing.org app to handle serial data communication and OSC communication with external applications
+
+Note: You will need several libraries in order to compile:
+* oscP5 and netP5 by Andreas Schlegel http://www.sojamo.de/libraries/oscP5/
+* controlP5 by Andreas Schlegel http://www.sojamo.de/libraries/controlP5/
+
+Version updates:
+
+ roxor version 2.5 2010-02-22 steve cooley
+ * revamped the OSC namespace overall to include the "/beatseqr" prefix
+ * also significantly revamped the /matrix OSC namespace. I was originally looking at mirroring the way the Max5 matrixctrl object takes in data, but decided against it in favor of a significantly easier /matrix/[row]/[column]/[step] value method. This made is a lot easier to revamp the way roxor handles the step data. But that's another update for another post. 
+
+ roxor version 2.3 2010-02-08 steve cooley
+ * This version of Roxor will let you change the output port to an arbitrary number. The input port looks similarly functional, but it turns out to be kind of hard to change that on the fly. I'll get something sorted out sooner or later. In the meantime, you can at least change what port you are sending OSC data out on.
+
+ roxor version 2.1 2010-01-08 steve cooley
+ * This version of Roxor is largely cosmetic in that it's visually smaller on screen. This became an obvious improvement when we started using the previous version in performance situations. We found it helpful to verify what roxor and steppa were doing, but not at the expense of too much screen real estate. So they've been made smaller to do their job and be useful without being a live performance workflow problem.
+ * the other recent updates are that the radio buttons in the serial device list are now functional if you need to disconnect from your beatseqr hardware for any reason. Also, the random circle drawing effect has been replaced with a more functional tempo and swing value readout from the hardware. When you are connected to the hardware, turn a knob to verify that Roxor is reading values. The tempo and/or swing values will mirror what the hardware says on the LCD panel.
  
- beatseqr version 1.0
- 2009-08-25 Steve Cooley
- 2009-09-02 Steve Cooley - broken out into separate tabs... I know this can look a little intimidating, but I think this will help you figure out what does what and where it is.
+ roxor version 2.0 2009-12-03 steve cooley
+ * Ok, so we've all tried saying "ubirox" for about a month and it sort of blows, so I'm effectively dubbing this "Roxor 2.0"
+ * originally titled "ubirox", a new project in processing was created to be the multiplatform successor to the original version of Roxor
+
+ roxor version 1.0 2009 steve cooley
+ * version 1.0 was a cocoa/objective-c project. It may return someday.
  
- beatseqr version 2.0
- 2009-10-30 Steve Cooley - modified for use, exclusively, with ubirox instead of Roxor. Roxor is now deprecated.  Sniff.
+
+Beatseqr Firmware for the arduino mega
+
+Note: You will need several libraries in order to compile:
+* LED hardware abstraction library by Alexander Brevig http://www.arduino.cc/playground/Code/HardwareAbstraction
+* Button hardware abstraction library by Alexander Brevig http://www.arduino.cc/playground/Code/HardwareAbstraction
+* Potentiometerhardware abstraction library by Alexander Brevig http://www.arduino.cc/playground/Code/HardwareAbstraction
+* PString by Mikal Hart http://arduiniana.org/libraries/PString/
+
+Version updates:
+
+ Beatseqr Firmware version 3.4 - 2010-02-25 Steve Cooley
+ * took the build number off the startup screen on the LCD. 
+ * tweaked the slider values in midi velocity mode so that they are able to zero out
  
- beatseqr version 3.2
- 2009-12-23 Steve Cooley - welp, I changed my mind and we're using ubirox, but I've rebranded it as roxor 2.0.  
- 2009-12-23 Steve Cooley - There are a few changes in this release, everything is just getting tightened up so the controls react better and do what you expect. 
+ Beatseqr Firmware version 3.3 - 2010-02-17 Steve Cooley
+ * experimental code to light up the voice select LEDs as the current_step is advancing to visually show what voices are triggering.
+ * Added a build number to the startup screen on the LCD.
  
- Beatseqr version 3.3
- 2010-02-17 Steve Cooley - experimental code to light up the voice select LEDs as the current_step is advancing to visually show what voices are triggering.
- 2010-02-17 Steve Cooley - Added a build number to the startup screen on the LCD.
+ Beatseqr Firmware version 3.2 - 2009-12-23 Steve Cooley
+ * welp, I changed my mind and we're using ubirox, but I've rebranded it as roxor 2.0.  
+ * There are a few changes in this release, everything is just getting tightened up so the controls react better and do what you expect. 
  
- Beatseqr version 3.4
- 2010-02-25 Steve Cooley - took the build number off the startup screen on the LCD. 
- 2010-02-25 Steve Cooley - tweaked the slider values in midi velocity mode so that they are able to zero out
+ Beatseqr Firmware version 2.0 - 2009-10-30 Steve Cooley
+ * modified for use, exclusively, with ubirox instead of Roxor. Roxor is now deprecated.  Sniff.
+
+ Beatseqr Firmware version 1.0 - 2009-09-02 Steve Cooley
+ * broken out into separate tabs... I know this can look a little intimidating, but I think this will help you figure out what does what and where it is.
+ 
+ 
+
+
+ 
