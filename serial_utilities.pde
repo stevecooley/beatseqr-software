@@ -50,7 +50,7 @@ void run_LCD_setup_routine()
 
   lcd.print("?f");                   // clear the LCD
   lcd.print("?x00?y1");// move cursor to beginning of line 1
-  lcd.print("beatseqr v3."+build_number);
+  lcd.print("beatseqr v3");
   lcd.print("?x00?y0");// move cursor to beginning of line 0
   lcd.print("http://3rl.us");
   delay(1000);

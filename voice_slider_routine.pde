@@ -35,9 +35,9 @@ void run_voice_slider_routine()
         delay(300);
         slider_message_header = "VL";
         // 6,144
-        slider_map_low_value = 0;
+        slider_map_low_value = -2;
         slider_map_high_value = 127;
-        slider_step_value = 5;
+        slider_step_value = 2;
 
         break;
       }
@@ -105,7 +105,7 @@ void run_voice_slider_routine()
   {
 
     // get the raw value
-    raw_voice_slider_values[j] = map(voice_sliders[j].getValue(), -1,1023,slider_map_low_value,slider_map_high_value);
+    raw_voice_slider_values[j] = map(voice_sliders[j].getValue(), 0,1023,slider_map_low_value,slider_map_high_value);
 
     int this_slider_graphically = map(raw_voice_slider_values[j], slider_map_low_value, slider_map_high_value, 2, 7);
 

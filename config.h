@@ -4,7 +4,7 @@
 int upper_BPM_number = 201;
 int lower_BPM_number = 89;
 
-int build_number = 3;
+int build_number = 4;
 
 
 
@@ -60,9 +60,9 @@ int slider_mode = 1;
 int slider_mode_total = 3;
 int slider_reset_counter = 0;
 const char *slider_message_header = "VL";
-int slider_map_low_value = 0;
+int slider_map_low_value = -2;
 int slider_map_high_value = 127;
-int slider_step_value = 5;
+int slider_step_value = 2;
 
 ////////////////////////////////
 //

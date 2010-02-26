@@ -203,7 +203,7 @@ void run_knob_routine()
 
 
 
-      if((the_tempo_adjust_value >= (last_tempo_adjust_value+5)) || (the_tempo_adjust_value <= (last_tempo_adjust_value-5)))
+      if((the_tempo_adjust_value >= (last_tempo_adjust_value+10)) || (the_tempo_adjust_value <= (last_tempo_adjust_value-10)))
       {
         // Tempo Adjust
         the_serial_message = "ZTA,";

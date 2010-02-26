@@ -19,8 +19,12 @@ template<class T> inline Print &operator <<(Print &obj, T arg) {
  2009-12-23 Steve Cooley - There are a few changes in this release, everything is just getting tightened up so the controls react better and do what you expect. 
  
  Beatseqr version 3.3
- 2010-02-17 Steve Cooley - experimental code to light up the voice select LEDs as the current_step is advancing to visually show what voices are triggering.
- 2010-02-17 Steve Cooley - Added a build number to the startup screen on the LCD.
+ 2010-02-17 Steve Cooley - experimental code to light up the voice select LEDs as the current_step is advancing to visually show what voices are triggering...
+ 2010-02-17 Steve Cooley - Added a build number to the startup screen on
+ 2010-02-20 Steve Cooley - removed the build number and improved the responsiveness of the tempo adjust mode of the tempo knob
+ 
+ Beatseqr version 3.4
+ 2010-02-25 tweaking the slider values 1. to make them less chunky, and 2. to make them stfu at the bottom of their value.
  
  */
 
