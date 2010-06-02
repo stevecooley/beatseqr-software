@@ -12,7 +12,9 @@ void run_LCD_setup_routine()
 
   pinMode(lcdTxPin, OUTPUT);
   lcd.begin(9600);      // 9600 baud is chip comm speed
-  lcd.print("?c0");
+//   lcd.print("?c0");
+  lcd.print("?c1"); // blinky
+  
   lcd.print("?Bff");    // set backlight to ff hex, maximum brightness     
   delay(500);                // pause to allow LCD EEPROM to program
 

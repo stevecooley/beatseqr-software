@@ -27,11 +27,10 @@ void run_voice_slider_routine()
       {
         // velocity
         //  the_serial_message = "ZPL,1;";
-        lcd.print("?f");                   // clear the LCD
+        // lcd.print("?f");                   // clear the LCD
         lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("slider mode:");
-        lcd.print("?x00?y1");// move cursor to beginning of line 1
-        lcd.print("midi velocity");
+        lcd.print("faders:");
+        lcd.print("velocity ");
         delay(300);
         slider_message_header = "VL";
         // 6,144
@@ -44,11 +43,10 @@ void run_voice_slider_routine()
     case 2:
       {
         //  the_serial_message = "ZPL,1;";
-        lcd.print("?f");                   // clear the LCD
+        // lcd.print("?f");                   // clear the LCD
         lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("slider mode:");
-        lcd.print("?x00?y1");// move cursor to beginning of line 1
-        lcd.print("midi CC");
+        lcd.print("fader mode:");
+        lcd.print("CC   ");
         delay(300);     
 
 
@@ -64,11 +62,10 @@ void run_voice_slider_routine()
     case 3:
       {
         //  the_serial_message = "ZPL,1;";
-        lcd.print("?f");                   // clear the LCD
+        //  lcd.print("?f");                   // clear the LCD
         lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("slider mode:");
-        lcd.print("?x00?y1");// move cursor to beginning of line 1
-        lcd.print("midi note num");
+        lcd.print("faders:");
+        lcd.print("notenum  ");
         delay(300);
 
 
@@ -164,56 +161,68 @@ void run_voice_slider_routine()
     {
 
       // assemble the serial messages... 
-      
+
       slider_serial_message_factory(slider_message_header, j);
-      
-      
+
+
       last_voice_slider_values[j] = voice_slider_values[j];
 
       // start commenting if this starts to affect performance
 
       if(slider_message_header == "VL")
       {
-        lcd.print("?f");                   // clear the LCD      
+        //lcd.print("?f");                   // clear the LCD      
         lcd.print("?x00?y0");// move cursor to beginning of line 0
         lcd.print("voice ");
         lcd.print(j+1);
         lcd.print(" VL : ");
         lcd.print(voice_slider_values[j]);
-        lcd.print("?x00?y1");// move cursor to beginning of line 1
+        if(voice_slider_values[j] < 100)
+        {
+          lcd.print(" ");
+        }
+        //        lcd.print("?x00?y1");// move cursor to beginning of line 1
 
-        lcd.print("?");      
-        lcd.print(this_slider_graphically);
+        //        lcd.print("?");      
+        //        lcd.print(this_slider_graphically);
       }
 
       if(slider_message_header == "CC")
       {
-        lcd.print("?f");                   // clear the LCD      
+        //lcd.print("?f");                   // clear the LCD      
         lcd.print("?x00?y0");// move cursor to beginning of line 0
         lcd.print("voice ");
         lcd.print(j+1);
         lcd.print(" CC : ");
         lcd.print(voice_slider_values[j]);
-        lcd.print("?x00?y1");// move cursor to beginning of line 1
+        if(voice_slider_values[j] < 100)
+        {
+          lcd.print(" ");
+        }
+        //        lcd.print("?x00?y1");// move cursor to beginning of line 1
 
-        lcd.print("?");      
-        lcd.print(this_slider_graphically);
+        //        lcd.print("?");      
+        //        lcd.print(this_slider_graphically);
       }
 
       // end commenting here if that was affecting performance
 
       if(slider_message_header == "NN")
       {
-        lcd.print("?f");                   // clear the LCD      
+        //lcd.print("?f");                   // clear the LCD      
         lcd.print("?x00?y0");// move cursor to beginning of line 0
         lcd.print("voice ");
         lcd.print(j+1);
         lcd.print(" NN : ");
         lcd.print(voice_slider_values[j]);
-        lcd.print("?x00?y1");// move cursor to beginning of line 1
+        if(voice_slider_values[j] < 100)
+        {
+          lcd.print(" ");
+        }
+        //        lcd.print("?x00?y1");// move cursor to beginning of line 1
 
-        lcd.print("?");      
-        lcd.print(this_slider_graphically);
+        //        lcd.print("?");      
+        //        lcd.print(this_slider_graphically);
       }
     }
   } 
@@ -222,15 +231,13 @@ void run_voice_slider_routine()
 
 void resetSliders()
 {
-  lcd.print("?f");                   // clear the LCD
+  // lcd.print("?f");                   // clear the LCD
   lcd.print("?x00?y0");// move cursor to beginning of line 0
-  lcd.print("midi note numbers");
-  lcd.print("?x00?y1");// move cursor to beginning of line 1
-  lcd.print("reset");
+  lcd.print("notenum reset   ");
   slider_reset_counter = 0;   
 
   int notenum_count_up_from = 36;
-  
+
   for(int i=0; i<=7; i++)
   {
     voice_slider_midinotenum[i] = notenum_count_up_from + i;
@@ -241,28 +248,29 @@ void resetSliders()
 
 void slider_serial_message_factory(const char* slider_message_header, int j)
 {
-      the_serial_message = "Z";
-      the_serial_message += slider_message_header;
-      the_serial_message += ",";
-      the_serial_message += j;
-      the_serial_message += ",";
+  the_serial_message = "Z";
+  the_serial_message += slider_message_header;
+  the_serial_message += ",";
+  the_serial_message += j;
+  the_serial_message += ",";
 
 
-      if(slider_message_header == "VL")     
-      {
-        the_serial_message += voice_slider_midivelocity[j];
-      }
-      else if(slider_message_header == "CC")
-      {
-        the_serial_message += voice_slider_midicc[j];
-      }
-      else if(slider_message_header == "NN")
-      {
-        the_serial_message += voice_slider_midinotenum[j];
-      } 
+  if(slider_message_header == "VL")     
+  {
+    the_serial_message += voice_slider_midivelocity[j];
+  }
+  else if(slider_message_header == "CC")
+  {
+    the_serial_message += voice_slider_midicc[j];
+  }
+  else if(slider_message_header == "NN")
+  {
+    the_serial_message += voice_slider_midinotenum[j];
+  } 
 
 
-      the_serial_message += ";";   
-      serial_printer(the_serial_message);      
+  the_serial_message += ";";   
+  serial_printer(the_serial_message);      
 
 }
+

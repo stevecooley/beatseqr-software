@@ -39,6 +39,9 @@ Note: You will need several libraries in order to compile:
 
 Version updates:
 
+ Beatseqr Firmware version 3.5 - 2010-06-02 Steve Cooley
+ * changed a bunch of the LCD commands to make much better use of the screen. For instance, in line 1, when you click on the knob mode select button, the screen will move its cursor to the BPM number that the mode is indicating that it's active for. mode 0 is the coarse BPM adjustment, and mode 1 is the fine BPM adjustment.  So when you're clicking that button, the cursor will bounce between those values to show you which mode it's in.  Also made line 0 more descriptive and less pedantic at the same time. Typically that line will display which mode the faders (formerly "voice sliders") are in, or what mode the voice select buttons are in.  A further refinement would come in the form of abbreviating both of these data points to both fit into one line at the same time. It's probably doable, but… maybe not for this update.
+
  Beatseqr Firmware version 3.4 - 2010-02-25 Steve Cooley
  * took the build number off the startup screen on the LCD. 
  * tweaked the slider values in midi velocity mode so that they are able to zero out

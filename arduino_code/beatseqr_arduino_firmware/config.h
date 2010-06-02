@@ -4,7 +4,7 @@
 int upper_BPM_number = 201;
 int lower_BPM_number = 89;
 
-int build_number = 4;
+int build_number = 5;
 
 
 
@@ -15,6 +15,9 @@ int build_number = 4;
 #define rxPin 1  // rxPin is immaterial - not used - just make this an unused Arduino pin number
 #define lcdTxPin 69 // pin 14 is analog pin 0, on a BBB just use a servo cable :), see Reference pinMode
 SoftwareSerial lcd =  SoftwareSerial(rxPin, lcdTxPin);
+
+
+        
 char N;
 int I;
 int ByteVar;

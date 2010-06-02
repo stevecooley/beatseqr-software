@@ -34,30 +34,51 @@ void run_knob_routine()
       {
         // velocity
         //  the_serial_message = "ZPL,1;";
-        lcd.print("?f");                   // clear the LCD
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("knob mode:");
-        lcd.print("?x00?y1");// move cursor to beginning of line 1
-        lcd.print("?0");
-        lcd.print("t-coarse");
-        lcd.print(" swing");
-        lcd.print("?1");
+        // lcd.print("?f");                   // clear the LCD
+        // lcd.print("?x00?y0");// move cursor to beginning of line 0
+        // lcd.print("knob mode:");
+
+        lcd.print("?y1");// move cursor to beginning of line 1        
+        lcd.print("?x04");
+
+        /*
+
+         lcd.print("?0");
+         lcd.print("t-coarse");
+         lcd.print(" swing");
+         lcd.print("?1");
+         */
+
         break;
       }
     case 2:
       {
         //  the_serial_message = "ZPL,1;";
-        lcd.print("?f");                   // clear the LCD
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("knob mode:");
-        lcd.print("?x00?y1");// move cursor to beginning of line 1
+        // lcd.print("?f");                   // clear the LCD
+        // lcd.print("?x00?y0");// move cursor to beginning of line 0
+        // lcd.print("knob mode:");
+
+        lcd.print("?y1");// move cursor to beginning of line 1
+
+        if(this_mapped_tempo_value < 100)
+        {
+          lcd.print("?x07");
+        }
+        else
+        {
+          lcd.print("?x08");
+        }
+
+        /*
         lcd.print("?0");
-        lcd.print("t-fine");
-        lcd.print(" swing");
-        lcd.print("?1");
+         lcd.print("t-fine");
+         lcd.print(" swing");
+         lcd.print("?1");
+         */
+
         break;
       }
- 
+
 
     }
   }
@@ -66,7 +87,7 @@ void run_knob_routine()
 
   // get the raw data.
   raw_knob_values[1] = swing.getValue();
-  raw_knob_values[0] = tempo.getValue();
+
 
 
   // swing
@@ -84,19 +105,27 @@ void run_knob_routine()
 
     last_swing = this_swing;
 
-    lcd.print("?f");                   // clear the LCD
-    lcd.print("?x00?y0");// move cursor to beginning of line 0
-    lcd.print("Tempo: ");
-    lcd.print(this_mapped_tempo_value);
-    lcd.print(" + ");
-    lcd.print(the_mapped_tempo_adjust_value);
-    lcd.print("?x00?y1");// move cursor to beginning of line 1
-    lcd.print("Swing: ");
-    lcd.print(this_swing);    
+    //     lcd.print("?f");                   // clear the LCD
+    //     lcd.print("?x00?y0");// move cursor to beginning of line 0
 
+    lcd.print("?y1");// move cursor to beginning of line 1
+    // lcd.print("bpm:");
+    // lcd.print(this_mapped_tempo_value);
+    // if(the_mapped_tempo_adjust_value >= 0)
+    // {
+    //   lcd.print("+");
+    // }
+    // lcd.print(the_mapped_tempo_adjust_value);
+
+    lcd.print("?x09");
+    lcd.print(" Sw:");
+    lcd.print(this_swing);    
+    if(this_swing < 100)
+    {
+      lcd.print(" ");
+    }
 
   }
-
 
 
 
@@ -107,6 +136,10 @@ void run_knob_routine()
   // TEMPO ADJUST
   //
   //
+
+  // get the raw data.
+  raw_knob_values[0] = tempo.getValue();
+
 
   if(knob_mode == 1) // Tempo
   {
@@ -151,17 +184,29 @@ void run_knob_routine()
 
       if(this_BPM_is_new == 1)
       {
-        lcd.print("?f");                   // clear the LCD
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("Tempo: ");
-        lcd.print(this_mapped_tempo_value);
-        lcd.print(" + ");
-        lcd.print(the_mapped_tempo_adjust_value);
+        //  lcd.print("?f");                   // clear the LCD
+        //  lcd.print("?x00?y0");// move cursor to beginning of line 0
         lcd.print("?x00?y1");// move cursor to beginning of line 1
-        lcd.print("Swing: ");
-        lcd.print(this_swing);  
+        lcd.print("bpm:");
+        lcd.print(this_mapped_tempo_value);
+        if(the_mapped_tempo_adjust_value >= 0)
+        {
+          lcd.print("+");
+        }
+        lcd.print(the_mapped_tempo_adjust_value);
+
+        // return the cursor back to the tempo adjust point to continue indicating that 
+        // the knob mode is tempo 
+
+        lcd.print("?x04");
 
 
+        // lcd.print(" Sw:");
+        // lcd.print(this_swing);  
+        // if(this_swing < 100)
+        // {
+        //   lcd.print(" ");
+        // }
         // calculate the new milliseconds per step so we know how long the chase lights should take for each step button.
 
         float millis_per_beat = (float)sixty/(this_mapped_tempo_value + the_mapped_tempo_adjust_value);    
@@ -222,17 +267,33 @@ void run_knob_routine()
 
         if(this_BPM_is_new == 1)
         {
-          lcd.print("?f");                   // clear the LCD
-          lcd.print("?x00?y0");// move cursor to beginning of line 0
-          lcd.print("Tempo: ");
-          lcd.print(this_mapped_tempo_value);
-          lcd.print(" + ");
-          lcd.print(the_mapped_tempo_adjust_value);
+          // lcd.print("?f");                   // clear the LCD
+          // lcd.print("?x00?y0");// move cursor to beginning of line 0
           lcd.print("?x00?y1");// move cursor to beginning of line 1
-          lcd.print("Swing: ");
-          lcd.print(this_swing);  
+          lcd.print("bpm:");
+          lcd.print(this_mapped_tempo_value);
+          if(the_mapped_tempo_adjust_value >= 0)
+          {
+            lcd.print("+");
+          }
+          lcd.print(the_mapped_tempo_adjust_value);
+          // lcd.print(" Sw:");
+          // lcd.print(this_swing);  
+          // if(this_swing < 100)
+          // {
+          lcd.print(" ");
+          // }
 
-
+          // return the cursor back to the tempo adjust point to continue indicating that 
+          // the knob mode is tempo adjust
+          if(this_mapped_tempo_value < 100)
+          {
+            lcd.print("?x07");
+          }
+          else
+          {
+            lcd.print("?x08");
+          }
 
           // calculate the new milliseconds per step so we know how long the chase lights should take for each step button.
 
@@ -254,5 +315,12 @@ void run_knob_routine()
     } 
   }
 }
+
+
+
+
+
+
+
 
 

@@ -4,31 +4,25 @@ template<class T> inline Print &operator <<(Print &obj, T arg) {
 } 
 
 /*
-
- http://beatseqr.com for the latest and greatest....
+ beatseqr arduino firmware
+ 2009-2010 steve cooley 
+ license: essentially creative commons non-commercial share-alike attribution
+ Modify this code as you see fit, don't sell it, share improvements you've made so that we can build on what I've built on, and don't remove my original credit
  
- beatseqr version 1.0
- 2009-08-25 Steve Cooley
- 2009-09-02 Steve Cooley - broken out into separate tabs... I know this can look a little intimidating, but I think this will help you figure out what does what and where it is.
- 
- beatseqr version 2.0
- 2009-10-30 Steve Cooley - modified for use, exclusively, with ubirox instead of Roxor. Roxor is now deprecated.  Sniff.
- 
- beatseqr version 3.2
- 2009-12-23 Steve Cooley - welp, I changed my mind and we're using ubirox, but I've rebranded it as roxor 2.0.  
- 2009-12-23 Steve Cooley - There are a few changes in this release, everything is just getting tightened up so the controls react better and do what you expect. 
- 
- Beatseqr version 3.3
- 2010-02-17 Steve Cooley - experimental code to light up the voice select LEDs as the current_step is advancing to visually show what voices are triggering...
- 2010-02-17 Steve Cooley - Added a build number to the startup screen on
- 2010-02-20 Steve Cooley - removed the build number and improved the responsiveness of the tempo adjust mode of the tempo knob
- 
- Beatseqr version 3.4
- 2010-02-25 tweaking the slider values 1. to make them less chunky, and 2. to make them stfu at the bottom of their value.
- 
+ http://beatseqr.com for the latest news
+ http://github.com/stevecooley/beatseqr-software for the latest versions of related software
  */
 
 #include <SoftwareSerial.h>
+
+/*
+Hardware Abstraction Resource
+Author:  Alexander Brevig
+Contact: alexanderbrevig@gmail.com
+
+note: Alexander is awesome. this project wouldn't have taken off as fast as it has without his awesom
+
+*/
 #include <LED.h>
 #include <Button.h>
 #include <Potentiometer.h>
@@ -67,6 +61,7 @@ void setup(){
   {
     readings[thisReading] = 0;     
   }
+  
 }
 
 void loop(){
