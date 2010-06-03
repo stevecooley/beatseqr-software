@@ -13,9 +13,9 @@ void run_transport_button_routine()
     { 
       the_serial_message = "ZPL,1;";
       serial_printer(the_serial_message);
-      lcd.print("?f");                   // clear the LCD
+
       lcd.print("?x00?y0");// move cursor to beginning of line 0
-      lcd.print("play");
+      lcd.print("play            ");
 
       // lcd.print("?x00?y1");// move cursor to beginning of line 1
       // lcd.print(now);
@@ -40,9 +40,9 @@ void run_transport_button_routine()
 
       the_serial_message = "ZPL,0;";
       serial_printer(the_serial_message);
-      lcd.print("?f");                   // clear the LCD
+
       lcd.print("?x00?y0");// move cursor to beginning of line 0
-      lcd.print("stop");
+      lcd.print("stop            ");
 
     }
   }

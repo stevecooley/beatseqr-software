@@ -23,11 +23,11 @@ void run_pattern_select_routine()
       pattern_select_button_pressing_counter++;
       if(pattern_select_button_pressing_counter >= 200)
       {
-        lcd.print("?f");                   // clear the LCD
+        // lcd.print("?f");                   // clear the LCD
         lcd.print("?x00?y0");// move cursor to beginning of line 1
-        lcd.print("Copy pattern ");
+        lcd.print("Copy pattrn ");
         lcd.print(pattern+1); 
-        lcd.print("  to ... ");
+        lcd.print(" to");
 
         wait_for_copy_command(pattern);
         pattern_select_button_pressing_counter = 0;
@@ -43,11 +43,9 @@ void run_pattern_select_routine()
 
     if(extended_step_length_mode == 1)
     {
-      lcd.print("?f");                   // clear the LCD
+      // lcd.print("?f");                   // clear the LCD
       lcd.print("?x00?y0");// move cursor to beginning of line 0
-      lcd.print("pattern mode:");
-      lcd.print("?x00?y1");// move cursor to beginning of line 1
-      lcd.print("single pattern");
+      lcd.print("single pattern  ");
       extended_step_length_mode = 0;
       pattern_select_leds[0].on();
       pattern_select_leds[1].on();
@@ -66,11 +64,9 @@ void run_pattern_select_routine()
     }
     else
     {
-      lcd.print("?f");                   // clear the LCD
+      // lcd.print("?f");                   // clear the LCD
       lcd.print("?x00?y0");// move cursor to beginning of line 0
-      lcd.print("pattern mode:");
-      lcd.print("?x00?y1");// move cursor to beginning of line 1
-      lcd.print("four patterns");
+      lcd.print("chain patterns  ");
       extended_step_length_mode = 1;
       pattern_select_leds[0].off();
       pattern_select_leds[1].off();
@@ -131,10 +127,11 @@ void go_to_pattern(int pattern, int silent)
 
   if(silent == 0)
   {
-    lcd.print("?f");                   // clear the LCD
+    // lcd.print("?f");                   // clear the LCD
     lcd.print("?x00?y0");// move cursor to beginning of line 1
     lcd.print("pattern ");
     lcd.print(pattern_value+1);
+    lcd.print("       ");
   }
   for(int voice=0; voice<=7; voice++)
   {
@@ -188,11 +185,12 @@ void wait_for_copy_command(int pattern_to_copy_from)
         pattern_select_button_pressing_counter = 0;
 
 
-        lcd.print("?f");                   // clear the LCD
+        // lcd.print("?f");                   // clear the LCD
         lcd.print("?x00?y0");// move cursor to beginning of line 1
         lcd.print("pattern ");
         lcd.print(pattern_value+1);
-
+        lcd.print("       ");
+        
         for(int voice=0; voice<=7; voice++)
         {
           for(int step=0; step<=15; step++)
@@ -263,4 +261,5 @@ void wait_for_extended_step_length_command()
  
  }
  */
+
 
