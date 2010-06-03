@@ -22,10 +22,13 @@ void run_voice_select_button_routine()
       {
 
         // lcd.print("?f");                   // clear the LCD
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("v-mode:");
+        lcd.print("?x14?y0");// move cursor to beginning of line 0
+//        lcd.print("v-mode:");
 //        lcd.print("?x00?y1");// move cursor to beginning of line 0
-        lcd.print("select   ");
+//        lcd.print("select   ");
+        lcd.print("?6");
+        lcd.print("S");
+
         break;
 
 
@@ -35,11 +38,13 @@ void run_voice_select_button_routine()
       {
         //  the_serial_message = "ZPL,1;";
 //        lcd.print("?f");                   // clear the LCD
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("voice mode:");
-//        lcd.print("?x00?y1");// move cursor to beginning of line 0
-        lcd.print("mute ");
-
+        lcd.print("?x14?y0");// move cursor to beginning of line 0
+//        lcd.print("voice mode:");
+//        lcd.print("mute ");
+        
+        lcd.print("?6");
+        lcd.print("M");
+        
         run_mute_mode();
 
         break;
@@ -48,10 +53,9 @@ void run_voice_select_button_routine()
       {
         //  the_serial_message = "ZPL,1;";
 //        lcd.print("?f");                   // clear the LCD
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("voice mode:");
-//        lcd.print("?x00?y1");// move cursor to beginning of line 0
-        lcd.print("solo ");
+        lcd.print("?x14?y0");// move cursor to beginning of line 0
+        lcd.print("?6"); // voice mode 
+        lcd.print("?7"); // solo
 
         run_solo_mode();
 

@@ -27,10 +27,12 @@ void run_voice_slider_routine()
       {
         // velocity
         //  the_serial_message = "ZPL,1;";
-        // lcd.print("?f");                   // clear the LCD
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("faders:");
-        lcd.print("velocity ");
+        // lcd.print("?f");                   // clear the LCD // no don't
+        lcd.print("?x11?y0");// move cursor to fader mode display position
+        lcd.print("?5");
+        lcd.print("?2");
+// lcd.print("fader mode:");         
+// lcd.print("velocity ");
         delay(300);
         slider_message_header = "VL";
         // 6,144
@@ -44,9 +46,12 @@ void run_voice_slider_routine()
       {
         //  the_serial_message = "ZPL,1;";
         // lcd.print("?f");                   // clear the LCD
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("fader mode:");
-        lcd.print("CC   ");
+        lcd.print("?x11?y0");// move cursor to fader mode display position
+        lcd.print("?5");
+        lcd.print("?3");
+        
+//        lcd.print("fader mode:");
+//        lcd.print("CC   ");
         delay(300);     
 
 
@@ -63,9 +68,12 @@ void run_voice_slider_routine()
       {
         //  the_serial_message = "ZPL,1;";
         //  lcd.print("?f");                   // clear the LCD
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("faders:");
-        lcd.print("notenum  ");
+        lcd.print("?x11?y0");// move cursor to fader mode display position
+        lcd.print("?5");
+        lcd.print("?4");
+
+//        lcd.print("faders:");
+//        lcd.print("notenum  ");
         delay(300);
 
 
@@ -172,10 +180,10 @@ void run_voice_slider_routine()
       if(slider_message_header == "VL")
       {
         //lcd.print("?f");                   // clear the LCD      
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("voice ");
+        lcd.print("?x02?y0");// move cursor to beginning of line 0
+        lcd.print("v");
         lcd.print(j+1);
-        lcd.print(" VL : ");
+        lcd.print(" VL:");
         lcd.print(voice_slider_values[j]);
         if(voice_slider_values[j] < 100)
         {
@@ -190,10 +198,10 @@ void run_voice_slider_routine()
       if(slider_message_header == "CC")
       {
         //lcd.print("?f");                   // clear the LCD      
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("voice ");
+        lcd.print("?x02?y0");// move cursor to beginning of line 0
+        lcd.print("v");
         lcd.print(j+1);
-        lcd.print(" CC : ");
+        lcd.print(" CC:");
         lcd.print(voice_slider_values[j]);
         if(voice_slider_values[j] < 100)
         {
@@ -210,10 +218,10 @@ void run_voice_slider_routine()
       if(slider_message_header == "NN")
       {
         //lcd.print("?f");                   // clear the LCD      
-        lcd.print("?x00?y0");// move cursor to beginning of line 0
-        lcd.print("voice ");
+        lcd.print("?x02?y0");// move cursor to beginning of line 0
+        lcd.print("v");
         lcd.print(j+1);
-        lcd.print(" NN : ");
+        lcd.print(" NN:");
         lcd.print(voice_slider_values[j]);
         if(voice_slider_values[j] < 100)
         {

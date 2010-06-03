@@ -2,7 +2,7 @@ void serial_printer(const char* message)
 {
   Serial.print(message);
   // last_serial = message;
-  
+
   return;
 }
 
@@ -12,39 +12,44 @@ void run_LCD_setup_routine()
 
   pinMode(lcdTxPin, OUTPUT);
   lcd.begin(9600);      // 9600 baud is chip comm speed
-//   lcd.print("?c0");
+  //   lcd.print("?c0");
   lcd.print("?c1"); // blinky
-  
+
   lcd.print("?Bff");    // set backlight to ff hex, maximum brightness     
   delay(500);                // pause to allow LCD EEPROM to program
 
   // lcd.print("?s6");     // set tabs to six spaces
   // delay(1000);               // pause to allow LCD EEPROM to program
 
-  lcd.print("?D00000070404150E04");       // left down arrow
+  lcd.print("?D010181C1E1E1C1810");       // play
   delay(100);
-  lcd.print("?D100001C0404150E04");       // right down arrow
-  delay(100);                                  // delay to allow write to EEPROM
+  lcd.print("?D1001B1B1B1B1B1B00");       // stop
+  delay(100);                             // delay to allow write to EEPROM
 
-
-
-  lcd.print("?D7001F1F1F1F1F1F1F");  // 7
+  lcd.print("?D21214181004040407");  // VL
   delay(100); 
 
-  lcd.print("?D600001F1F1F1F1F1F");  // 6
+  lcd.print("?D31C10101C07040407");  // CC
   delay(100); 
 
-  lcd.print("?D50000001F1F1F1F1F");  // 5
+  lcd.print("?D4121A1612090D0B09");  // NN
   delay(100); 
 
-  lcd.print("?D4000000001F1F1F1F");  // 4
+  lcd.print("?D504040E0404111B15");  // slider mode
   delay(100); 
 
-  lcd.print("?D300000000001F1F1F");  // 3
-  delay(100); 
+  
+  lcd.print("?D61111110A04111B15");  // voice select button aka "VM", voice mode
+   delay(100); 
+   
+   
+   lcd.print("?D71F19171B1D1D131F");  // Solo... we'll use S for "select" and "M" for mute
+   delay(100); 
+  
 
-  lcd.print("?D20000000000001F1F");  // 2
-  delay(100); 
+
+
+
 
 
   // see moderndevice.com for a handy custom char generator (software app)
@@ -53,13 +58,15 @@ void run_LCD_setup_routine()
   lcd.print("?f");                   // clear the LCD
   lcd.print("?x00?y1");// move cursor to beginning of line 1
   lcd.print("beatseqr v3");
+
   lcd.print("?x00?y0");// move cursor to beginning of line 0
-  lcd.print("http://3rl.us");
-  delay(1000);
+  lcd.print("firmware v");
+  lcd.print(build_number);
+  delay(1500);
   //   pinMode(66, INPUT);  
   //   pinMode(67, INPUT);
 
-
+  lcd.print("?f");                   // clear the LCD
 }
 
 void process_incoming_serial()
@@ -88,3 +95,4 @@ void process_incoming_serial()
     }
   }
 }
+
