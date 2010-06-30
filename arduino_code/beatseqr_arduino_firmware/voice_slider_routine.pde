@@ -31,8 +31,8 @@ void run_voice_slider_routine()
         lcd.print("?x11?y0");// move cursor to fader mode display position
         lcd.print("?5");
         lcd.print("?2");
-// lcd.print("fader mode:");         
-// lcd.print("velocity ");
+        // lcd.print("fader mode:");         
+        // lcd.print("velocity ");
         delay(300);
         slider_message_header = "VL";
         // 6,144
@@ -43,15 +43,15 @@ void run_voice_slider_routine()
         break;
       }
     case 2:
-      {
+      { // midi cc
         //  the_serial_message = "ZPL,1;";
         // lcd.print("?f");                   // clear the LCD
         lcd.print("?x11?y0");// move cursor to fader mode display position
         lcd.print("?5");
         lcd.print("?3");
-        
-//        lcd.print("fader mode:");
-//        lcd.print("CC   ");
+
+        //        lcd.print("fader mode:");
+        //        lcd.print("CC   ");
         delay(300);     
 
 
@@ -72,8 +72,8 @@ void run_voice_slider_routine()
         lcd.print("?5");
         lcd.print("?4");
 
-//        lcd.print("faders:");
-//        lcd.print("notenum  ");
+        //        lcd.print("faders:");
+        //        lcd.print("notenum  ");
         delay(300);
 
 
@@ -181,9 +181,16 @@ void run_voice_slider_routine()
       {
         //lcd.print("?f");                   // clear the LCD      
         lcd.print("?x02?y0");// move cursor to beginning of line 0
-        lcd.print("v");
+        lcd.print("?1");
         lcd.print(j+1);
-        lcd.print(" VL:");
+        /*
+        if(voice_slider_values[j] < 100)
+        { 
+          lcd.print(" ");
+        }
+        */
+        lcd.print(" ?2");
+        lcd.print(":");
         lcd.print(voice_slider_values[j]);
         if(voice_slider_values[j] < 100)
         {
@@ -201,7 +208,14 @@ void run_voice_slider_routine()
         lcd.print("?x02?y0");// move cursor to beginning of line 0
         lcd.print("v");
         lcd.print(j+1);
-        lcd.print(" CC:");
+        /*
+        if(voice_slider_values[j] < 100)
+        { 
+          lcd.print(" ");
+        }
+        */
+        lcd.print(" ?3");
+        lcd.print(":");
         lcd.print(voice_slider_values[j]);
         if(voice_slider_values[j] < 100)
         {
@@ -221,7 +235,14 @@ void run_voice_slider_routine()
         lcd.print("?x02?y0");// move cursor to beginning of line 0
         lcd.print("v");
         lcd.print(j+1);
-        lcd.print(" NN:");
+        /*
+        if(voice_slider_values[j] < 100)
+        { 
+          lcd.print(" ");
+        }
+        */
+        lcd.print(" ?4");
+        lcd.print(":");
         lcd.print(voice_slider_values[j]);
         if(voice_slider_values[j] < 100)
         {
@@ -232,6 +253,8 @@ void run_voice_slider_routine()
         //        lcd.print("?");      
         //        lcd.print(this_slider_graphically);
       }
+
+    lcd.print("?x03?y0");// move cursor to fader mode display position
     }
   } 
 }
@@ -281,4 +304,6 @@ void slider_serial_message_factory(const char* slider_message_header, int j)
   serial_printer(the_serial_message);      
 
 }
+
+
 

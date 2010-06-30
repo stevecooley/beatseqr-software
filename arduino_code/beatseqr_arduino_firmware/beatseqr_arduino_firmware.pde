@@ -17,12 +17,12 @@ template<class T> inline Print &operator <<(Print &obj, T arg) {
 
 /*
 Hardware Abstraction Resource
-Author:  Alexander Brevig
-Contact: alexanderbrevig@gmail.com
-
-note: Alexander is awesome. this project wouldn't have taken off as fast as it has without his awesom
-
-*/
+ Author:  Alexander Brevig
+ Contact: alexanderbrevig@gmail.com
+ 
+ note: Alexander is awesome. this project wouldn't have taken off as fast as it has without his awesome code
+ 
+ */
 #include <LED.h>
 #include <Button.h>
 #include <Potentiometer.h>
@@ -47,10 +47,10 @@ void setup(){
   pinMode(68, INPUT); // knob mode select
 
   pattern_select_leds[0].on();
-
   voice_mode_select_LED.toggle();
   slider_mode_select_LED.toggle();
   knob_mode_select_LED.toggle();
+
 
   run_LCD_setup_routine(); // in serial_utilities
 
@@ -61,7 +61,23 @@ void setup(){
   {
     readings[thisReading] = 0;     
   }
-  
+
+  lcd.print("?x00?y0");// move cursor to beginning of line 0
+  lcd.print("O"); // pause symbol
+  lcd.print(" "); // space
+  lcd.print("?11 "); // voice 1
+  lcd.print("?2"); // velocity 
+  lcd.print(":0  "); // value 0
+  lcd.print("?x11?y0");// move cursor to fader mode display position
+  lcd.print("?5");  //fader mode symbol
+  lcd.print("?2"); // velocity
+  lcd.print(" "); // space 
+  lcd.print("?6"); // voice button mode
+  lcd.print("S"); // select mode by default
+
+  lcd.print("?y1");// move cursor to beginning of line 1        
+  lcd.print("bpm:120+0 Sw:0"); // tempo/adjust/swing
+  // there. now the LCD isn't naked when it boots.
 }
 
 void loop(){
@@ -100,6 +116,8 @@ void loop(){
   // serial_printer(the_serial_message, last_serial);
   //  last_serial = the_serial_message;
 }
+
+
 
 
 

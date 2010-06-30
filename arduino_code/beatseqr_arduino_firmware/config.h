@@ -4,7 +4,7 @@
 int upper_BPM_number = 201;
 int lower_BPM_number = 89;
 
-const char* build_number = "3.6";
+const char* build_number = "3.7";
 
 
 

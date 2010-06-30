@@ -25,7 +25,7 @@ void run_transport_button_routine()
 
     }
     else
-    {
+    {// pause
       chase_lights_status = 0;
       
       if( extended_step_length_mode == 1)
@@ -43,7 +43,7 @@ void run_transport_button_routine()
       serial_printer(the_serial_message);
 
       lcd.print("?x00?y0");// move cursor to beginning of line 0
-      lcd.print("?1");
+      lcd.print("O");
       lcd.print(" ");
     }
   }

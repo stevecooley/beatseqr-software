@@ -21,10 +21,11 @@ void run_LCD_setup_routine()
   // lcd.print("?s6");     // set tabs to six spaces
   // delay(1000);               // pause to allow LCD EEPROM to program
 
-  lcd.print("?D010181C1E1E1C1810");       // play
+  lcd.print("?D010181C1E1E1C1810");  // play
   delay(100);
-  lcd.print("?D1001B1B1B1B1B1B00");       // stop
-  delay(100);                             // delay to allow write to EEPROM
+
+  lcd.print("?D1110A04000E11110E");  // voice 
+  delay(100);                            
 
   lcd.print("?D21214181004040407");  // VL
   delay(100); 
@@ -38,14 +39,14 @@ void run_LCD_setup_routine()
   lcd.print("?D504040E0404111B15");  // slider mode
   delay(100); 
 
-  
+
   lcd.print("?D61111110A04111B15");  // voice select button aka "VM", voice mode
-   delay(100); 
-   
-   
-   lcd.print("?D71F19171B1D1D131F");  // Solo... we'll use S for "select" and "M" for mute
-   delay(100); 
-  
+  delay(100); 
+
+
+  lcd.print("?D71F19171B1D1D131F");  // Solo... we'll use S for "select" and "M" for mute
+  delay(100); 
+
 
 
 
@@ -95,4 +96,5 @@ void process_incoming_serial()
     }
   }
 }
+
 

@@ -194,6 +194,7 @@ void run_knob_routine()
           lcd.print("+");
         }
         lcd.print(the_mapped_tempo_adjust_value);
+        lcd.print(" ");
 
         // return the cursor back to the tempo adjust point to continue indicating that 
         // the knob mode is tempo 
