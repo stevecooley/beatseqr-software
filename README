@@ -31,11 +31,7 @@ Version updates:
 
 Beatseqr Firmware for the arduino mega
 
-Note: You will need several libraries in order to compile:
-* LED hardware abstraction library by Alexander Brevig http://www.arduino.cc/playground/Code/HardwareAbstraction
-* Button hardware abstraction library by Alexander Brevig http://www.arduino.cc/playground/Code/HardwareAbstraction
-* Potentiometer hardware abstraction library by Alexander Brevig http://www.arduino.cc/playground/Code/HardwareAbstraction
-* PString by Mikal Hart http://arduiniana.org/libraries/PString/
+Thanks to Alexander Brevig and Mikal Hart for their library contributions to the arduino environment.
 
 Version updates:
 
