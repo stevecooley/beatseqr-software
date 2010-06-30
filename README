@@ -39,6 +39,9 @@ Note: You will need several libraries in order to compile:
 
 Version updates:
 
+ Beatseqr Firmware Version 3.7 - 2010-06-30 Steve Cooley
+ * More refinements to how the LCD displays data. I'd missed a couple of important places where the LCD wrote out information, which was blowing away lots of important other information on screen.  So, I've made some design decisions that hopefully will require less "click cycling" on mode select buttons just to find out what mode you wanted to be in. It should all be there on-screen now.
+
  Beatseqr Firmware version 3.6 - 2010-06-03 Steve Cooley
  * Ok, decided that maybe it might be nice to see what the doable situation would be to have all of the modes visible,  so I went through the code and tried to catch everything that did something stupid and made it less stupid, more useful, and arguably less explicit and more confusing.  But, it should in theory make it easier to know what the slider mode is without having to click the slider mode button a bunch of times just to find out. Same for the voice buttons (formerly voice select buttons, since they're multipurpose, calling them "voice select buttons" implies that they're only for voice selection, and they're more than that). 
  * Put the build number back on the startup screen. Figured it out.
