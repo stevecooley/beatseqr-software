@@ -13,6 +13,7 @@ template<class T> inline Print &operator <<(Print &obj, T arg) {
  http://github.com/stevecooley/beatseqr-software for the latest versions of related software
  */
 
+
 #include <SoftwareSerial.h>
 
 /*
@@ -23,10 +24,6 @@ Hardware Abstraction Resource
  note: Alexander is awesome. this project wouldn't have taken off as fast as it has without his awesome code
  
  */
-#include <LED.h>
-#include <Button.h>
-#include <Potentiometer.h>
-#include <PString.h>
 
 #include "config.h"
 
@@ -39,7 +36,7 @@ void setup(){
 
   delay(300);
 
-  Serial << "ZIN,Steve Cooley http://beatseqr.com \r\n";
+// Serial << "ZIN,Steve Cooley http://beatseqr.com \r\n";
   // analog 11?
   pinMode(65, INPUT); // play stop button
   pinMode(66, INPUT); // voice button mode select?
