@@ -40,6 +40,7 @@ Note: You will need several libraries in order to compile:
 Version updates:
 
  Beatseqr Firmware Version 3.7 - 2010-06-30 Steve Cooley
+ * I've added all of the library files to the project folder that you would otherwise need to add to your arduino libraries folder.  If you already have them added to your arduino IDE, you can comment out the #include statements in the config.h file.  This addition of the files will let you open up the beatseqr_arduino_firmware.pde file, choose your beatseqr's serial address, target the arduino mega, and upload the new firmware to it without having to replicate my development setup on your machine. This is a good thing.
  * More refinements to how the LCD displays data. I'd missed a couple of important places where the LCD wrote out information, which was blowing away lots of important other information on screen.  So, I've made some design decisions that hopefully will require less "click cycling" on mode select buttons just to find out what mode you wanted to be in. It should all be there on-screen now.
 
  Beatseqr Firmware version 3.6 - 2010-06-03 Steve Cooley
