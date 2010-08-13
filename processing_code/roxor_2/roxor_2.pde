@@ -4,7 +4,7 @@ int OSC_RECEIVE_PORT = 8112;
 // int OSC_MIDI_CC_PORT = 8112;
 int OSC_SEND_PORT = 8111;
 
-int buildnumber = 5;
+int buildnumber = 8;
 
 /**
  * Ubirox
@@ -240,36 +240,58 @@ void parse_message(String serial_read_value)
     if(list[0].equals("ZNN")) // note nunmber
     {
       thekey = thekey+1;
-      message("/midinotenum"+thekey, theval);
+      message("/midinotenum/"+thekey, theval);
       // println("/midinotenum"+thekey +" "+ theval);
     }
 
     if(list[0].equals("ZVL")) // velocity
     {
       thekey = thekey+1;
-      message("/velocity"+thekey, theval);
+      message("/velocity/"+thekey, theval);
       // println("/velocity"+thekey +" "+ theval);
     }
 
     if(list[0].equals("ZCC")) // midi cc - general
     {
       thekey = thekey+1;
-      message("/midicc"+thekey, theval);
-      println("/midicc"+thekey +" "+ theval);
+      message("/midicc/"+thekey, theval);
+      println("/midicc/"+thekey +" "+ theval);
     }
+
+    if(list[0].equals("ZRN")) // record note nunmber
+    {
+      thekey = thekey+1;
+      message("/record/notenum/"+thekey, theval);
+      // println("/midinotenum"+thekey +" "+ theval);
+    }
+
+    if(list[0].equals("ZRV")) // record velocity
+    {
+      thekey = thekey+1;
+      message("/record/velocity/"+thekey, theval);
+      // println("/velocity"+thekey +" "+ theval);
+    }
+
+    if(list[0].equals("ZRC")) // record midi cc - general
+    {
+      thekey = thekey+1;
+      message("/record/cc/"+thekey, theval);
+      // println("/midicc/"+thekey +" "+ theval);
+    }
+
 
     if(list[0].equals("ZMU")) // midi cc - mute
     {
       thekey = thekey+1;
-      message("/mute"+thekey, theval);
-      println("/mute"+thekey +" "+ theval);
+      message("/mute/"+thekey, theval);
+      println("/mute/"+thekey +" "+ theval);
     }
 
     if(list[0].equals("ZSO")) // midi cc - solo
     {
       thekey = thekey+1;
-      message("/solo"+thekey, theval);
-      println("/solo"+thekey +" "+ theval);
+      message("/solo/"+thekey, theval);
+      println("/solo/"+thekey +" "+ theval);
     }
 
 
@@ -456,5 +478,4 @@ void oscEvent(OscMessage theOscMessage)
   }
   return;
 }
-
 

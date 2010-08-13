@@ -5,6 +5,9 @@ void run_voice_slider_routine()
   // int tbutton1 = transport_button_1.uniquePress();
   if(slider_mode_select.uniquePress()){
 
+
+
+
     for(int i=0; i<=7; i++)
     {
       VL_cleared_to_update_values[i]=false;
@@ -88,25 +91,15 @@ void run_voice_slider_routine()
         break;
       } 
     }
+
+
   }
 
-  // 2010-01-01 steve cooley
-  // we need a way to trigger a reset command for midi note numbers.
-  // not sure this is the right way.
 
-  if(slider_mode_select.isPressed())
-  {
-    slider_reset_counter++;
-    if(slider_reset_counter >= 500)
-    {
-      resetSliders();
-
-    }
-  }
 
   // voice select sliders
 
-    for(int j=0; j<=7; j++)
+  for(int j=0; j<=7; j++)
   {
 
     // get the raw value
@@ -185,10 +178,10 @@ void run_voice_slider_routine()
         lcd.print(j+1);
         /*
         if(voice_slider_values[j] < 100)
-        { 
-          lcd.print(" ");
-        }
-        */
+         { 
+         lcd.print(" ");
+         }
+         */
         lcd.print(" ?2");
         lcd.print(":");
         lcd.print(voice_slider_values[j]);
@@ -210,10 +203,10 @@ void run_voice_slider_routine()
         lcd.print(j+1);
         /*
         if(voice_slider_values[j] < 100)
-        { 
-          lcd.print(" ");
-        }
-        */
+         { 
+         lcd.print(" ");
+         }
+         */
         lcd.print(" ?3");
         lcd.print(":");
         lcd.print(voice_slider_values[j]);
@@ -237,10 +230,10 @@ void run_voice_slider_routine()
         lcd.print(j+1);
         /*
         if(voice_slider_values[j] < 100)
-        { 
-          lcd.print(" ");
-        }
-        */
+         { 
+         lcd.print(" ");
+         }
+         */
         lcd.print(" ?4");
         lcd.print(":");
         lcd.print(voice_slider_values[j]);
@@ -254,7 +247,7 @@ void run_voice_slider_routine()
         //        lcd.print(this_slider_graphically);
       }
 
-    lcd.print("?x03?y0");// move cursor to fader mode display position
+      lcd.print("?x03?y0");// move cursor to fader mode display position
     }
   } 
 }
@@ -273,6 +266,8 @@ void resetSliders()
   {
     voice_slider_midinotenum[i] = notenum_count_up_from + i;
     slider_serial_message_factory("NN",i);
+    slider_serial_message_factory("CC",i);
+    slider_serial_message_factory("VL",i);
   }
 
 }
@@ -280,7 +275,24 @@ void resetSliders()
 void slider_serial_message_factory(const char* slider_message_header, int j)
 {
   the_serial_message = "Z";
-  the_serial_message += slider_message_header;
+
+  if(slider_mode_select.isPressed() && (slider_message_header == "VL"))
+  {
+    the_serial_message += "RV";
+  }
+  else if(slider_mode_select.isPressed() && (slider_message_header == "CC"))
+  {
+    the_serial_message += "RC";
+  }
+  else if(slider_mode_select.isPressed() && (slider_message_header == "NN"))
+  {
+    the_serial_message += "RN";
+  }
+  else 
+  {
+    the_serial_message += slider_message_header;
+  }
+
   the_serial_message += ",";
   the_serial_message += j;
   the_serial_message += ",";
@@ -304,6 +316,10 @@ void slider_serial_message_factory(const char* slider_message_header, int j)
   serial_printer(the_serial_message);      
 
 }
+
+
+
+
 
 
 

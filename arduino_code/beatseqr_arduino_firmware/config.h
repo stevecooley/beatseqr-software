@@ -7,11 +7,38 @@
 
 // Important configuration stuff
 
+int swingknob = 9;
+int tempoknob = 8;
 
 int upper_BPM_number = 201;
 int lower_BPM_number = 89;
 
-const char* build_number = "3.7";
+
+// this is a configuration point to set up the resistors on the analog 10 pin for voice select buttons
+int vselectval_lowerranges[8] = {
+  920,
+  830,
+  751,
+  700,
+  650,
+  605,
+  576,
+  550
+};
+
+
+int vselectval_upperranges[8] = {
+  940,
+  860,
+  795,
+  750,
+  690,
+  645,
+  600,
+  575
+};
+
+const char* build_number = "3.8a";
 
 
 
@@ -20,7 +47,7 @@ const char* build_number = "3.7";
 
 // setup for LCD
 #define rxPin 1  // rxPin is immaterial - not used - just make this an unused Arduino pin number
-#define lcdTxPin 69 // pin 14 is analog pin 0, on a BBB just use a servo cable :), see Reference pinMode
+#define lcdTxPin 69 // analog in - pin 15
 SoftwareSerial lcd =  SoftwareSerial(rxPin, lcdTxPin);
 
 
@@ -109,42 +136,9 @@ Potentiometer voice_select_buttons = Potentiometer(10);
 
 int last_voice_selected = 0;
 
-// this is a configuration point to set up the resistors on the analog 10 pin for voice select buttons
 
-/*
 
- 920 - 940
- 830 - 860
- 750 - 795
- 715 - 750
- 650 - 690
- 590 - 645
- 570 - 588
- 540 - 568
- 
- */
 
-int vselectval_lowerranges[8] = {
-  920,
-  830,
-  751,
-  700,
-  650,
-  605,
-  576,
-  550
-};
-
-int vselectval_upperranges[8] = {
-  940,
-  860,
-  795,
-  750,
-  690,
-  645,
-  600,
-  575
-};
 
 
 ////////////////////////////////
@@ -153,12 +147,12 @@ int vselectval_upperranges[8] = {
 //
 ////////////////////////////////
 
-Potentiometer swing(8);
+Potentiometer swing(swingknob);
 int this_swing = 0;
 int send_swing = 0;
 int last_swing = 0;
 
-Potentiometer tempo(9);
+Potentiometer tempo(tempoknob);
 int this_tempo;
 float last_tempo;
 
@@ -279,3 +273,12 @@ int patterns_to_play_in_a_row = 1;
 
 char* pattern_padding;
 char* step_padding;
+
+
+// custom functions
+
+float mapFloat(float x, float in_min, float in_max, float out_min, float out_max)
+{
+return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+

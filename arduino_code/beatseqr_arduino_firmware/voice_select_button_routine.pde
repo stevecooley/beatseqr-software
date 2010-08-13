@@ -27,7 +27,7 @@ void run_voice_select_button_routine()
 //        lcd.print("?x00?y1");// move cursor to beginning of line 0
 //        lcd.print("select   ");
         lcd.print("?6");
-        lcd.print("S");
+        lcd.print("S"); // select
 
         break;
 
@@ -43,7 +43,7 @@ void run_voice_select_button_routine()
 //        lcd.print("mute ");
         
         lcd.print("?6");
-        lcd.print("M");
+        lcd.print("M"); // mute
         
         run_mute_mode();
 

@@ -83,6 +83,21 @@ void run_knob_routine()
     }
   }
 
+  // 2010-01-01 steve cooley
+  // we need a way to trigger a reset command for midi note numbers.
+  // not sure this is the right way.
+
+  //    if(slider_mode_select.isPressed())
+  if(knob_mode_select.isPressed())
+  {
+    slider_reset_counter++;
+    if(slider_reset_counter >= 500)
+    {
+      resetSliders();
+
+    }
+  }
+
 
 
   // get the raw data.
@@ -253,7 +268,7 @@ void run_knob_routine()
       {
         // Tempo Adjust
         the_serial_message = "ZTA,";
-        the_serial_message += the_tempo_adjust_float_value;
+        the_serial_message += raw_knob_values[0];
         the_serial_message += ";";
         serial_printer(the_serial_message);
 
@@ -316,6 +331,7 @@ void run_knob_routine()
     } 
   }
 }
+
 
 
 

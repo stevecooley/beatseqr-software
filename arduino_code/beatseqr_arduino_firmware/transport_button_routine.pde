@@ -27,18 +27,20 @@ void run_transport_button_routine()
     else
     {// pause
       chase_lights_status = 0;
-      
+
       if( extended_step_length_mode == 1)
       {
         current_pattern = 0;
         go_to_pattern(0,1);      
       }
 
-      for(int i=0; i<=7; i++)
+      if(voice_mode == 1)
       {
-        voice_select_leds[i].setValue(0);
+        for(int i=0; i<=7; i++)
+        {
+           voice_select_leds[i].setValue(0);
+        }
       }
-
       the_serial_message = "ZPL,0;";
       serial_printer(the_serial_message);
 
@@ -127,3 +129,4 @@ void run_chase_lights(unsigned long now)
 
 
 }
+
