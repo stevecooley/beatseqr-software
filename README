@@ -39,6 +39,11 @@ Thanks to Alexander Brevig and Mikal Hart for their library contributions to the
 
 Version updates:
 
+ Beatseqr Firmware Version 4.1 - 2010-10-13 Steve Cooley
+ * refactored "solo" voice button mode to be "toggle" mode.  
+ * using "T" to represent the "toggle" voice button mode on the LCD screen.
+ * replaced the custom character for "solo" and am now using that space for a solid square character for "stop"
+
  Beatseqr Firmware Version 4.0 - 2010-08-26 Steve Cooley
  * significant rewiring on the hardware for the new 4.0 hardware boards required rewiring in the firmware as well. 
  * parameter record button now allows you to click and hold this button on the hardware to momentarily change the message header that is sent to the sequencer.  In Steppa, this will let you momentarily send slider parameters to a parameter sequencer/looper subpatch, which we think is significantly awesome.

@@ -60,7 +60,7 @@ void setup(){
   }
 
   lcd.print("?x00?y0");// move cursor to beginning of line 0
-  lcd.print("O"); // pause symbol
+  lcd.print("?7"); // pause symbol
   lcd.print(" "); // space
   lcd.print("?11 "); // voice 1
   lcd.print("?2"); // velocity 

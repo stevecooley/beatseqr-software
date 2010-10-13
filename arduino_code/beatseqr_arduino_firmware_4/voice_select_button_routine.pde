@@ -55,9 +55,9 @@ void run_voice_select_button_routine()
 //        lcd.print("?f");                   // clear the LCD
         lcd.print("?x14?y0");// move cursor to beginning of line 0
         lcd.print("?6"); // voice mode 
-        lcd.print("?7"); // solo
+        lcd.print("T"); // toggle
 
-        run_solo_mode();
+        run_toggle_mode();
 
         break;
       }
@@ -194,7 +194,7 @@ void run_voice_select_button_routine()
       break;
     }
 
-  case 3: // solo
+  case 3: // toggle
     {
 
       int voiceval = voice_select_buttons.getValue();
@@ -223,7 +223,7 @@ void run_voice_select_button_routine()
           // get the LED value and set the mute_mode_memory accordingly
           if((voice_select_leds[v].getState() == 0))
           {
-            solo_mode_memory[v] = 1;
+            toggle_mode_memory[v] = 1;
             voice_select_leds[v].on();
             the_serial_message = "ZSO,";
             the_serial_message += v;
@@ -235,7 +235,7 @@ void run_voice_select_button_routine()
           }
           else
           {
-            solo_mode_memory[v] = 0;
+            toggle_mode_memory[v] = 0;
             voice_select_leds[v].off();                      
             the_serial_message = "ZSO,";
             the_serial_message += v;
@@ -294,14 +294,14 @@ void run_mute_mode()
 }
 
 
-void run_solo_mode()
+void run_toggle_mode()
 {
 
   clear_voice_select_leds();
   // recall mute memory and set the LEDs accordingly
   for(int v = 0; v<=7; v++)
   {
-    if(solo_mode_memory[v] == 0)
+    if(toggle_mode_memory[v] == 0)
     {
       voice_select_leds[v].off();
     }

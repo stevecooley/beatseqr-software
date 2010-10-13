@@ -44,7 +44,10 @@ void run_LCD_setup_routine()
   delay(100); 
 
 
-  lcd.print("?D71F19171B1D1D131F");  // Solo... we'll use S for "select" and "M" for mute
+  lcd.print("?D7001F1F1F1F1F1F00");  // STOP ... 
+  //  this used to be "solo", but instead of explicitly calling it "solo", I'm going to go with "toggle" instead, and just use a "T" to represent that
+  //  Doing that will let me change the "O" I was using to represent "stop" and replace it with a solid square instead.
+  
   delay(100); 
 
 

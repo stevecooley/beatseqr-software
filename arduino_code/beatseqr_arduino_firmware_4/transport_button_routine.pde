@@ -45,7 +45,7 @@ void run_transport_button_routine()
       serial_printer(the_serial_message);
 
       lcd.print("?x00?y0");// move cursor to beginning of line 0
-      lcd.print("O");
+      lcd.print("?7");
       lcd.print(" ");
     }
   }

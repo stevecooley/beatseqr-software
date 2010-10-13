@@ -123,7 +123,7 @@ int pulse_adder = 1;
 // int last_voice_selected = 0;
 int mute_mode_memory[8] = {
   0,0,0,0,0,0,0,0};
-int solo_mode_memory[8] = {
+int toggle_mode_memory[8] = {
   0,0,0,0,0,0,0,0};
 
 
