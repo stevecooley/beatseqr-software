@@ -11,6 +11,7 @@ void run_knob_routine()
 
     knobs_cleared_to_update[0]=0;
     knobs_cleared_to_update[1]=0;
+    knobs_cleared_to_update[2]=0;
 
     /*
      lcd.print("?f");                   // clear the LCD
@@ -19,9 +20,9 @@ void run_knob_routine()
      delay(500);
      */
 
-//     knob_mode_select_LED.toggle();
-//     delay(100);
-//     knob_mode_select_LED.toggle();
+    //     knob_mode_select_LED.toggle();
+    //     delay(100);
+    //     knob_mode_select_LED.toggle();
     knob_mode++;
     if(knob_mode > knob_mode_total)
     {
@@ -78,7 +79,13 @@ void run_knob_routine()
 
         break;
       }
-
+    case 3:
+      {
+        lcd.print("?y0");
+        lcd.print("?x02");
+        lcd.print("octave adj.:");
+        break;
+      }
 
     }
   }
@@ -267,7 +274,7 @@ void run_knob_routine()
       if((the_tempo_adjust_value >= (last_tempo_adjust_value+10)) || (the_tempo_adjust_value <= (last_tempo_adjust_value-10)))
       {
         the_mapped_tempo_adjust_value = map(the_tempo_adjust_value, -500, 500, -5, 5);
-       
+
         // Tempo Adjust
         the_serial_message = "ZTA,";
         //        the_serial_message += raw_knob_values[0];
@@ -334,7 +341,76 @@ void run_knob_routine()
       }
     } 
   }
+
+  if(knob_mode == 3) // octave adjust
+
+
+  {
+
+    this_octave_adjust_value = map(raw_knob_values[0], 1, 1024, 512, -512);
+
+    if(this_octave_adjust_value == last_octave_adjust_value)
+    {
+      knobs_cleared_to_update[2] = 1;
+    }
+
+
+    if(knobs_cleared_to_update[2] == 1)
+    {
+      the_octave_adjust_value = this_octave_adjust_value;
+      the_octave_adjust_float_value = round(the_octave_adjust_value/100);
+
+
+      // float send_tempo = map(this_tempo,1,1024,-10.00, 10.00);
+
+
+
+      if((the_octave_adjust_value >= (last_octave_adjust_value+10)) || (the_octave_adjust_value <= (last_octave_adjust_value-10)))
+      {
+
+        the_mapped_octave_adjust_value = map(the_octave_adjust_value, -500, 500, -3, 5);
+
+
+        the_serial_message = "ZOC,";
+        //        the_serial_message += raw_knob_values[0];
+        // whew. I don't know why I was so stupid earlier. This seems to work.
+        the_serial_message += the_mapped_octave_adjust_value;
+        the_serial_message += ";";
+        serial_printer(the_serial_message);
+        
+        
+        lcd.print("?y0");  
+        lcd.print("?x14");
+
+        // return the cursor back to the tempo adjust point to continue indicating that 
+        // the knob mode is tempo adjust
+        if(the_octave_adjust_value > 0)
+        {
+
+        lcd.print("+");
+        
+        }
+
+
+
+        lcd.print(the_mapped_octave_adjust_value); 
+        if(the_mapped_octave_adjust_value == 0)
+        {
+          lcd.print(" ");
+        }
+      }
+      // lcd.print("?y0x14");
+
+    }
+  }
 }
+
+
+
+
+
+
+
 
 
 

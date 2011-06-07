@@ -5,7 +5,7 @@ void run_voice_select_button_routine()
   int alt_button_delay = 150;
 
   // int tbutton1 = transport_button_1.uniquePress();
-  if(voice_mode_select.uniquePress())
+  if(voice_mode_select.uniquePress() && (demoMode == false))
   {
     clear_voice_select_leds();
     voice_mode_select_LED.toggle();

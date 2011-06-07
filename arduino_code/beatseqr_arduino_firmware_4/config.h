@@ -4,7 +4,7 @@
 #include "Potentiometer.h"
 #include "PString.h"
 
-const char* firmware_version_number = "4.0";
+const char* firmware_version_number = "4.3";
 const char* hardware_version_number = "4.0";
 
 
@@ -24,7 +24,7 @@ int vselectval_lowerranges[8] = {
   751,
   700,
   650,
-  605,
+  610,
   576,
   550
 };
@@ -37,7 +37,7 @@ int vselectval_upperranges[8] = {
   750,
   690,
   645,
-  600,
+  609,
   575
 };
 
@@ -54,7 +54,7 @@ int vselectval_upperranges[8] = {
 SoftwareSerial lcd =  SoftwareSerial(rxPin, lcdTxPin);
 
 
-        
+
 char N;
 int I;
 int ByteVar;
@@ -89,15 +89,18 @@ int raw_voice_slider_values[8];
 int CC_cleared_to_update_values[8];
 int NN_cleared_to_update_values[8];
 int VL_cleared_to_update_values[8];
+int MC_cleared_to_update_values[8];
 
 int voice_slider_midivelocity[8];
 int voice_slider_midicc[8];
 int voice_slider_midinotenum[8] = {
   36,37,38,39,40,41,42,43};
+int voice_slider_midichannel[8] = {
+  1,1,1,1,1,1,1,1};
 
 int last_voice_slider_values[8];
 int slider_mode = 1;
-int slider_mode_total = 3;
+int slider_mode_total = 4;
 int slider_reset_counter = 0;
 const char *slider_message_header = "VL";
 int slider_map_low_value = -2;
@@ -160,12 +163,12 @@ int this_tempo;
 float last_tempo;
 
 int knob_mode = 1;
-int knob_mode_total = 2;
+int knob_mode_total = 3;
 
 
-int raw_knob_values[2];
-int knobs_cleared_to_update[2];
-int knobs_cleared_to_update_values[2];
+int raw_knob_values[3];
+int knobs_cleared_to_update[3];
+int knobs_cleared_to_update_values[3];
 
 
 
@@ -182,6 +185,14 @@ int this_tempo_adjust_value;
 int last_tempo_adjust_value;
 int last_mapped_tempo_adjust_value;
 float the_tempo_adjust_float_value;
+
+
+int the_octave_adjust_value;
+int the_mapped_octave_adjust_value;
+int this_octave_adjust_value;
+int last_octave_adjust_value;
+int last_mapped_octave_adjust_value;
+float the_octave_adjust_float_value;
 
 /*
 Potentiometer transport_button_1 = Potentiometer(11);
@@ -285,6 +296,7 @@ char* step_padding;
 
 float mapFloat(float x, float in_min, float in_max, float out_min, float out_max)
 {
-return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
+
 

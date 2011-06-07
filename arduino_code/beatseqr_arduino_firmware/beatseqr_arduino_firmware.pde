@@ -13,6 +13,11 @@ template<class T> inline Print &operator <<(Print &obj, T arg) {
  http://github.com/stevecooley/beatseqr-software for the latest versions of related software
  */
 
+/*
+ 2011-04-09 steve cooley
+ added a "demo mode" that disables some functionality. reactivate the functionality by setting "demoMode" to "false" in config.h
+ */
+
 
 #include <SoftwareSerial.h>
 
@@ -36,7 +41,7 @@ void setup(){
 
   delay(300);
 
-// Serial << "ZIN,Steve Cooley http://beatseqr.com \r\n";
+  // Serial << "ZIN,Steve Cooley http://beatseqr.com \r\n";
   // analog 11?
   pinMode(65, INPUT); // play stop button
   pinMode(66, INPUT); // voice button mode select?
@@ -72,7 +77,7 @@ void setup(){
   lcd.print("?6"); // voice button mode
   lcd.print("S"); // select mode by default
 
-  lcd.print("?y1");// move cursor to beginning of line 1        
+    lcd.print("?y1");// move cursor to beginning of line 1        
   lcd.print("bpm:120+0 Sw:0"); // tempo/adjust/swing
   // there. now the LCD isn't naked when it boots.
 }
@@ -80,6 +85,8 @@ void setup(){
 void loop(){
 
   // chase lights are when the step buttons tell you what step you're on when the transport is playing
+
+
 
   process_incoming_serial();
 
@@ -113,6 +120,7 @@ void loop(){
   // serial_printer(the_serial_message, last_serial);
   //  last_serial = the_serial_message;
 }
+
 
 
 

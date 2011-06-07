@@ -3,7 +3,7 @@ void run_voice_slider_routine()
   // slider mode select button
 
   // int tbutton1 = transport_button_1.uniquePress();
-  if(slider_mode_select.uniquePress()){
+  if(slider_mode_select.uniquePress() && (demoMode == false)){
 
 
 

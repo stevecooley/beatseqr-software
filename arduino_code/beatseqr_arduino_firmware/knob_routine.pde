@@ -1,11 +1,16 @@
+
+
 void run_knob_routine()
 {
+
+
+
 
 
   // int tbutton1 = transport_button_1.uniquePress();
 
 
-  if(knob_mode_select.uniquePress()){
+  if(knob_mode_select.uniquePress() && (demoMode == false)){
 
     // invalidate that the raw data is what should be transmitting.
 
@@ -109,7 +114,18 @@ void run_knob_routine()
   // debug
   //     Serial.println(raw_knob_values[1]);
 
-  this_swing = map(raw_knob_values[1], 1, 1024, 200, -1);
+  int upper_swing_value;
+
+  if(demoMode == true)
+  {
+    upper_swing_value = 61;
+  }
+  else
+  {
+    upper_swing_value = 201;
+  }
+
+  this_swing = map(raw_knob_values[1], 1, 1024, upper_swing_value, -1);
 
   if((this_swing >= (last_swing+2)) || (this_swing <= (last_swing-2)))
   {     
@@ -331,6 +347,7 @@ void run_knob_routine()
     } 
   }
 }
+
 
 
 

@@ -4,11 +4,12 @@
 #include "Potentiometer.h"
 #include "PString.h"
 
+boolean demoMode = true;
 
 // Important configuration stuff
 
-int swingknob = 9;
-int tempoknob = 8;
+int swingknob = 8;
+int tempoknob = 9;
 
 int upper_BPM_number = 201;
 int lower_BPM_number = 89;
@@ -198,6 +199,8 @@ Button voice_mode_select = Button(66, PULLUP);
 Button slider_mode_select = Button(67, PULLUP);
 Button knob_mode_select = Button(68, PULLUP);
 
+
+
 // play / stop
 LED transport_led_1 = LED(10);
 LED voice_mode_select_LED = LED(11);
@@ -273,6 +276,8 @@ int patterns_to_play_in_a_row = 1;
 
 char* pattern_padding;
 char* step_padding;
+
+
 
 
 // custom functions

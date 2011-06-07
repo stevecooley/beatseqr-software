@@ -13,6 +13,7 @@ void run_voice_slider_routine()
       VL_cleared_to_update_values[i]=false;
       CC_cleared_to_update_values[i]=false;
       NN_cleared_to_update_values[i]=false;
+      MC_cleared_to_update_values[i]=false;
     }
 
     //     slider_mode_select_LED.toggle();
@@ -110,6 +111,28 @@ void run_voice_slider_routine()
         slider_step_value = 1;
         break;
       } 
+    case 4:
+      { // midi channel select
+        //  the_serial_message = "ZPL,1;";
+        //  lcd.print("?f");                   // clear the LCD
+        lcd.print("?x11?y0");// move cursor to fader mode display position
+        lcd.print("?5");
+        lcd.print("#");
+
+        //        lcd.print("faders:");
+        //        lcd.print("notenum  ");
+        delay(300);
+
+        
+          slider_message_header = "MC";
+       
+        slider_map_low_value = 1;
+        slider_map_high_value = 17;
+        //        slider_map_low_value = 0;
+        //        slider_map_high_value = 127;
+        slider_step_value = 1;
+        break;
+      }      
     }
 
 
@@ -145,11 +168,20 @@ void run_voice_slider_routine()
       }
     }
 
-    if(slider_message_header == "NN")     
+ 
+   if(slider_message_header == "NN")     
     {
       if((raw_voice_slider_values[j] == voice_slider_midinotenum[j]))
       {
         NN_cleared_to_update_values[j]=true;
+      }
+    }
+
+   if(slider_message_header == "MC")     
+    {
+      if((raw_voice_slider_values[j] == voice_slider_midichannel[j]))
+      {
+        MC_cleared_to_update_values[j]=true;
       }
     }
 
@@ -172,7 +204,12 @@ void run_voice_slider_routine()
       voice_slider_midinotenum[j] = raw_voice_slider_values[j];
       voice_slider_values[j] = raw_voice_slider_values[j];
     }
-
+    
+    if(MC_cleared_to_update_values[j] == true)
+    {
+      voice_slider_midichannel[j] = raw_voice_slider_values[j];
+      voice_slider_values[j] = raw_voice_slider_values[j];
+    }
 
     if(
     (voice_slider_values[j] >= last_voice_slider_values[j]+slider_step_value) 
@@ -267,6 +304,31 @@ void run_voice_slider_routine()
         //        lcd.print(this_slider_graphically);
       }
 
+      if(slider_message_header == "MC")
+      {
+        //lcd.print("?f");                   // clear the LCD      
+        lcd.print("?x02?y0");// move cursor to beginning of line 0
+        lcd.print("v");
+        lcd.print(j+1);
+        /*
+        if(voice_slider_values[j] < 100)
+         { 
+         lcd.print(" ");
+         }
+         */
+        lcd.print(" CH");
+        lcd.print(":");
+        lcd.print(voice_slider_values[j]);
+        if(voice_slider_values[j] < 100)
+        {
+          lcd.print(" ");
+        }
+        //        lcd.print("?x00?y1");// move cursor to beginning of line 1
+
+        //        lcd.print("?");      
+        //        lcd.print(this_slider_graphically);
+      }
+      
       lcd.print("?x03?y0");// move cursor to fader mode display position
     }
   } 
@@ -338,12 +400,17 @@ void slider_serial_message_factory(const char* slider_message_header, int j)
   {
     the_serial_message += voice_slider_midinotenum[j];
   } 
+  else if(slider_message_header == "MC")
+  {
+    the_serial_message += voice_slider_midichannel[j];
+  } 
 
 
   the_serial_message += ";";   
   serial_printer(the_serial_message);      
 
 }
+
 
 
 

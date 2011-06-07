@@ -1,6 +1,11 @@
 void serial_printer(const char* message)
 {
+  // version 4.2 was a continuous serial data stream.
+//   Serial.print(message);
+
+// version 4.3 and above is experimentally going back to this format for easier parsing in max/msp... trying to kill roxor, and bring all of the hardware messaging into steppa.
   Serial.print(message);
+
   // last_serial = message;
 
   return;
