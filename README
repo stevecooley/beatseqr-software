@@ -2,13 +2,78 @@ Beatseqr - a hardware interface for working with visuals and music software.
 http://beatseqr.com
 2009 - 2010 Steve Cooley
 
-Roxor - a Processing.org app to handle serial data communication and OSC communication with external applications
+Steppa - a Max/MSP app that handles sequencing MIDI data from messages sent from the rest of the beatseqr tool chain.
+
+Version updates:
+
+ v0.62 steve cooley
+ * just added a display of the midi note numbers.  Just a sanity check more than anything.
+
+ v0.61 steve cooley
+ * midi channel selection is assignable via OSC messages.  You can now select which midi channel you want each voice to go to via the voice faders on beatseqr
+
+ v0.6a derek scott
+ * ??? 
+ * midi channel selection is broken out per-voice
+
+ v0.51 steve cooley
+ * moved version history to this sub patcher. now it can get as big as it wants.
+ * broke the cc message paths into smaller pieces (ccsub1, ccsub2, ccsub3)
+ * added some documentation to the cc subs too
+ * the steppa logo is busted... :-\ scroll down for concepts.  Could even make the lights light up with the step number! :D
+
+ v0.50 derek scott
+ * rebuilt clock engine
+ * added MIDI sync out
+ * added click track sync (thanks, Mark Pauley!)
+
+ v0.40 derek scott
+ * consolidated dependency patches into sub-patches within Steppa
+
+ v0.39 steve cooley
+ * changed the OSC namespace to be prefixed with /beatseqr ... look in stepcomm if you need to change that
+ * overhauled the rosco-row system to the roxor_row system
+ * moved all velocity and midi note num processing to stepcomm
+
+ v0.38 steve cooley
+ * converting the incoming OSC velocity values into max senders so you can pick them up in other patches...
+ * giving in to "snap to grid" and OCD. Ahh. 
+
+ v0.37 steve cooley
+ * another bug fix in pitchout in rosco-row2
+ * I'm now resending the midinotenum1-8 values once they're parsed from the incoming OSC values so you could pick that up in other max patches
+
+ v0.36 steve cooley
+ * minor bug fix
+
+ v0.35 steve cooley
+ * added the "from steppa" midi output port
+ * added the "current beat" indicators under the play button
+ * added the "pitchout" senders so you can pick up the sequenced data from elsewhere in a max patch
+ * added senders for the three midi CC banks
+ * added a label for the "midi port" drop down selector
+ * added this release note
+
+ v0.01 through v 0.34 derek scott
+ * basically rocks it. 
+
+
+
+Roxor - a Processing.org app to handle serial data communication and OSC communication with external applications.
 
 Note: You will need several libraries in order to compile:
 * oscP5 and netP5 by Andreas Schlegel http://www.sojamo.de/libraries/oscP5/
 * controlP5 by Andreas Schlegel http://www.sojamo.de/libraries/controlP5/
 
 Version updates:
+
+ roxor version 2.10 2011-06-03 steve cooley
+ * yes, I'm officially breaking the single digit sub-version number paradigm, sorry.
+ * tweaked some parameters for the beatseqr board I'm using.  This obviously won't pertain to your board, so I'm going to have to figure out how to look for a customized configuration file. There's no doubt in my mind that I need to sort this out moving forward.
+ * added fast setup buttons for my specific tools of choice.  The way it works is that I've put some buttons on the screen that I can click on to configure the midi channels and note numbers for the tools I'm using.  You could reprogram the macro buttons I've made to suit your setup pretty easily.
+
+ roxor version 2.9 2011-??-?? steve cooley
+ * demo mode ?
 
  roxor version 2.8 2010-08-26 steve cooley
  * significantly revamped the OSC namespace for velocity, note number, and CC values.
@@ -38,6 +103,13 @@ Beatseqr Firmware for the arduino mega
 Thanks to Alexander Brevig and Mikal Hart for their library contributions to the arduino environment.
 
 Version updates:
+
+ Beatseqr Firmware Version 4.3 - 2011-06-03 steve cooley
+ * octave adjust for knob modes
+ * midi channel select for faders
+
+ Beatseqr Firmware Version 4.2 - 2011-??-?? steve cooley
+ * demo mode?
 
  Beatseqr Firmware Version 4.1 - 2010-10-13 Steve Cooley
  * refactored "solo" voice button mode to be "toggle" mode.  
