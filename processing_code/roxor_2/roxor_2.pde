@@ -4,7 +4,7 @@ int OSC_RECEIVE_PORT = 8112;
 // int OSC_MIDI_CC_PORT = 8112;
 int OSC_SEND_PORT = 8111;
 
-int buildnumber = 10;
+int buildnumber = 11;
 
 /**
  * Ubirox
@@ -66,7 +66,7 @@ void setup() {
   frameRate(25);
 
   controlP5 = new ControlP5(this);
-  Radio r = controlP5.addRadio("radio",10,220);
+  RadioButton r = controlP5.addRadio("radio",10,220);
   // r.setLabel("Click on your beatseqr serial device name");
   for(int i=0;i<Serial.list().length;i++) {
     r.add(Serial.list()[i],i);
@@ -265,7 +265,14 @@ void change_serial(int device_number)
 
 void parse_message(String serial_read_value)
 {
-  String[] list = split(serial_read_value, ',');
+  
+  // 2013-08-28 steve cooley
+  // added trim() to this because it looks like the parsing was getting messed up due to extra spaces? I have no idea.
+  // This seemed to fix it.
+  
+  String[] list = split(trim(serial_read_value), ',');
+  
+  // println(list);
 
   if(list.length == 5)
   {
@@ -382,6 +389,13 @@ void parse_message(String serial_read_value)
       message("/play", theval);
       // println("/play " + theval);
     }
+
+    if(list[0].equals("ZRE"))
+    {
+      message("/arm_recording", theval);
+      // println("/play " + theval);
+    }
+
 
     if(list[0].equals("ZSW"))
     {

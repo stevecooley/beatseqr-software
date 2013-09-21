@@ -26,7 +26,7 @@ int vselectval_lowerranges[8] = {
   751,
   700,
   650,
-  605,
+  611,
   576,
   550
 };
@@ -39,7 +39,7 @@ int vselectval_upperranges[8] = {
   750,
   690,
   645,
-  600,
+  610,
   575
 };
 
@@ -317,10 +317,13 @@ ClickButton step_buttons[number_of_step_buttons] = {
 };
 
 
+int pattern_value;
 
 int step_data[4][8][16];
-int pattern_value;
 int step_value;
+
+int flam_data[4][8][16];
+int flam_value;
 
 
 //////////////////////////////////

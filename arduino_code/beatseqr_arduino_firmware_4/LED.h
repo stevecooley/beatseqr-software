@@ -20,7 +20,7 @@
 #ifndef LED_H
 #define LED_H
 
-#include "WProgram.h" 
+#include "Arduino.h" 
 
 class LED{
   public:

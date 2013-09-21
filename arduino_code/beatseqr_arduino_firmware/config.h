@@ -4,12 +4,17 @@
 #include "Potentiometer.h"
 #include "PString.h"
 
-boolean demoMode = true;
+const char* firmware_version_number = "4.42";
+const char* hardware_version_number = "4.51";
+
 
 // Important configuration stuff
 
-int swingknob = 8;
-int tempoknob = 9;
+// int swingknob = 9;
+#define swingknob 9
+
+// int tempoknob = 8;
+#define tempoknob 8
 
 int upper_BPM_number = 201;
 int lower_BPM_number = 89;
@@ -22,7 +27,7 @@ int vselectval_lowerranges[8] = {
   751,
   700,
   650,
-  605,
+  610,
   576,
   550
 };
@@ -35,11 +40,11 @@ int vselectval_upperranges[8] = {
   750,
   690,
   645,
-  600,
+  609,
   575
 };
 
-const char* build_number = "3.8a";
+
 
 
 
@@ -52,7 +57,7 @@ const char* build_number = "3.8a";
 SoftwareSerial lcd =  SoftwareSerial(rxPin, lcdTxPin);
 
 
-        
+
 char N;
 int I;
 int ByteVar;
@@ -77,7 +82,7 @@ const char* last_last_message;
 ////////////////////////////////
 
 Potentiometer voice_sliders[8] = { 
-  Potentiometer(0),Potentiometer(1),Potentiometer(2),Potentiometer(3),Potentiometer(4),Potentiometer(5),Potentiometer(6),Potentiometer(7)};
+  Potentiometer(7),Potentiometer(6),Potentiometer(5),Potentiometer(4),Potentiometer(3),Potentiometer(2),Potentiometer(1),Potentiometer(0)};
 
 int voice_slider_values[8]; 
 
@@ -87,15 +92,18 @@ int raw_voice_slider_values[8];
 int CC_cleared_to_update_values[8];
 int NN_cleared_to_update_values[8];
 int VL_cleared_to_update_values[8];
+int MC_cleared_to_update_values[8];
 
 int voice_slider_midivelocity[8];
 int voice_slider_midicc[8];
 int voice_slider_midinotenum[8] = {
   36,37,38,39,40,41,42,43};
+int voice_slider_midichannel[8] = {
+  1,1,1,1,1,1,1,1};
 
 int last_voice_slider_values[8];
 int slider_mode = 1;
-int slider_mode_total = 3;
+int slider_mode_total = 4;
 int slider_reset_counter = 0;
 const char *slider_message_header = "VL";
 int slider_map_low_value = -2;
@@ -110,7 +118,7 @@ int slider_step_value = 2;
 
 
 LED voice_select_leds[8] = { 
-  LED(9), LED(8), LED(7), LED(6), LED(5), LED(4), LED(3), LED(2)};
+  LED(2), LED(3), LED(4), LED(5), LED(6), LED(7), LED(8), LED(9)};
 
 int voice_mode = 1;
 int voice_mode_total = 3;
@@ -121,11 +129,11 @@ int pulse_adder = 1;
 // int last_voice_selected = 0;
 int mute_mode_memory[8] = {
   0,0,0,0,0,0,0,0};
-int solo_mode_memory[8] = {
+int toggle_mode_memory[8] = {
   0,0,0,0,0,0,0,0};
 
 
-const int numReadings = 5;
+const int numReadings = 5;      // number of readings to take when you click on a voice select button.  This number gets added up and averaged to 
 int readings[numReadings];      // the readings from the voice select input
 int last_reading;
 int index = 0;                  // the index of the current reading
@@ -158,12 +166,12 @@ int this_tempo;
 float last_tempo;
 
 int knob_mode = 1;
-int knob_mode_total = 2;
+int knob_mode_total = 3;
 
 
-int raw_knob_values[2];
-int knobs_cleared_to_update[2];
-int knobs_cleared_to_update_values[2];
+int raw_knob_values[3];
+int knobs_cleared_to_update[3];
+int knobs_cleared_to_update_values[3];
 
 
 
@@ -181,6 +189,14 @@ int last_tempo_adjust_value;
 int last_mapped_tempo_adjust_value;
 float the_tempo_adjust_float_value;
 
+
+int the_octave_adjust_value;
+int the_mapped_octave_adjust_value;
+int this_octave_adjust_value;
+int last_octave_adjust_value;
+int last_mapped_octave_adjust_value;
+float the_octave_adjust_float_value;
+
 /*
 Potentiometer transport_button_1 = Potentiometer(11);
  Potentiometer transport_button_2 = Potentiometer(12);
@@ -194,18 +210,21 @@ Potentiometer transport_button_1 = Potentiometer(11);
 ///////////////////////////////
 
 
-Button transport_button_1 = Button(65, PULLUP);
-Button voice_mode_select = Button(66, PULLUP);
-Button slider_mode_select = Button(67, PULLUP);
-Button knob_mode_select = Button(68, PULLUP);
+Button transport_button_1 = Button(65, BUTTON_PULLUP);
+Button voice_mode_select = Button(66, BUTTON_PULLUP);
+Button slider_mode_select = Button(67, BUTTON_PULLUP);
+Button knob_mode_select = Button(68, BUTTON_PULLUP);
+Button param_rec = Button(11, BUTTON_PULLUP);
 
-
+int isRecordingArmed = 0;
 
 // play / stop
 LED transport_led_1 = LED(10);
-LED voice_mode_select_LED = LED(11);
-LED slider_mode_select_LED = LED(12);
-LED knob_mode_select_LED = LED(13);
+
+// Nope, not anymore
+// LED voice_mode_select_LED = LED(11);
+// LED slider_mode_select_LED = LED(12);
+// LED knob_mode_select_LED = LED(13);
 
 int play_status = 0;
 int play_state = 1;
@@ -246,10 +265,10 @@ LED step_leds[16] = {
 ; 
 
 Button step_buttons[16] = { 
-  Button(23,PULLUP),Button(25,PULLUP),Button(27,PULLUP),Button(29,PULLUP),
-  Button(31,PULLUP),Button(33,PULLUP),Button(35,PULLUP),Button(37,PULLUP),
-  Button(39,PULLUP),Button(41,PULLUP),Button(43,PULLUP),Button(45,PULLUP),
-  Button(47,PULLUP),Button(49,PULLUP),Button(51,PULLUP),Button(53,PULLUP)}
+  Button(23,BUTTON_PULLUP),Button(25,BUTTON_PULLUP),Button(27,BUTTON_PULLUP),Button(29,BUTTON_PULLUP),
+  Button(31,BUTTON_PULLUP),Button(33,BUTTON_PULLUP),Button(35,BUTTON_PULLUP),Button(37,BUTTON_PULLUP),
+  Button(39,BUTTON_PULLUP),Button(41,BUTTON_PULLUP),Button(43,BUTTON_PULLUP),Button(45,BUTTON_PULLUP),
+  Button(47,BUTTON_PULLUP),Button(49,BUTTON_PULLUP),Button(51,BUTTON_PULLUP),Button(53,BUTTON_PULLUP)}
 ;
 
 int step_data[4][8][16];
@@ -264,11 +283,11 @@ int step_value;
 //////////////////////////////////
 
 LED pattern_select_leds[4] = {
-  LED(14),LED(15),LED(16),LED(17)};
+  LED(17),LED(16),LED(15),LED(14)};
 int pattern_select_button_pressing_counter = 0;
 
 Button pattern_select_buttons[4] = { 
-  Button(18, PULLUP),Button(19, PULLUP),Button(20, PULLUP),Button(21, PULLUP)};
+  Button(21, BUTTON_PULLUP),Button(20, BUTTON_PULLUP),Button(19, BUTTON_PULLUP),Button(18, BUTTON_PULLUP)};
 
 int extended_step_length_mode = 0;
 int current_pattern = 0;
@@ -278,12 +297,11 @@ char* pattern_padding;
 char* step_padding;
 
 
-
-
 // custom functions
 
 float mapFloat(float x, float in_min, float in_max, float out_min, float out_max)
 {
-return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
+
 

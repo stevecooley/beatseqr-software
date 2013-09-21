@@ -8,7 +8,8 @@
 #ifndef Potentiometer_H
 #define Potentiometer_H
  
-#include "WProgram.h"
+  #include "Arduino.h"
+
 
 class Potentiometer {
 	public:

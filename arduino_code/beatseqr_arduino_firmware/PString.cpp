@@ -1,6 +1,6 @@
 /*
   PString.cpp - Lightweight printable string class
-  Copyright (c) 2009 Mikal Hart.  All right reserved.
+  Copyright (c) 2009-2012 Mikal Hart.  All right reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -26,13 +26,24 @@ void PString::begin()
     _buf[0] = '\0';
 }
 
+#if defined(ARDUINO) && ARDUINO >= 100
+size_t PString::write(uint8_t b)
+#else
 void PString::write(uint8_t b)
+#endif
 {
   if (_cur + 1 < _buf + _size)
   {
     *_cur++ = (char)b;
     *_cur = '\0';
-  }
+#if defined(ARDUINO) && ARDUINO >= 100
+		return 1;
+#endif
+	}
+
+#if defined(ARDUINO) && ARDUINO >= 100
+	return 0;
+#endif
 }
 
 int PString::format(char *str, ...) 

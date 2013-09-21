@@ -15,18 +15,22 @@ void run_step_button_routine()
   // step buttons
   for(int i=0; i<=15; i++)
   {
-    if(step_buttons[i].clicks == 1){
+    if(step_buttons[i].clicks == 1)
+    {
       step_leds[i].toggle();
       if(step_leds[i].getState() == 1)
       {
         step_value = 1;
+        flam_value = 0;
       }
       else
       {
         step_value = 0;
+        flam_value = 0;
       } 
 
       step_data[pattern_value][last_voice_selected][i] = step_value;
+      flam_data[pattern_value][last_voice_selected][i] = flam_value;
      
 
       if(i < 10)
@@ -54,10 +58,59 @@ void run_step_button_routine()
       serial_printer(the_serial_message);
 
     }
+
+// flam?
+
+if(step_buttons[i].clicks <= -1)
+    {
+      if(((millis()/300)%2) == 1)
+      {
+        step_leds[i].toggle();
+      }
+
+      if(flam_data[pattern_value][last_voice_selected][i] == 0)
+      {
+        flam_value = 1;
+      }
+      else
+      {
+        flam_value = 0;
+      } 
+
+      flam_data[pattern_value][last_voice_selected][i] = flam_value;
+     
+
+      if(i < 10)
+      {
+        step_padding = "0";
+      }
+      else
+      { 
+        step_padding = "";
+      }
+
+
+      // SD = "S"tep "D"ata
+      the_serial_message = "ZSF,";
+      // the_serial_message += pattern_padding;
+      the_serial_message += pattern_value;
+      the_serial_message += ",";
+      the_serial_message += last_voice_selected;
+      the_serial_message +=",";
+      the_serial_message += step_padding;
+      the_serial_message += i;
+      the_serial_message += ",";
+      the_serial_message += flam_value;
+      the_serial_message += ";";   
+      serial_printer(the_serial_message);
+
+    }
+// end flam!
+    
   }
 
 
-  if((step_buttons[0].depressed) && (step_buttons[15].clicks == 1)) // clear the pattern for this voice
+  if((step_buttons[0].depressed) && (step_buttons[15].depressed)) // clear the pattern for this voice
   {
     for(int i=0; i<=15; i++)
     {
@@ -72,6 +125,7 @@ void run_step_button_routine()
       }
 
       step_data[pattern_value][last_voice_selected][i] = 0;
+      flam_data[pattern_value][last_voice_selected][i] = 0;
       step_leds[i].off();
 
       // SD = "S"tep "D"ata
@@ -87,11 +141,26 @@ void run_step_button_routine()
       the_serial_message += 0;
       the_serial_message += ";";   
       serial_printer(the_serial_message);   
+      
+      
+      // SD = "S"tep "F"lam
+      the_serial_message = "ZSF,";
+      // the_serial_message += pattern_padding;
+      the_serial_message += pattern_value;
+      the_serial_message += ",";
+      the_serial_message += last_voice_selected;
+      the_serial_message +=",";
+      the_serial_message += step_padding;
+      the_serial_message += i;
+      the_serial_message += ",";
+      the_serial_message += 0;
+      the_serial_message += ";";   
+      serial_printer(the_serial_message);   
     }
-    delay(250);
+    // delay(250);
   }
 
-  if((step_buttons[0].depressed) && (step_buttons[11].clicks == 1)) // clear the entire pattern
+  if((step_buttons[0].depressed) && (step_buttons[11].depressed)) // clear the entire pattern
   {
     for(int v=0; v<=7; v++)
     {
@@ -108,6 +177,8 @@ void run_step_button_routine()
         }
 
         step_data[pattern_value][v][i] = 0;
+        flam_data[pattern_value][v][i] = 0;
+        
         step_leds[i].off();
 
         // SD = "S"tep "D"ata
@@ -122,10 +193,25 @@ void run_step_button_routine()
         the_serial_message += ",";
         the_serial_message += 0;
         the_serial_message += ";";   
+        serial_printer(the_serial_message);
+        
+        // SD = "S"tep "F"lam
+        the_serial_message = "ZSF,";
+        // the_serial_message += pattern_padding;
+        the_serial_message += pattern_value;
+        the_serial_message += ",";
+        the_serial_message += v;
+        the_serial_message +=",";
+        the_serial_message += step_padding;
+        the_serial_message += i;
+        the_serial_message += ",";
+        the_serial_message += 0;
+        the_serial_message += ";";   
         serial_printer(the_serial_message);   
+        
       }
     }
-    delay(250);
+   //  delay(250);
   }
 
 }
@@ -135,6 +221,7 @@ void read_step_memory(int voice, int pattern)
   for(int i=0; i<=15; i++)
   {
     int this_step = step_data[pattern][voice][i];
+    int this_flam = flam_data[pattern][voice][i];
 
     if(this_step == 1)
     {
@@ -144,6 +231,13 @@ void read_step_memory(int voice, int pattern)
     {
       step_leds[i].off();
     } 
+    
+    if(this_flam == 1)
+    {
+      if(((millis()/200)%2) == 1)
+      step_leds[i].toggle();
+    }
+  
   }
 }
 

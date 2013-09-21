@@ -1,6 +1,6 @@
 /*
   PString.h - Lightweight printable string class
-  Copyright (c) 2009 Mikal Hart.  All right reserved.
+  Copyright (c) 2009-2012 Mikal Hart.  All right reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -26,12 +26,19 @@
 #include <stdio.h>
 #include <string.h>
 
+#define PSTRING_LIBRARY_VERSION 3
+
 class PString : public Print
 {
 private:
   char *_buf, *_cur;
   size_t _size;
-  virtual void write(uint8_t);
+public:
+#if defined(ARDUINO) && ARDUINO >= 100
+	virtual size_t write(uint8_t);
+#else
+	virtual void write(uint8_t);
+#endif
 
 public:
 

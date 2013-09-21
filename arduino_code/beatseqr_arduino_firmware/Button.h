@@ -1,61 +1,69 @@
-/*
+/* $Id$
 ||
-|| @file Button.h
-|| @version 1.6
-|| @author Alexander Brevig
-|| @contact alexanderbrevig@gmail.com
+|| @file               Button.cpp
+|| @author           Alexander Brevig              <alexanderbrevig@gmail.com>        
+|| @url            http://alexanderbrevig.com
 ||
 || @description
-|| | Provide an easy way of making buttons
+|| | This is a Hardware Abstraction Library for Buttons
+|| | It providea an easy way of handling buttons
 || #
 ||
-|| @license
-|| | Copyright (c) 2009 Alexander Brevig. All rights reserved.
-|| | This code is subject to AlphaLicence.txt
-|| | alphabeta.alexanderbrevig.com/AlphaLicense.txt
-|| #
+|| @license LICENSE_REPLACE
 ||
 */
 
-#ifndef BUTTON_H
-#define BUTTON_H
+#ifndef Button_h
+#define Button_h
 
-#include "WProgram.h"
+#include <inttypes.h>
 
-#define PULLUP HIGH
-#define PULLDOWN LOW
+#define BUTTON_PULLUP HIGH
+#define BUTTON_PULLUP_INTERNAL 2
+#define BUTTON_PULLDOWN LOW
 
-#define CURRENT 0
-#define PREVIOUS 1
-#define CHANGED 2
+class Button;
+typedef void (*buttonEventHandler)(Button&);
 
-class Button{
+class Button {
   public:
-    Button(uint8_t buttonPin, uint8_t buttonMode=PULLDOWN);
-    void pullup();
+  
+    Button(uint8_t buttonPin, uint8_t buttonMode=BUTTON_PULLUP_INTERNAL);
+    
+    void pullup(uint8_t buttonMode);
     void pulldown();
+    
     bool isPressed();
     bool wasPressed();
     bool stateChanged();
-	bool uniquePress();
+    bool uniquePress();
+    
+    void setHoldThreshold(unsigned int holdTime);
+    bool held(unsigned int time=0);
+    bool heldFor(unsigned int time);
+    
+    void pressHandler(buttonEventHandler handler);
+    void releaseHandler(buttonEventHandler handler);
+    void clickHandler(buttonEventHandler handler);
+    void holdHandler(buttonEventHandler handler, unsigned int holdTime=0);
+  
+    unsigned int holdTime() const;
+    inline unsigned int presses() const { return numberOfPresses; }
+    
+    bool operator==(Button &rhs);
+    
   private: 
     uint8_t pin;
     uint8_t mode;
     uint8_t state;
+    unsigned int pressedStartTime;
+    unsigned int holdEventThreshold;
+    buttonEventHandler cb_onPress;
+    buttonEventHandler cb_onRelease;
+    buttonEventHandler cb_onClick;
+    buttonEventHandler cb_onHold;
+    unsigned int numberOfPresses;
+    bool triggeredHoldEvent;
 };
 
 #endif
-
-/*
-|| @changelog
-|| | 1.6 2009-05-05 - Alexander Brevig : Added uniquePress, it returns true if the state has changed AND the button is pressed
-|| | 1.5 2009-04-24 - Alexander Brevig : Added stateChanged, @contribution http://www.arduino.cc/cgi-bin/yabb2/YaBB.pl?action=viewprofile;username=klickadiklick
-|| | 1.4 2009-04-24 - Alexander Brevig : Added wasPressed, @contribution http://www.arduino.cc/cgi-bin/yabb2/YaBB.pl?action=viewprofile;username=klickadiklick
-|| | 1.3 2009-04-12 - Alexander Brevig : Added constructor with one parameter Button(uint8_t buttonPin)
-|| | 1.2 2009-04-10 - Alexander Brevig : Namechange from Switch to Button
-|| | 1.1 2009-04-07 - Alexander Brevig : Altered API
-|| | 1.0 2008-10-23 - Alexander Brevig : Initial Release
-|| #
-*/
-
-

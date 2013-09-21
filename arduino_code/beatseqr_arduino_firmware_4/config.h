@@ -4,14 +4,17 @@
 #include "Potentiometer.h"
 #include "PString.h"
 
-const char* firmware_version_number = "4.3";
-const char* hardware_version_number = "4.0";
+const char* firmware_version_number = "4.42";
+const char* hardware_version_number = "4.51";
 
 
 // Important configuration stuff
 
-int swingknob = 9;
-int tempoknob = 8;
+// int swingknob = 9;
+#define swingknob 9
+
+// int tempoknob = 8;
+#define tempoknob 8
 
 int upper_BPM_number = 201;
 int lower_BPM_number = 89;
@@ -130,7 +133,7 @@ int toggle_mode_memory[8] = {
   0,0,0,0,0,0,0,0};
 
 
-const int numReadings = 5;
+const int numReadings = 5;      // number of readings to take when you click on a voice select button.  This number gets added up and averaged to 
 int readings[numReadings];      // the readings from the voice select input
 int last_reading;
 int index = 0;                  // the index of the current reading
@@ -207,11 +210,13 @@ Potentiometer transport_button_1 = Potentiometer(11);
 ///////////////////////////////
 
 
-Button transport_button_1 = Button(65, PULLUP);
-Button voice_mode_select = Button(66, PULLUP);
-Button slider_mode_select = Button(67, PULLUP);
-Button knob_mode_select = Button(68, PULLUP);
-Button param_rec = Button(11, PULLUP);
+Button transport_button_1 = Button(65, BUTTON_PULLUP);
+Button voice_mode_select = Button(66, BUTTON_PULLUP);
+Button slider_mode_select = Button(67, BUTTON_PULLUP);
+Button knob_mode_select = Button(68, BUTTON_PULLUP);
+Button param_rec = Button(11, BUTTON_PULLUP);
+
+int isRecordingArmed = 0;
 
 // play / stop
 LED transport_led_1 = LED(10);
@@ -260,10 +265,10 @@ LED step_leds[16] = {
 ; 
 
 Button step_buttons[16] = { 
-  Button(23,PULLUP),Button(25,PULLUP),Button(27,PULLUP),Button(29,PULLUP),
-  Button(31,PULLUP),Button(33,PULLUP),Button(35,PULLUP),Button(37,PULLUP),
-  Button(39,PULLUP),Button(41,PULLUP),Button(43,PULLUP),Button(45,PULLUP),
-  Button(47,PULLUP),Button(49,PULLUP),Button(51,PULLUP),Button(53,PULLUP)}
+  Button(23,BUTTON_PULLUP),Button(25,BUTTON_PULLUP),Button(27,BUTTON_PULLUP),Button(29,BUTTON_PULLUP),
+  Button(31,BUTTON_PULLUP),Button(33,BUTTON_PULLUP),Button(35,BUTTON_PULLUP),Button(37,BUTTON_PULLUP),
+  Button(39,BUTTON_PULLUP),Button(41,BUTTON_PULLUP),Button(43,BUTTON_PULLUP),Button(45,BUTTON_PULLUP),
+  Button(47,BUTTON_PULLUP),Button(49,BUTTON_PULLUP),Button(51,BUTTON_PULLUP),Button(53,BUTTON_PULLUP)}
 ;
 
 int step_data[4][8][16];
@@ -282,7 +287,7 @@ LED pattern_select_leds[4] = {
 int pattern_select_button_pressing_counter = 0;
 
 Button pattern_select_buttons[4] = { 
-  Button(21, PULLUP),Button(20, PULLUP),Button(19, PULLUP),Button(18, PULLUP)};
+  Button(21, BUTTON_PULLUP),Button(20, BUTTON_PULLUP),Button(19, BUTTON_PULLUP),Button(18, BUTTON_PULLUP)};
 
 int extended_step_length_mode = 0;
 int current_pattern = 0;
