@@ -14,7 +14,6 @@ void run_transport_button_routine()
 
       clockStart();
       MidiUSB.flush();
-
       seq.start();
       chase_lights_status = 1;
 
@@ -41,7 +40,7 @@ void run_transport_button_routine()
       if (extended_step_length_mode == 1)
       {
         current_pattern = 0;
-        go_to_pattern(0, 1);
+        // go_to_pattern(0, 1);
       }
 
       // the_serial_message = "ZPL,0;";
@@ -69,7 +68,7 @@ void run_chase_lights(unsigned int this_step)
 
     if (last_step != this_step) // clock pulses counted so we can advance to the next step.
     {
-      Serial.println(this_step,HEX);
+      // Serial.println(this_step,HEX);
       lcd.print("?x03?y0"); // move cursor to beginning of line 1
       if(this_step < 10)
       {
@@ -83,9 +82,9 @@ void run_chase_lights(unsigned int this_step)
 
       // clear the LEDs back to their data
       read_step_memory(0, pattern_value);
-      if (step_leds[current_step].getState() == 0)
+      if (step_leds[this_step].getState() == 0)
       {
-        step_leds[current_step].toggle(); // chase lights!
+        step_leds[this_step].toggle(); // chase lights!
       }
       last_step = this_step;
     }

@@ -41,6 +41,7 @@ void run_pattern_select_routine()
       pattern_select_leds[1].on();
       pattern_select_leds[2].on();
       pattern_select_leds[3].on();
+      delay(10);
       pattern_select_leds[3].off();
       pattern_select_leds[2].off();
       pattern_select_leds[1].off();
@@ -57,6 +58,7 @@ void run_pattern_select_routine()
       pattern_select_leds[1].off();
       pattern_select_leds[2].off();
       pattern_select_leds[3].off();
+      delay(10);
       pattern_select_leds[0].on();
       pattern_select_leds[1].on();
       pattern_select_leds[2].on();
@@ -69,7 +71,7 @@ void run_pattern_select_routine()
 void run_auto_pattern_select_routine(int inByte)
 {
 
-  if (inByte >= 15)
+  if (seq.getPosition() >= 15)
   {
     current_pattern++;
     if (current_pattern >= 4)
@@ -109,7 +111,7 @@ void go_to_pattern(int pattern, int silent)
     //    lcd.print(pattern_value+1);
     // lcd.print("       ");
   }
-  for (int voice = 0; voice <= 7; voice++)
+  for (int voice = 0; voice < 1; voice++) //synthseqr configuration
   {
     for (int step = 0; step <= 15; step++)
     {
@@ -169,7 +171,7 @@ void wait_for_copy_command(int pattern_to_copy_from)
           {
             step_data[pattern][voice][step] = step_data[pattern_to_copy_from][voice][step];
             // delay(5);
-            copy_step_data(pattern, voice, step, step_data[pattern_to_copy_from][voice][step]);
+            // copy_step_data(pattern, voice, step, step_data[pattern_to_copy_from][voice][step]);
           }
         }
         not_told_which_pattern_to_copy_to = false;

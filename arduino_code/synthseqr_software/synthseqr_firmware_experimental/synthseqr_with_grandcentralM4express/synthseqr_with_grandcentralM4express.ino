@@ -70,9 +70,9 @@ void loop()
 
   run_step_button_routine();
 
-  current_step = seq.getPosition();
+  // current_step = seq.getPosition();
 
-  run_chase_lights(current_step);
+  run_chase_lights(seq.getPosition());
 
   if (chase_lights_status == 1)
   {

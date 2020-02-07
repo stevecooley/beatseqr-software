@@ -1,4 +1,5 @@
-bool print_message(void *msg) {
+bool print_message(void *msg)
+{
   const char *m = (const char *)msg;
   Serial.print("print_message: ");
   Serial.println(m);
@@ -7,17 +8,19 @@ bool print_message(void *msg) {
   return true; // repeat? true
 }
 
-void read_midi() {
+void read_midi()
+{
 
   midiEventPacket_t rx;
-  do {
+  do
+  {
     rx = MidiUSB.read();
-    if (rx.header != 0) {
+    if (rx.header != 0)
+    {
 
       // midi thru
       // MidiUSB.sendMIDI(rx);
       // MidiUSB.flush();
-
 
       /*
         Serial.print("Received: ");
@@ -36,12 +39,11 @@ void read_midi() {
         {
           clock_pulse_count = 0;
           current_step++;
-          if(current_step > 15)
-            {
-              current_step = 0;
-            }
+          if (current_step > 15)
+          {
+            current_step = 0;
+          }
         }
-
 
         /*
           Serial.print("clock pulse count = " );
@@ -62,9 +64,6 @@ void read_midi() {
     }
 
   } while (rx.header != 0);
-
-
-
 }
 
 /*
@@ -75,34 +74,38 @@ void read_midi() {
    Modified by Arduino LLC (2015)
 */
 
-       
-
 // First parameter is the event type (0x09 = note on, 0x08 = note off).
 // Second parameter is note-on/note-off, combined with the channel.
 // Channel can be anything between 0-15. Typically reported to the user as 1-16.
 // Third parameter is the note number (48 = middle C).
 // Fourth parameter is the velocity (64 = normal, 127 = fastest).
 
-void noteOn(byte channel, byte pitch, byte velocity) {
+void noteOn(byte channel, byte pitch, byte velocity)
+{
   midiEventPacket_t thenote = {0x08, 0x90 | channel, pitch, velocity};
   MidiUSB.sendMIDI(thenote);
+  MidiUSB.flush();
 }
 
-void noteOff(byte channel, byte pitch, byte velocity) {
+void noteOff(byte channel, byte pitch, byte velocity)
+{
   midiEventPacket_t thenote = {0x08, 0x90 | channel, pitch, 0};
   MidiUSB.sendMIDI(thenote);
+  MidiUSB.flush();
 }
 
-void clockStop() {
+void clockStop()
+{
   midiEventPacket_t clockstop = {0x08, 0xFC};
   MidiUSB.sendMIDI(clockstop);
+  MidiUSB.flush();
 }
 
-
-void clockStart() {
+void clockStart()
+{
   midiEventPacket_t clockstart = {0x08, 0xFA};
   MidiUSB.sendMIDI(clockstart);
-  current_step = 0;
+  MidiUSB.flush();
 
-
+  // current_step = 0;
 }
