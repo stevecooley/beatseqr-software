@@ -85,4 +85,6 @@ void loop()
   run_pattern_select_routine();
 
   run_voice_slider_routine();
+
+  run_LCD_update();
 }

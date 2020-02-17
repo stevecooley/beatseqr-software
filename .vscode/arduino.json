@@ -1,0 +1,6 @@
+{
+    "board": "adafruit:samd:adafruit_grandcentral_m4",
+    "configuration": "cache=on,speed=120,opt=small,maxqspi=50,usbstack=arduino,debug=off",
+    "port": "/dev/cu.B11-70604273-HS_SPP",
+    "sketch": "arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/midi_note_sending.ino"
+}

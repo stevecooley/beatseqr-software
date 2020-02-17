@@ -22,7 +22,6 @@ void run_LCD_setup_routine()
   lcd.begin(9850); // 9850 baud is chip comm speed
   // lcd.begin(9600); // 9600 baud is chip comm speed
 
-
   lcd.print("?c0");
   lcd.print("?c1"); // blinky
 
@@ -71,14 +70,14 @@ void run_LCD_setup_routine()
   lcd.print(firmware_version_number);
   delay(1500);
   // pinMode(66, INPUT); // ???
-  // pinMode(67, INPUT); // ??? 
+  // pinMode(67, INPUT); // ???
 
   lcd.print("?f"); // clear the LCD
 }
 
 void process_incoming_serial()
 {
-/*
+  /*
   if (Serial.available() > 0)
   {
     // get incoming byte:
@@ -102,4 +101,185 @@ void process_incoming_serial()
     }
   }
   */
+}
+
+void run_LCD_update()
+{
+
+  // maybe we only periodically clear the screen
+  if (last_lcdflag != lcdflag) // something changed
+  {
+    // lcd.print("?f"); // clear the lcd
+  }
+
+  switch (lcdflag)
+  {
+  case 90: // parked from run_voice_slider_routine for NN
+  {
+    // lcd.print("?f");      // clear the LCD
+    lcd.print("?x02?y0"); // move cursor to beginning of line 0
+    lcd.print("v");
+    lcd.print(1);
+
+    if (voice_slider_values[0] < 100)
+    {
+      lcd.print(" ");
+    }
+
+    lcd.print(" ?4");
+    lcd.print(":");
+    lcd.print(voice_slider_values[0]);
+    if (voice_slider_values[0] < 100)
+    {
+      lcd.print(" ");
+    }
+    lcd.print("?x00?y1"); // move cursor to beginning of line 1
+    last_lcdflag = 90;
+    break;
+  }
+  case 91: // parked from run_voice_slider_routine for changing high range values
+  {
+    if (slider_map_low_value < 100)
+    {
+      lcd.print(" ");
+    }
+    lcd.print("?x09?y1"); // move cursor to line 2, char 10
+    lcd.println("hi:");
+    lcd.print("?x12?y1"); // move cursor to line 2, char 13
+    lcd.print(slider_map_high_value);
+    if (slider_map_high_value < 100)
+    {
+      //            lcd.print(" ");
+    }
+    last_lcdflag = 91;
+    break;
+  }
+  case 92: // changing the voice slider high range
+  {
+    lcd.print("?x0?y1");  // move cursor to line 2
+    lcd.print("?x00?y1"); // move cursor to line 2, char 1
+    lcd.print("?5");
+    lcd.print(" lo:");
+    lcd.print("?x05?y1"); // move cursor to line 2, char 6
+    lcd.print(slider_map_low_value);
+    if (slider_map_low_value < 100)
+    {
+      lcd.print(" ");
+    }
+    lcd.print("?x09?y1"); // move cursor to line 2, char 10
+    lcd.println("hi:");
+    lcd.print("?x12?y1"); // move cursor to line 2, char 13
+    lcd.print(slider_map_high_value);
+    if (slider_map_high_value < 100)
+    {
+      lcd.print(" ");
+    }
+    break;
+    last_lcdflag = 92;
+  }
+  case 93: // reset voice_slider_values
+  {
+    lcd.print("?f");      // clear the LCD
+    lcd.print("?x00?y0"); // move cursor to beginning of line 0
+    lcd.print("notenum reset   ");
+    last_lcdflag = 93;
+  }
+  case 100: // pattern copy
+  {
+    // lcd.print("?f");      // clear the lcd
+    lcd.print("?x0?y1"); // move cursor to beginning of line 1
+    lcd.print("Copy ");
+    lcd.print(current_pattern + 1);
+    lcd.print("->");
+    delay(100);
+    last_lcdflag = 255;
+    break;
+  }
+  case 101: // pattern copy to N
+  {
+    // lcd.print("?f"); // clear the lcd
+    lcd.print("?x0?y1"); // move cursor to beginning of line 1
+    lcd.print("Copy ");
+    lcd.print(current_pattern + 1);
+    lcd.print("->");
+    last_lcdflag = 101;
+    break;
+  }
+  case 200: // pattern chain single
+  {
+    // lcd.print("?f");      // clear the lcd
+    lcd.print("?x0?y1"); // move cursor to beginning of line 1
+    lcd.print("single  ");
+    last_lcdflag = 200;
+    break;
+  }
+  case 201: // pattern chain 4
+  {
+    // lcd.print("?f");      // clear the lcd
+    lcd.print("?x0?y1"); // move cursor to beginning of line 1
+    lcd.print("chain 4  ");
+    last_lcdflag = 201;
+    break;
+  }
+  case 255:
+  default:
+  {
+    lcd.print("?x00?y0"); // move cursor to beginning of line 0
+    // 01: play or stop
+    if (playbutton_LED.getState() == true)
+    {
+      lcd.print("?0");
+    }
+    else
+    {
+      lcd.print("?7");
+    }
+    // 02 space
+    lcd.print(" ");
+    // 03 midi channel
+    lcd.print("C");
+    // 04
+    if (MIDICHANNEL < 10)
+    {
+      lcd.print("0");
+      lcd.print(MIDICHANNEL);
+    }
+    else
+    {
+      // (04 and) 05
+      lcd.print(MIDICHANNEL);
+    }
+    // 06 space
+    lcd.print(" ");
+    // 07 voice mode
+    lcd.print("?6");
+    // 08
+    lcd.print(voice_mode);
+    // 09 space
+    lcd.print(" ");
+    // 10 Tempo / BPM
+    lcd.print("T");
+    // 11, 12, 13 BPM value
+    if (TEMPO < 100)
+    {
+      lcd.print(" ");
+    }
+    else
+    {
+      lcd.print(TEMPO);
+    }
+    // 14 space
+    lcd.print(" ");
+    // 15 swing
+    lcd.print("s");
+    // 16 swing value
+    lcd.print(SWING);
+
+    // return to sender
+    lcd.print("?x00?y0"); // move cursor to beginning of line 0
+
+    last_lcdflag = 255;
+    break;
+  }
+  }
 }

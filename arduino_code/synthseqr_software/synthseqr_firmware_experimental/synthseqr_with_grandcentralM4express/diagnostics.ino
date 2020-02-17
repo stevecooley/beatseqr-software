@@ -85,7 +85,7 @@ void captive_diagnostic_routine()
   // get the raw value
   for (int j = 0; j <= 15; j++)
   {
-    int sensorValue = map(voice_sliders[j].getValue(), 0, 1023, slider_map_low_value, slider_map_high_value);
+    int sensorValue = map(voice_sliders[j].getSector(), 0, 255, slider_map_low_value, slider_map_high_value);
 
     /*
     if(sensorValue > 10) {

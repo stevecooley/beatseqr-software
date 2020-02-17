@@ -1,6 +1,8 @@
 void run_pattern_select_routine()
 {
 
+  listen_for_copy_command();
+
   // pattern select
   for (int pattern = 0; pattern <= 3; pattern++)
   {
@@ -16,15 +18,10 @@ void run_pattern_select_routine()
     if (pattern_select_buttons[pattern].heldFor(200))
     {
       // Serial.print(last_serial);
+      not_told_which_pattern_to_copy_to = false; // this is us being told to copy the pattern
+      lcdflag = 100; // pattern copy
 
-      lcd.print("?f");      // clear the lcd
-      lcd.print("?x02?y0"); // move cursor to beginning of line 1
-      lcd.print("Copy ");
-      lcd.print(pattern + 1);
-      lcd.print("->");
-
-      wait_for_copy_command(pattern);
-      pattern_select_button_pressing_counter = 0;
+      // pattern_select_button_pressing_counter = 0;
     }
   }
 
@@ -33,9 +30,7 @@ void run_pattern_select_routine()
 
     if (extended_step_length_mode == 1)
     {
-      lcd.print("?f");      // clear the lcd
-      lcd.print("?x02?y0"); // move cursor to beginning of line 0
-      lcd.print("single  ");
+      lcdflag = 200; // pattern chain single
       extended_step_length_mode = 0;
       pattern_select_leds[0].on();
       pattern_select_leds[1].on();
@@ -50,9 +45,7 @@ void run_pattern_select_routine()
     }
     else
     {
-      lcd.print("?f");      // clear the lcd
-      lcd.print("?x02?y0"); // move cursor to beginning of line 0
-      lcd.print("chain 4  ");
+      lcdflag = 201; //pattern chain 4
       extended_step_length_mode = 1;
       pattern_select_leds[0].off();
       pattern_select_leds[1].off();
@@ -68,13 +61,13 @@ void run_pattern_select_routine()
   }
 }
 
-void run_auto_pattern_select_routine(int inByte)
+void run_auto_pattern_select_routine()
 {
 
-  if (seq.getPosition() >= 15)
+  if (seq.getPosition() >= 15) // seems wrong
   {
     current_pattern++;
-    if (current_pattern >= 4)
+    if (current_pattern >= 3)
     {
       current_pattern = 0;
     }
@@ -92,7 +85,7 @@ void go_to_pattern(int pattern, int silent)
   pattern_select_leds[3].off();
   pattern_select_leds[pattern].toggle();
   pattern_value = pattern;
-  pattern_select_button_pressing_counter = 0;
+  // pattern_select_button_pressing_counter = 0;
 
   // "P"age / pattern "S"elect
   /*
@@ -103,14 +96,6 @@ void go_to_pattern(int pattern, int silent)
 */
   current_pattern = pattern_value;
 
-  if (silent == 0)
-  {
-    //    lcd.print("?f");                   // clear the lcd
-    //    lcd.print("?x02?y0");// move cursor to beginning of line 1
-    //    lcd.print("pattrn ");
-    //    lcd.print(pattern_value+1);
-    // lcd.print("       ");
-  }
   for (int voice = 0; voice < 1; voice++) //synthseqr configuration
   {
     for (int step = 0; step <= 15; step++)
@@ -129,75 +114,48 @@ void go_to_pattern(int pattern, int silent)
   }
 }
 
-void wait_for_copy_command(int pattern_to_copy_from)
+void listen_for_copy_command()
 {
-  return; // let's just not, right now.
+  // return; // let's just not, right now.
 
-  int not_told_which_pattern_to_copy_to = true;
   int ended_on;
 
-  while (not_told_which_pattern_to_copy_to)
+  if (not_told_which_pattern_to_copy_to == false) // we were told to copy the current pattern to another pattern
   {
-
-    for (int pattern = 0; pattern <= 3; pattern++)
+    lcdflag = 101; // pattern copy to N
+    for (int i = 0; i <= 3; i++)
     {
-      if (pattern_select_buttons[pattern].uniquePress())
+      if (pattern_select_buttons[i].uniquePress())
       {
-        /*
-        the_serial_message = "ZPS,";
-         the_serial_message += pattern;
-         the_serial_message += ";";   
-         serial_printer(the_serial_message);
-         */
+        copy_pattern_to = i; // for lcdflag 101
 
         pattern_select_leds[0].off();
         pattern_select_leds[1].off();
         pattern_select_leds[2].off();
         pattern_select_leds[3].off();
-        // pattern_select_leds[pattern].blink(250,3);
-        pattern_select_leds[pattern].on();
-        // pattern_value = pattern;
-        pattern_select_button_pressing_counter = 0;
 
-        // lcd.print("?f"); // clear the lcd
-        //       lcd.print("?x02?y0");// move cursor to beginning of line 1
-        //        lcd.print("pattrn ");
-        //        lcd.print(pattern_value+1);
-        // lcd.print("       ");
+        pattern_select_leds[i].on();
 
-        for (int voice = 0; voice <= 1; voice++)
+        for (int voice = 0; voice < 1; voice++) //synthseqr configuration
         {
           for (int step = 0; step <= 15; step++)
           {
-            step_data[pattern][voice][step] = step_data[pattern_to_copy_from][voice][step];
-            // delay(5);
-            // copy_step_data(pattern, voice, step, step_data[pattern_to_copy_from][voice][step]);
+            step_data[copy_pattern_to][voice][step] = step_data[current_pattern][voice][step];
           }
         }
-        not_told_which_pattern_to_copy_to = false;
-        ended_on = pattern;
-        /* 
-        the_serial_message = "ZPC,";
-        the_serial_message += pattern_to_copy_from;
-        the_serial_message += ",";
-        the_serial_message += pattern;
-        the_serial_message += ";";   
-        serial_printer(the_serial_message);
-        */
+        not_told_which_pattern_to_copy_to = true;
+        ended_on = copy_pattern_to;
       }
     }
-    // "P"age / pattern "S"elect
-    // yeild();
   }
 }
 
-void wait_for_extended_step_length_command()
+void listen_for_extended_step_length_command()
 {
 
-  bool not_told_which_pattern_mode_to_use = true;
   int ended_on;
 
-  while (not_told_which_pattern_mode_to_use)
+  if (not_told_which_pattern_mode_to_use == false) // we were told to use a different pattern mode
   {
     for (int pattern = 0; pattern <= 3; pattern++)
     {
@@ -210,16 +168,9 @@ void wait_for_extended_step_length_command()
         pattern_select_leds[3].off();
         // pattern_select_leds[pattern].blink(250,3);
         pattern_select_leds[pattern].on();
-        pattern_select_button_pressing_counter = 0;
+        // pattern_select_button_pressing_counter = 0;
 
-        /*
-        lcd.print("?f"); // clear the lcd
-        lcd.print("?x00?y0");// move cursor to beginning of line 1
-        lcd.print("pattrns: ");
-        lcd.print(pattern_value+1);
-        */
-
-        not_told_which_pattern_mode_to_use = false;
+        not_told_which_pattern_mode_to_use = true;
         extended_step_length_mode = 1;
         patterns_to_play_in_a_row = pattern;
       }

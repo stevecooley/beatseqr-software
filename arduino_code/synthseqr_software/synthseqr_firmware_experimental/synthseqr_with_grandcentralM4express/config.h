@@ -17,25 +17,25 @@ uint8_t last_voice_selected = 0;
 ////////////////////////////////
 
 Potentiometer voice_sliders[16] = {
-    Potentiometer(A15),
-    Potentiometer(A14),
-    Potentiometer(A13),
-    Potentiometer(A12),
+    Potentiometer(A15, 255),
+    Potentiometer(A14, 255),
+    Potentiometer(A13, 255),
+    Potentiometer(A12, 255),
 
-    Potentiometer(A11),
-    Potentiometer(A10),
-    Potentiometer(A9),
-    Potentiometer(A8),
+    Potentiometer(A11, 255),
+    Potentiometer(A10, 255),
+    Potentiometer(A9, 255),
+    Potentiometer(A8, 255),
 
-    Potentiometer(A7),
-    Potentiometer(A6),
-    Potentiometer(A5),
-    Potentiometer(A4),
+    Potentiometer(A7, 255),
+    Potentiometer(A6, 255),
+    Potentiometer(A5, 255),
+    Potentiometer(A4, 255),
 
-    Potentiometer(A2),
-    Potentiometer(A3),
-    Potentiometer(A1),
-    Potentiometer(A0)};
+    Potentiometer(A2, 255),
+    Potentiometer(A3, 255),
+    Potentiometer(A1, 255),
+    Potentiometer(A0, 255)};
 
 int voice_slider_values[16];
 
@@ -136,6 +136,12 @@ uint8_t extended_step_length_mode = 0;
 uint8_t current_pattern = 0;
 uint8_t patterns_to_play_in_a_row = 1;
 
+bool not_told_which_pattern_to_copy_to = true;
+uint8_t copy_pattern_to;
+
+bool not_told_which_pattern_mode_to_use = true;
+uint8_t pattern_mode;
+
 char *pattern_padding;
 char *step_padding;
 
@@ -145,9 +151,14 @@ char *step_padding;
 //
 //////////////////////////////////
 
-#define rxPin 255   // rxPin is immaterial - not used - just make this an unused Arduino pin number
-#define lcdTxPin 1 // 
+#define rxPin 255  // rxPin is immaterial - not used - just make this an unused Arduino pin number
+#define lcdTxPin 1 //
 #define lcd Serial1
+
+uint8_t lcdflag;
+uint8_t last_lcdflag = 255;
+char lcdtop[16];
+char lcdbottom[16];
 
 // lcd;
 
@@ -184,7 +195,6 @@ uint8_t chase_lights_status = 0;
 uint8_t step_counter = 1;
 byte last_pitch;
 
-
 /////////////////////////////////
 // sequencer
 /////////////////////////////////
@@ -192,6 +202,8 @@ byte last_pitch;
 // sequencer init
 FifteenStep seq = FifteenStep(1024);
 uint8_t TEMPO = 120;
+uint8_t SWING = 3;
+uint8_t MIDICHANNEL = 2;
 String nn;
 
 /////////////////////////////////

@@ -7,13 +7,8 @@ void run_voice_slider_routine()
   {
 
     // get the raw value
-    raw_voice_slider_values[j] = map(voice_sliders[j].getValue(), 0, 1023, slider_map_low_value, slider_map_high_value);
-    /*
-    lcd.print("raw vs["); // voice slider
-    lcd.print(j);
-    lcd.print("] = ");
-    lcd.println(raw_voice_slider_values[j]);
-*/
+    raw_voice_slider_values[j] = map(voice_sliders[j].getSector(), 0, 255, slider_map_low_value, slider_map_high_value);
+
     if (raw_voice_slider_values[j] != voice_slider_midinotenum[j])
     {
       voice_slider_midinotenum[j] = raw_voice_slider_values[j];
@@ -29,51 +24,19 @@ void run_voice_slider_routine()
 
       if (slider_message_header == "NN")
       {
-
-        // lcd.print("?f");      // clear the LCD
-        lcd.print("?x02?y0"); // move cursor to beginning of line 0
-        lcd.print("v");
-        lcd.print(j + 1);
-
-        if (voice_slider_values[j] < 100)
-        {
-          lcd.print(" ");
-        }
-
-        lcd.print(" ?4");
-        lcd.print(":");
-        lcd.print(voice_slider_values[j]);
-        if (voice_slider_values[j] < 100)
-        {
-          lcd.print(" ");
-        }
-        lcd.print("?x00?y1"); // move cursor to beginning of line 1
-
-        // lcd.print("?");
-        // lcd.print(this_slider_graphically);
+        // parking LCD updates in lcdflag 90!
 
         // Ok, adjust the low and high range values with these combo moves:
         // low range is set with left d-pad and enter
         while (dpad_left.isPressed())
         {
 
-          slider_map_low_value = map(voice_sliders[0].getValue(), 0, 1023, 0, 128);
+          slider_map_low_value = map(voice_sliders[0].getSector(), 0, 255, 0, 128);
 
           // begin display the high and low values for the sliders
           // Serial.println(slider_map_low_value);
 
-          if (slider_map_low_value < 100)
-          {
-            lcd.print(" ");
-          }
-          lcd.print("?x09?y1"); // move cursor to line 2, char 10
-          lcd.println("hi:");
-          lcd.print("?x12?y1"); // move cursor to line 2, char 13
-          lcd.print(slider_map_high_value);
-          if (slider_map_high_value < 100)
-          {
-            //            lcd.print(" ");
-          }
+          // parking LCD updates in lcdflag 91!
 
           // end display the high and low values for the sliders
 
@@ -95,24 +58,7 @@ void run_voice_slider_routine()
 
           // begin display the high and low values for the sliders
 
-          lcd.print("?x0?y1");  // move cursor to line 2
-          lcd.print("?x00?y1"); // move cursor to line 2, char 1
-          lcd.print("?5");
-          lcd.print(" lo:");
-          lcd.print("?x05?y1"); // move cursor to line 2, char 6
-          lcd.print(slider_map_low_value);
-          if (slider_map_low_value < 100)
-          {
-            lcd.print(" ");
-          }
-          lcd.print("?x09?y1"); // move cursor to line 2, char 10
-          lcd.println("hi:");
-          lcd.print("?x12?y1"); // move cursor to line 2, char 13
-          lcd.print(slider_map_high_value);
-          if (slider_map_high_value < 100)
-          {
-            lcd.print(" ");
-          }
+          // parked in lcdflag = 92! 
 
           // end display the high and low values for the sliders
 
@@ -127,17 +73,14 @@ void run_voice_slider_routine()
           }
         }
       }
-
-      lcd.print("?x03?y0"); // move cursor to fader mode display position
     }
   }
 }
 
 void resetSliders()
 {
-  lcd.print("?f");      // clear the LCD
-  lcd.print("?x00?y0"); // move cursor to beginning of line 0
-  lcd.print("notenum reset   ");
+
+  lcdflag = 93; // reset sliders
   slider_reset_counter = 0;
 
   int notenum_count_up_from = 36;
