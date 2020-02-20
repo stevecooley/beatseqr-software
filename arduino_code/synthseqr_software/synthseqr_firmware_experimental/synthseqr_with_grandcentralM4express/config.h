@@ -4,6 +4,7 @@
 #include "Potentiometer.h"
 #include "PString.h"
 #include "FifteenStep.h"
+#include <stdlib.h> // because dtostrf()
 
 const char *firmware_version_number = "2.0x";
 const char *hardware_version_number = "1.0";
@@ -113,6 +114,8 @@ Button dpad_right = Button(16, PULLUP);
 Button dpad_down = Button(18, PULLUP);
 Button dpad_left = Button(17, PULLUP);
 
+uint8_t navmode = 100; // default to tempo and swing adjust
+
 Button enterbutton = Button(20, PULLUP);
 LED enterbutton_LED = LED(3);
 
@@ -155,10 +158,11 @@ char *step_padding;
 #define lcdTxPin 1 //
 #define lcd Serial1
 
-uint8_t lcdflag;
+uint8_t lcdflag = 255;
 uint8_t last_lcdflag = 255;
 char lcdtop[16];
 char lcdbottom[16];
+bool clear_the_lcd = false;
 
 // lcd;
 
@@ -202,7 +206,7 @@ byte last_pitch;
 // sequencer init
 FifteenStep seq = FifteenStep(1024);
 uint8_t TEMPO = 120;
-uint8_t SWING = 3;
+uint8_t SWING = 0;
 uint8_t MIDICHANNEL = 2;
 String nn;
 

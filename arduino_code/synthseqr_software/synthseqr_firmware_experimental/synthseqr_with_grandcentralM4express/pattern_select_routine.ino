@@ -4,7 +4,7 @@ void run_pattern_select_routine()
   listen_for_copy_command();
 
   // pattern select
-  for (int pattern = 0; pattern <= 3; pattern++)
+  for (int pattern = 0; pattern < 4; pattern++)
   {
 
     if (pattern_select_buttons[pattern].uniquePress())
@@ -15,7 +15,7 @@ void run_pattern_select_routine()
     }
 
     // pattern copy
-    if (pattern_select_buttons[pattern].heldFor(200))
+    if (pattern_select_buttons[pattern].heldFor(2000))
     {
       // Serial.print(last_serial);
       not_told_which_pattern_to_copy_to = false; // this is us being told to copy the pattern

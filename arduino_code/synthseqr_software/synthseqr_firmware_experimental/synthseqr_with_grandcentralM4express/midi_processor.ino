@@ -98,14 +98,14 @@ void clockStop()
 {
   midiEventPacket_t clockstop = {0x08, 0xFC};
   MidiUSB.sendMIDI(clockstop);
-  MidiUSB.flush();
+  // MidiUSB.flush();
 }
 
 void clockStart()
 {
   midiEventPacket_t clockstart = {0x08, 0xFA};
   MidiUSB.sendMIDI(clockstart);
-  MidiUSB.flush();
+  // MidiUSB.flush();
 
   // current_step = 0;
 }

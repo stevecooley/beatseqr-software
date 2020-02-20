@@ -63,6 +63,8 @@ void loop()
   // start, stop, and pausing the steps
   seq.run();
 
+  listen_for_navigation_events();
+  
   run_transport_button_routine();
   // process_incoming_serial();
 

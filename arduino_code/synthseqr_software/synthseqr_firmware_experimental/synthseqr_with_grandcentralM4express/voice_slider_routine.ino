@@ -28,50 +28,9 @@ void run_voice_slider_routine()
 
         // Ok, adjust the low and high range values with these combo moves:
         // low range is set with left d-pad and enter
-        while (dpad_left.isPressed())
-        {
+        
 
-          slider_map_low_value = map(voice_sliders[0].getSector(), 0, 255, 0, 128);
-
-          // begin display the high and low values for the sliders
-          // Serial.println(slider_map_low_value);
-
-          // parking LCD updates in lcdflag 91!
-
-          // end display the high and low values for the sliders
-
-          midinn_sliderrangelow = slider_map_low_value;
-
-          for (int i = 0; i < 15; i++)
-          {
-            if (voice_slider_midinotenum[i] <= midinn_sliderrangelow)
-            {
-              voice_slider_midinotenum[i] = midinn_sliderrangelow;
-            }
-          }
-        }
-
-        // high range is set with right d-pad and enter
-        while (dpad_right.isPressed())
-        {
-          slider_map_high_value = map(voice_sliders[0].getValue(), 0, 1023, 0, 128);
-
-          // begin display the high and low values for the sliders
-
-          // parked in lcdflag = 92! 
-
-          // end display the high and low values for the sliders
-
-          midinn_sliderrangehigh = slider_map_high_value;
-
-          for (int i = 0; i < 15; i++)
-          {
-            if (voice_slider_midinotenum[i] != midinn_sliderrangehigh)
-            {
-              voice_slider_midinotenum[i] = midinn_sliderrangehigh;
-            }
-          }
-        }
+        
       }
     }
   }

@@ -38,8 +38,7 @@ void midi(byte channel, byte command, byte arg1, byte arg2) {
   }
 
   // send MIDI data
-  Serial.write(command);
-  Serial.write(arg1);
-  Serial.write(arg2);
+  midiEventPacket_t thecommand = {channel, command, arg1, arg2};
+  MidiUSB.sendMIDI(thecommand);
 
 }
