@@ -106,6 +106,7 @@ uint8_t step_value;
 
 Button playbutton = Button(21, PULLUP);
 LED playbutton_LED = LED(2);
+bool transport_button_pressed = false;
 
 uint8_t isRecordingArmed = 0;
 
@@ -116,7 +117,7 @@ Button dpad_left = Button(17, PULLUP);
 
 uint8_t navmode = 100; // default to tempo and swing adjust
 
-Button enterbutton = Button(20, PULLUP);
+Button enterbutton = Button(20);
 LED enterbutton_LED = LED(3);
 
 LED pattern_select_leds[4] = {
@@ -160,8 +161,11 @@ char *step_padding;
 
 uint8_t lcdflag = 255;
 uint8_t last_lcdflag = 255;
-char lcdtop[16];
-char lcdbottom[16];
+char lcd_line1[100];
+char lcd_line2[100];
+bool update_line1 = true;
+char lcd_lastline2[100];
+char voicemodechar[10] = "?6";
 bool clear_the_lcd = false;
 
 // lcd;
@@ -193,6 +197,8 @@ uint8_t clock_pulse_count;
 #define MIDISTOP 0xfc
 
 bool playstatus = false;
+bool midistarted = false;
+bool midistopped = false;
 
 uint8_t play_started_at;
 uint8_t chase_lights_status = 0;

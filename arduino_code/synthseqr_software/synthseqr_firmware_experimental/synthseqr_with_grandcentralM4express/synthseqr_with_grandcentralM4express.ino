@@ -58,6 +58,7 @@ void setup()
 void loop()
 {
 
+  read_midi();
   // this is needed to keep the sequencer
   // running. there are other methods for
   // start, stop, and pausing the steps
@@ -65,7 +66,7 @@ void loop()
 
   listen_for_navigation_events();
   
-  run_transport_button_routine();
+  listen_for_transport_events();
   // process_incoming_serial();
 
   // chase lights are high when the step buttons tell you what step you're on when the transport is playing
@@ -75,12 +76,6 @@ void loop()
   // current_step = seq.getPosition();
 
   run_chase_lights(seq.getPosition());
-
-  if (chase_lights_status == 1)
-  {
-
-     read_midi();
-  }
 
   // run_diagnostics();
 

@@ -8,11 +8,13 @@ void listen_for_navigation_events()
         {
             //TEMPO++;
             seq.increaseTempo();
+            update_line1 = true;
         }
         if (dpad_down.uniquePress())
         {
             //TEMPO--;
             seq.decreaseTempo();
+            update_line1 = true;
         }
         if (dpad_left.uniquePress())
         {
@@ -20,6 +22,7 @@ void listen_for_navigation_events()
             {
                 SWING--;
                 seq.decreaseShuffle();
+                update_line1 = true;
                 Serial.println(seq.getShuffle());
             }
         }
@@ -29,6 +32,7 @@ void listen_for_navigation_events()
             {
                 SWING++;
                 seq.increaseShuffle();
+                update_line1 = true;
                 Serial.println(seq.getShuffle());
             }
         }
@@ -36,6 +40,7 @@ void listen_for_navigation_events()
         if(enterbutton.uniquePress())
         {
             enterbutton_LED.toggle();
+            update_line1 = true;
             lcdflag = 255;
             last_lcdflag = 255;
         }

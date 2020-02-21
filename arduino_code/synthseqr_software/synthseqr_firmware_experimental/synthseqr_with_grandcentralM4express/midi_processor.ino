@@ -54,12 +54,14 @@ void read_midi()
       else if (rx.byte1 == MIDISTART)
       {
         Serial.println("Midi Start!");
-        playstatus = true;
+        // this flag hands off to transport.ino
+        midistarted = true;
       }
       else if (rx.byte1 == MIDISTOP)
       {
         Serial.println("Midi Stop!");
-        playstatus = false;
+        // this flag hands off to transport.ino
+        midistopped = true;
       }
     }
 
@@ -89,7 +91,7 @@ void noteOn(byte channel, byte pitch, byte velocity)
 
 void noteOff(byte channel, byte pitch, byte velocity)
 {
-  midiEventPacket_t thenote = {0x08, 0x90 | channel, pitch, 0};
+  midiEventPacket_t thenote = {0x08, 0x80 | channel, pitch, 0};
   MidiUSB.sendMIDI(thenote);
   MidiUSB.flush();
 }

@@ -1,61 +1,107 @@
-void run_transport_button_routine()
+void listen_for_transport_events()
 {
-  // transport buttons
-  if (playbutton.uniquePress() || playstatus == true)
+  if (playbutton.uniquePress())
   {
-    playbutton_LED.toggle();
+    transport_button_pressed = true;
+  }
 
-    if (playbutton_LED.getState() == true)
+  if (transport_button_pressed == true || midistarted == true || midistopped == true)
+  {
+    // now we'll check the playstatus to see if it's false.
+    // this means that we're not playing anything.
+    if (transport_button_pressed == true && playstatus == false)
     {
-      if (enterbutton.isPressed() == true)
-      {
-        isRecordingArmed = 1;
-      }
+      // stand down the transport button pressed flag
+      transport_button_pressed = false;
 
+      // turn the play button LED on
+      playbutton_LED.on();
+
+      // start playing stuff
+      playstatus = true;
+
+      // update the play/stop character on the LCD
+      // one time for yo mind
+      lcd.print("?x00?y0"); // move cursor to beginning of line 0
+      lcd.print("?0");      // play
+
+      // start the outbound midi clock
       clockStart();
-      // MidiUSB.flush();
+      // start the sequencer
       seq.start();
-      chase_lights_status = 1;
 
-      lcd.print("?x00?y0"); // move cursor to beginning of line 0
-      lcd.print("?0");      //play
-      lcd.print(" ");
-      /*
-      Serial.print("chase lights armed! now = ");
-      Serial.print(last_step_time);
-      Serial.println();
-      */
+      // turn on the chase lights, I guess? I mean there might be times you wouldn't want this to always happen. *sigh*
+      chase_lights_status = true;
     }
-    else
-    { // pause, but we're going to stop.
+    else if (transport_button_pressed == true && playstatus == true)
+    {
+      // stand down the transport button pressed flag
+      transport_button_pressed = false;
 
-      // midi stop
-      // MidiUSB.flush();
-      clockStop();
-      // MidiUSB.flush();
-      seq.stop();
-      chase_lights_status = 0;
-      Serial.println("chase lights off");
+      // turn the play button LED off
+      playbutton_LED.off();
 
-      if (extended_step_length_mode == 1)
-      {
-        current_pattern = 0;
-        // go_to_pattern(0, 1);
-      }
+      // stop playing
+      playstatus = false;
 
-      // the_serial_message = "ZPL,0;";
-      //serial_printer(the_serial_message);
-
-      if (isRecordingArmed == 1)
-      {
-        // the_serial_message = "ZRE,0;";
-        // serial_printer(the_serial_message);
-        isRecordingArmed = 0;
-      }
-
+      // update the play/stop character on the LCD
+      // one time for yo mind
       lcd.print("?x00?y0"); // move cursor to beginning of line 0
-      lcd.print("?7");
-      lcd.print(" ");
+      lcd.print("?7");      // stop
+
+      // stop the outbound midi clock
+      clockStop();
+
+      // stop the internal sequencer
+      seq.stop();
+    }
+    else if (midistarted == true)
+    {
+      // stand down the event flag, we got this
+      midistarted = false;
+
+      // turn the play button LED on
+      playbutton_LED.on();
+
+      // start playing
+      playstatus = true;
+
+      // update the play/stop character on the LCD
+      // one time for yo mind
+      lcd.print("?x00?y0"); // move cursor to beginning of line 0
+      lcd.print("?0");      // play
+
+      // start the outbound midi clock
+      clockStart();
+      // start the sequencer
+      seq.start();
+
+      // turn on the chase lights, I guess? I mean there might be times you wouldn't want this to always happen. *sigh*
+      chase_lights_status = true;
+    }
+    else if (midistopped == true)
+    {
+      // stand down the event flag, we got this
+      midistopped = false;
+
+      // turn the play button LED off
+      playbutton_LED.off();
+
+      // stop playing
+      playstatus = false;
+
+      // update the play/stop character on the LCD
+      // one time for yo mind
+      lcd.print("?x00?y0"); // move cursor to beginning of line 0
+      lcd.print("?7");      // stop
+
+      // stop the outbound midi clock
+      clockStop();
+      // stop the sequencer
+      seq.stop();
+
+      // turn on the chase lights, I guess? I mean there might be times you wouldn't want this to always happen. *sigh*
+      chase_lights_status = true;
     }
   }
 }
@@ -68,20 +114,6 @@ void run_chase_lights(unsigned int this_step)
 
     if (last_step != this_step) // clock pulses counted so we can advance to the next step.
     {
-
-      /*
-      // Serial.println(this_step,HEX);
-      lcd.print("?x03?y0"); // move cursor to beginning of line 1
-      if(this_step < 10)
-      {
-        lcd.print(" ");
-
-      }
-      lcd.print(this_step);
-      */
-     
-      // HAHA don't call it here, too! Derp! It's a call-back already.
-      // stepsend(this_step, 16);
 
       // clear the LEDs back to their data
       read_step_memory(0, pattern_value);

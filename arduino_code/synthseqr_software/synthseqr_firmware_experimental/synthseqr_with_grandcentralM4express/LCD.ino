@@ -65,8 +65,8 @@ void run_LCD_setup_routine()
 void run_LCD_update()
 {
     // lcd.print(lcdflag);
-    lcd.print(" ");
-    lcd.print(seq.getWhole());
+    // lcd.print(" ");
+    // lcd.print(seq.getWhole());
     // maybe we only periodically clear the screen
     if (clear_the_lcd == true) // something changed
     {
@@ -185,59 +185,41 @@ void run_LCD_update()
     case 255:
     default:
     {
-        lcd.print("?x00?y0"); // move cursor to beginning of line 0
-        // 01: play or stop
-        if (playbutton_LED.getState() == true)
-        {
-            lcd.print("?0");
-        }
-        else
-        {
-            lcd.print("?7");
-        }
-        // 02 space
-        lcd.print(" ");
-        // 03 midi channel
-        lcd.print("C");
-        // 04
-        if (MIDICHANNEL < 10)
-        {
-            lcd.print("0");
-            lcd.print(MIDICHANNEL);
-        }
-        else
-        {
-            // (04 and) 05
-            lcd.print(MIDICHANNEL);
-        }
-        // 06 space
-        lcd.print(" ");
-        // 07 voice mode
-        lcd.print("?6");
-        // 08
-        lcd.print(voice_mode);
-        // 09 space
-        lcd.print(" ");
-        // 10 Tempo / BPM
-        lcd.print("T");
-        // 11, 12, 13 BPM value
-        if (TEMPO < 100)
-        {
-            lcd.print(" ");
-        }
-        else
-        {
-            lcd.print(seq.getTempo());
-        }
-        // 14 space
-        lcd.print(" ");
+        sprintf(lcd_line1, " C%02d %s%u T%.2f", MIDICHANNEL, voicemodechar, voice_mode, seq.getTempo());
 
-        lcd.print("?x00?y1"); // move cursor to beginning of line 0
+        if (update_line1 == true)
+        {
+            // stand down the update line 1 flag
+            update_line1 = false;
 
-        // 15 swing
-        lcd.print("s");
-        // 16 swing value
-        lcd.print(seq.getShuffle());
+            Serial.println(lcd_line1);
+            lcd.print("?x00?y0"); // move cursor to beginning of line 0
+
+            // 01: play or stop
+            if (playstatus == true)
+            {
+                lcd.print("?0");
+            }
+            else
+            {
+                lcd.print("?7");
+            }
+
+            lcd.print(lcd_line1);
+
+            lcd.print("?x00?y1"); // move cursor to beginning of line 0
+
+            // 15 swing
+            lcd.print("s");
+            // 16 swing value
+            lcd.print(seq.getShuffle());
+
+            lcd.print("?x00?y1"); // move cursor to beginning of line 0
+        }
+        else
+        {
+            // Serial.println("no update to line 1");
+        }
 
         last_lcdflag = 255;
         break;
