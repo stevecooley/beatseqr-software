@@ -168,6 +168,9 @@ char lcd_lastline2[100];
 char voicemodechar[10] = "?6";
 bool clear_the_lcd = false;
 
+// for LCD command string
+char the_string[32];
+
 // lcd;
 
 char N;
@@ -211,10 +214,14 @@ byte last_pitch;
 
 // sequencer init
 FifteenStep seq = FifteenStep(1024);
-uint8_t TEMPO = 120;
+float TEMPO = 120.0;
+float timing_resolution = 1.0;
+uint8_t timing_mode = 1;
 uint8_t SWING = 0;
 uint8_t MIDICHANNEL = 2;
 String nn;
+
+
 
 /////////////////////////////////
 // outgoing serial data

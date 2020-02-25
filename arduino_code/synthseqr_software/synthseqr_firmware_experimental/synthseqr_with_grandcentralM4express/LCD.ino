@@ -47,7 +47,7 @@ void run_LCD_setup_routine()
 
     // see moderndevice.com for a handy custom char generator (software app)
 
-    lcd.print("?f");      // clear the lcd
+    lcd.print("?f"); // clear the LCD
     lcd.print("?x00?y0"); // move cursor to beginning of line 1
     lcd.print("synthseqr v");
     lcd.print(hardware_version_number);
@@ -70,6 +70,7 @@ void run_LCD_update()
     // maybe we only periodically clear the screen
     if (clear_the_lcd == true) // something changed
     {
+        clear_the_lcd = false;
         lcd.print("?f"); // clear the lcd
     }
 
@@ -77,7 +78,7 @@ void run_LCD_update()
     {
     case 90: // parked from run_voice_slider_routine for NN
     {
-        // lcd.print("?f");      // clear the LCD
+        lcd.print("?f");      // clear the lcd
         lcd.print("?x02?y0"); // move cursor to beginning of line 0
         lcd.print("v");
         lcd.print(1);
@@ -117,7 +118,7 @@ void run_LCD_update()
     }
     case 92: // changing the voice slider high range
     {
-        lcd.print("?x0?y1");  // move cursor to line 2
+        //lcd.print("?x0?y1");  // move cursor to line 2
         lcd.print("?x00?y1"); // move cursor to line 2, char 1
         lcd.print("?5");
         lcd.print(" lo:");
@@ -140,14 +141,14 @@ void run_LCD_update()
     }
     case 93: // reset voice_slider_values
     {
-        lcd.print("?f");      // clear the LCD
+        lcd.print("?f");      // clear the lcd
         lcd.print("?x00?y0"); // move cursor to beginning of line 1
         lcd.print("notenum reset");
         last_lcdflag = 93;
     }
     case 100: // pattern copy
     {
-        // lcd.print("?f");      // clear the lcd
+        lcd.print("?f");      // clear the lcd
         lcd.print("?x00?y0"); // move cursor to beginning of line 1
         lcd.print("Copy ");
         lcd.print(current_pattern + 1);
@@ -158,7 +159,7 @@ void run_LCD_update()
     }
     case 101: // pattern copy to N
     {
-        // lcd.print("?f"); // clear the lcd
+        lcd.print("?f");      // clear the lcd
         lcd.print("?x00?y0"); // move cursor to beginning of line 1
         lcd.print("Copy ");
         lcd.print(current_pattern + 1);
@@ -168,7 +169,7 @@ void run_LCD_update()
     }
     case 200: // pattern chain single
     {
-        // lcd.print("?f");      // clear the lcd
+        lcd.print("?f");      // clear the lcd
         lcd.print("?x00?y0"); // move cursor to beginning of line 1
         lcd.print("single");
         last_lcdflag = 200;
@@ -176,7 +177,7 @@ void run_LCD_update()
     }
     case 201: // pattern chain 4
     {
-        // lcd.print("?f");      // clear the lcd
+        lcd.print("?f");      // clear the lcd
         lcd.print("?x00?y0"); // move cursor to beginning of line 1
         lcd.print("chain 4 ");
         last_lcdflag = 201;
@@ -192,29 +193,33 @@ void run_LCD_update()
             // stand down the update line 1 flag
             update_line1 = false;
 
-            Serial.println(lcd_line1);
-            lcd.print("?x00?y0"); // move cursor to beginning of line 0
+            // Serial.println(lcd_line1);
+            // lcd.print("?x00?y0"); // move cursor to beginning of line 0
 
             // 01: play or stop
             if (playstatus == true)
             {
+                set_lcd_cursor(0, 0);
                 lcd.print("?0");
             }
             else
             {
+                set_lcd_cursor(0, 0);
                 lcd.print("?7");
             }
 
             lcd.print(lcd_line1);
 
-            lcd.print("?x00?y1"); // move cursor to beginning of line 0
+            // lcd.print("?x00?y1"); // move cursor to beginning of line 0
+
+            set_lcd_cursor(1, 0);
 
             // 15 swing
             lcd.print("s");
             // 16 swing value
             lcd.print(seq.getShuffle());
 
-            lcd.print("?x00?y1"); // move cursor to beginning of line 0
+            // lcd.print("?x02?y1"); // move cursor to beginning of line 0
         }
         else
         {
@@ -225,4 +230,25 @@ void run_LCD_update()
         break;
     }
     }
+}
+
+void set_lcd_cursor(int line, int position)
+{
+    sprintf(the_string, "?x%02d?y%d", position, line);
+    /*
+    the_string += "?x";
+    the_string += position;
+    the_string += "?y";
+    the_string += line;
+*/
+    // Serial.println(the_string);
+    lcd.print(the_string); // move cursor
+    sprintf(the_string, "");
+    // the_string = "";
+    Serial.println(the_string);
+}
+
+void clear_lcd()
+{
+    lcd.print("?f"); // clear the LCD
 }

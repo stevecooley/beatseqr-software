@@ -32,18 +32,6 @@ void setup()
   Serial.begin(57600);
   lcd.begin(9850);
 
-  // patter 1 15, led 4
-  // pattern 2 14, led 5
-  // pattern 3 6, led 7
-  // pattern 4 8, led 9
-
-  // right 16
-  // left 17 button 17,
-  // down 18
-  // up 19
-
-  // enter  button 20, led 3
-
   delay(500);
   run_LCD_setup_routine();
   go_to_pattern(0, 1);

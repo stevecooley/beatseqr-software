@@ -51,9 +51,9 @@ void listen_for_transport_events()
 
       // stop the outbound midi clock
       clockStop();
-
       // stop the internal sequencer
       seq.stop();
+
     }
     else if (midistarted == true)
     {
@@ -68,7 +68,7 @@ void listen_for_transport_events()
 
       // update the play/stop character on the LCD
       // one time for yo mind
-      lcd.print("?x00?y0"); // move cursor to beginning of line 0
+      lcd.print("?x00?y1"); // move cursor to beginning of line 0
       lcd.print("?0");      // play
 
       // start the outbound midi clock
@@ -134,9 +134,9 @@ void stepsend(int current_step, int last_step)
 {
   if (step_data[pattern_value][0][current_step] == 1)
   {
-    noteOn(1, voice_slider_midinotenum[current_step], 70);
+    noteOn(MIDICHANNEL - 1, voice_slider_midinotenum[current_step], 100);
     delay(50);
-    noteOff(1, voice_slider_midinotenum[current_step], 0);
+    noteOff(MIDICHANNEL - 1, voice_slider_midinotenum[current_step], 0);
   }
   return;
 }
