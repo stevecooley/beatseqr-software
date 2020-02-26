@@ -3,25 +3,21 @@ void listen_for_navigation_events()
 
     switch (navmode)
     {
-    case 100: // default to timing : tempo and swing adjustments
+    case 100: // default to tempo and swing adjustments
     {
 
         /*
         if (dpad_left.uniquePress())
         {
-            Serial.println("dpad left");
-            if (timing_mode > 1)
-            {
-                timing_mode--;
-            }
+            //TEMPO++;
+            seq.increaseTempo();
+            update_line1 = true;
         }
-
-        if (dpad_right.uniquePress())
+        if (dpad_down.uniquePress())
         {
-            if (timing_mode < 5) // upper limint
-            {
-                timing_mode++;
-            }
+            //TEMPO--;
+            seq.decreaseTempo();
+            update_line1 = true;
         }
         
         */
@@ -32,60 +28,49 @@ void listen_for_navigation_events()
         case 3:
         case 4:
         {
-            set_timing_resolution();
-
-            if (dpad_up.uniquePress())
+            if (SWING >= 1)
             {
-                TEMPO += timing_resolution;
-                seq.setTempo(TEMPO);
+                SWING--;
+                seq.decreaseShuffle();
                 update_line1 = true;
+                Serial.println(seq.getShuffle());
             }
-            if (dpad_down.uniquePress())
-            {
-                TEMPO -= timing_resolution;
-                seq.setTempo(TEMPO);
-                update_line1 = true;
-            }
-
-            break;
         }
-        case 5:
-        {
-            if (dpad_up.uniquePress())
+            if (dpad_right.uniquePress())
             {
                 if (SWING <= 6)
                 {
-                    SWING++;
-                    seq.increaseShuffle();
-                    update_line1 = true;
-                    // Serial.println(seq.getShuffle());
+                    if (SWING <= 6)
+                    {
+                        SWING++;
+                        seq.increaseShuffle();
+                        update_line1 = true;
+                        // Serial.println(seq.getShuffle());
+                    }
                 }
-            }
 
-            if (dpad_down.uniquePress())
-            {
-                if (SWING >= 1)
+                if (dpad_down.uniquePress())
                 {
-                    SWING--;
-                    seq.decreaseShuffle();
-                    update_line1 = true;
-                    // Serial.println(seq.getShuffle());
+                    if (SWING >= 1)
+                    {
+                        SWING--;
+                        seq.decreaseShuffle();
+                        update_line1 = true;
+                        // Serial.println(seq.getShuffle());
+                    }
                 }
             }
 
+            if (enterbutton.uniquePress())
+            {
+                clear_the_lcd = true;
+                enterbutton_LED.toggle();
+                update_line1 = true;
+                lcdflag = 255;
+                last_lcdflag = 255;
+            }
             break;
         }
-        }
-
-        if (enterbutton.uniquePress())
-        {
-            clear_the_lcd = true;
-            enterbutton_LED.toggle();
-            update_line1 = true;
-            lcdflag = 255;
-            last_lcdflag = 255;
-        }
-    }
     case 110: // adjust the slider values low and high
     {
         if (dpad_left.uniquePress())
@@ -133,39 +118,39 @@ void listen_for_navigation_events()
         }
     }
     }
-}
+    }
 
-void set_timing_resolution()
-{
-    switch (timing_mode)
+    void set_timing_resolution()
     {
-    case 1: //
-    {
-        timing_resolution = 10.0;
-        set_lcd_cursor(0, 11);
-        break;
+        switch (timing_mode)
+        {
+        case 1: //
+        {
+            timing_resolution = 10.0;
+            set_lcd_cursor(0, 11);
+            break;
+        }
+        case 2: //
+        {
+            timing_resolution = 1.0;
+            set_lcd_cursor(0, 12);
+            break;
+        }
+        case 3: //
+        {
+            timing_resolution = 0.1;
+            set_lcd_cursor(0, 14);
+            break;
+        }
+        case 4: //
+        {
+            timing_resolution = 0.01;
+            set_lcd_cursor(0, 15);
+            break;
+        }
+        }
     }
-    case 2: //
-    {
-        timing_resolution = 1.0;
-        set_lcd_cursor(0, 12);
-        break;
-    }
-    case 3: //
-    {
-        timing_resolution = 0.1;
-        set_lcd_cursor(0, 14);
-        break;
-    }
-    case 4: //
-    {
-        timing_resolution = 0.01;
-        set_lcd_cursor(0, 15);
-        break;
-    }
-    }
-}
 
-/* park swing code for now
+    /* park swing code for now
  
 */

@@ -101,14 +101,14 @@ void noteOff(byte channel, byte pitch, byte velocity)
 
 void clockStop()
 {
-  midiEventPacket_t clockstop = {0x00, 0xFC};
+  midiEventPacket_t clockstop = {0x08, 0xFC};
   MidiUSB.sendMIDI(clockstop);
   // MidiUSB.flush();
 }
 
 void clockStart()
 {
-  midiEventPacket_t clockstart = {0x00, 0xFA};
+  midiEventPacket_t clockstart = {0x08, 0xFA};
   MidiUSB.sendMIDI(clockstart);
   // MidiUSB.flush();
 
