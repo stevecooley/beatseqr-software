@@ -245,7 +245,7 @@ void set_lcd_cursor(int line, int position)
     lcd.print(the_string); // move cursor
     sprintf(the_string, "");
     // the_string = "";
-    Serial.println(the_string);
+    // Serial.println(the_string);
 }
 
 void clear_lcd()

@@ -46,7 +46,7 @@ void read_midi()
         }
 
         // forward clock pulse
-        clockPulse();
+        // clockPulse();
 
         /*
           Serial.print("clock pulse count = " );

@@ -53,7 +53,7 @@ void loop()
   seq.run();
 
   listen_for_navigation_events();
-  
+
   listen_for_transport_events();
   // process_incoming_serial();
 

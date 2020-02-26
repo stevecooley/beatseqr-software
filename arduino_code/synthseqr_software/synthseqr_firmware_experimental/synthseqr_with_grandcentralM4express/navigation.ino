@@ -1,9 +1,12 @@
 void listen_for_navigation_events()
 {
+
     switch (navmode)
     {
     case 100: // default to timing : tempo and swing adjustments
     {
+
+        /*
         if (dpad_left.uniquePress())
         {
             Serial.println("dpad left");
@@ -20,7 +23,8 @@ void listen_for_navigation_events()
                 timing_mode++;
             }
         }
-
+        
+        */
         switch (timing_mode)
         {
         case 1:
@@ -54,7 +58,7 @@ void listen_for_navigation_events()
                     SWING++;
                     seq.increaseShuffle();
                     update_line1 = true;
-                    Serial.println(seq.getShuffle());
+                    // Serial.println(seq.getShuffle());
                 }
             }
 
@@ -65,7 +69,7 @@ void listen_for_navigation_events()
                     SWING--;
                     seq.decreaseShuffle();
                     update_line1 = true;
-                    Serial.println(seq.getShuffle());
+                    // Serial.println(seq.getShuffle());
                 }
             }
 
@@ -75,6 +79,7 @@ void listen_for_navigation_events()
 
         if (enterbutton.uniquePress())
         {
+            clear_the_lcd = true;
             enterbutton_LED.toggle();
             update_line1 = true;
             lcdflag = 255;
