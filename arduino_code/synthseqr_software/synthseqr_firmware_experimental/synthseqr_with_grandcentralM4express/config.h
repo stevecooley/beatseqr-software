@@ -228,7 +228,7 @@ String nn;
 /////////////////////////////////
 char buffer[30];
 char last_buffer[30];
-char copy_pattern_return_message[30];
+char copy_patter_return_message[30];
 PString the_serial_message(buffer, sizeof(buffer));
 PString last_serial(last_buffer, sizeof(last_buffer));
 const char *last_last_message;
