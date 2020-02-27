@@ -29,11 +29,11 @@ void detect_step_button_presses()
       if (step_data[pattern_value][0][i] == 1)
       {
         // ex: void FifteenStep::setNote(byte channel, byte pitch, byte velocity, byte step)
-        seq.setNote(MIDICHANNEL-1, voice_slider_midinotenum[i], 0xFF, i);
+        seq.setNote(MIDICHANNEL-1, voice_slider_midinotenum[i], 127, i);
       }
       else
       {
-        seq.setNote(MIDICHANNEL-1, voice_slider_midinotenum[i], 0x00, i);
+        seq.setNote(MIDICHANNEL-1, voice_slider_midinotenum[i], 0, i);
       }
     }
   }

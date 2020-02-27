@@ -34,6 +34,9 @@ void read_midi()
       */
       if (rx.byte1 == CLOCKBYTE)
       {
+        // forward clock pulse
+        clockPulse();
+
         clock_pulse_count++;
         if (clock_pulse_count > 5)
         {
@@ -44,15 +47,6 @@ void read_midi()
             current_step = 0;
           }
         }
-
-        // forward clock pulse
-        // clockPulse();
-
-        /*
-          Serial.print("clock pulse count = " );
-          Serial.print(clock_pulse_count);
-          Serial.println();
-        */
       }
       else if (rx.byte1 == MIDISTART)
       {
@@ -101,15 +95,13 @@ void noteOff(byte channel, byte pitch, byte velocity)
 
 void clockStop()
 {
-  midiEventPacket_t clockstop = {0x08, 0xFC};
-  MidiUSB.sendMIDI(clockstop);
+  MidiUSB.sendMIDI(midiEventPacket_t{0x8, 0xFA});
   // MidiUSB.flush();
 }
 
 void clockStart()
 {
-  midiEventPacket_t clockstart = {0x08, 0xFA};
-  MidiUSB.sendMIDI(clockstart);
+  MidiUSB.sendMIDI(midiEventPacket_t{0x8, 0xFC});
   // MidiUSB.flush();
 
   // current_step = 0;
@@ -117,6 +109,7 @@ void clockStart()
 
 void clockPulse()
 {
-  midiEventPacket_t clockpulse = {0x00, 0xF8};
-  MidiUSB.sendMIDI(clockpulse);
+  Serial.println("clock pulse");
+;
+  MidiUSB.sendMIDI((midiEventPacket_t{0x8, 0xF8});
 }

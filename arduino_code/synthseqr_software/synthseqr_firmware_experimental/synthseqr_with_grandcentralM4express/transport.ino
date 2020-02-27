@@ -134,7 +134,7 @@ void stepsend(int current_step, int last_step)
 {
   if (step_data[pattern_value][0][current_step] == 1)
   {
-    noteOn(MIDICHANNEL - 1, voice_slider_midinotenum[current_step], 70);
+    noteOn(MIDICHANNEL - 1, voice_slider_midinotenum[current_step], 127);
     delay(50);
     noteOff(MIDICHANNEL - 1, voice_slider_midinotenum[current_step], 0);
   }

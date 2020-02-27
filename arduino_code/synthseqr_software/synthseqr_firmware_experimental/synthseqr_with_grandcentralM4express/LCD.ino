@@ -70,6 +70,8 @@ void run_LCD_update()
     // maybe we only periodically clear the screen
     if (clear_the_lcd == true) // something changed
     {
+        // stand down
+        clear_the_lcd = false;
         lcd.print("?f"); // clear the lcd
     }
 

@@ -71,6 +71,7 @@ void listen_for_navigation_events()
             }
             break;
         }
+    }
     case 110: // adjust the slider values low and high
     {
         if (dpad_left.uniquePress())
