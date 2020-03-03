@@ -95,26 +95,26 @@ void noteOff(byte channel, byte pitch, byte velocity)
 
 void clockStop()
 {
-  Serial.println("clockStop()");
+  // Serial.println("clockStop()");
   MidiUSB.sendMIDICommand(0xFC);
   // MidiUSB.sendMIDI(midiEventPacket_t{0x8, 0xFC});
   Serial.println("end clockStop()");
-  MidiUSB.flush();
+  //MidiUSB.flush();
 }
 
 void clockStart()
 {
   MidiUSB.sendMIDICommand(0xFA);
   // MidiUSB.sendMIDI(midiEventPacket_t{0x8, 0xFA});
-  MidiUSB.flush();
+  //MidiUSB.flush();
 
   // current_step = 0;
 }
 
 void clockPulse()
 {
-  Serial.println("clockPulse()");
+  // Serial.println("clockPulse()");
   //;
   MidiUSB.sendMIDICommand(0xF8);
-  MidiUSB.flush();
+  //MidiUSB.flush();
 }

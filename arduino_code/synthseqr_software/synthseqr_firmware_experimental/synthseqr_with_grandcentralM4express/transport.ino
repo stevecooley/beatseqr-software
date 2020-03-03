@@ -52,6 +52,9 @@ void listen_for_transport_events()
       // stop the outbound midi clock
       clockStop();
 
+      // flush
+      MidiUSB.flush();
+
       // stop the internal sequencer
       seq.stop();
     }
@@ -132,11 +135,15 @@ void run_chase_lights(unsigned int this_step)
 
 void stepsend(int current_step, int last_step)
 {
+
+  if (step_data[pattern_value][0][last_step] == 1)
+  {
+    noteOff(MIDICHANNEL - 1, voice_slider_midinotenum[current_step], 0);
+  }
+
   if (step_data[pattern_value][0][current_step] == 1)
   {
     noteOn(MIDICHANNEL - 1, voice_slider_midinotenum[current_step], 127);
-    delay(50);
-    noteOff(MIDICHANNEL - 1, voice_slider_midinotenum[current_step], 0);
   }
   return;
 }
