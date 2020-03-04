@@ -47,7 +47,7 @@ void run_LCD_setup_routine()
 
     // see moderndevice.com for a handy custom char generator (software app)
 
-    lcd.print("?f"); // clear the LCD
+    lcd.print("?f");      // clear the LCD
     lcd.print("?x00?y0"); // move cursor to beginning of line 1
     lcd.print("synthseqr v");
     lcd.print(hardware_version_number);
@@ -187,12 +187,15 @@ void run_LCD_update()
     case 255:
     default:
     {
-        sprintf(lcd_line1, " C%02d %s%u T%.2f", MIDICHANNEL, voicemodechar, voice_mode, seq.getTempo());
 
         if (update_line1 == true)
         {
+
             // stand down the update line 1 flag
             update_line1 = false;
+
+            // prep the string
+            sprintf(lcd_line1, " C%02d %s%u T%.2f", MIDICHANNEL, voicemodechar, voice_mode, seq.getTempo());
 
             // Serial.println(lcd_line1);
             lcd.print("?x00?y0"); // move cursor to beginning of line 0

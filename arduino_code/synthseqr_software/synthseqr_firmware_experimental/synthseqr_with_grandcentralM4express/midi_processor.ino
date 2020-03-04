@@ -98,7 +98,7 @@ void clockStop()
   // Serial.println("clockStop()");
   MidiUSB.sendMIDICommand(0xFC);
   // MidiUSB.sendMIDI(midiEventPacket_t{0x8, 0xFC});
-  Serial.println("end clockStop()");
+  // Serial.println("end clockStop()");
   //MidiUSB.flush();
 }
 

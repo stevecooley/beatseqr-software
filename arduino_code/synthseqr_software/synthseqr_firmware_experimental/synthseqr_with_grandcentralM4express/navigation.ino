@@ -33,7 +33,7 @@ void listen_for_navigation_events()
                 SWING--;
                 seq.decreaseShuffle();
                 update_line1 = true;
-                Serial.println(seq.getShuffle());
+                // Serial.println(seq.getShuffle());
             }
         }
             if (dpad_right.uniquePress())

@@ -1,3 +1,8 @@
+void listen_for_delay_tasks()
+{
+
+}
+
 void listen_for_transport_events()
 {
   if (playbutton.uniquePress())
@@ -26,6 +31,7 @@ void listen_for_transport_events()
       lcd.print("?0");      // play
 
       // start the outbound midi clock
+      
       clockStart();
       // start the sequencer
       seq.start();
