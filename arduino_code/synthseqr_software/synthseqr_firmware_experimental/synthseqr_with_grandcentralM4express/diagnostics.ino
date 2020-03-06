@@ -87,13 +87,13 @@ void captive_diagnostic_routine()
   {
     int sensorValue = map(voice_sliders[j].getSector(), 0, 255, slider_map_low_value, slider_map_high_value);
 
-    /*
+    
     if(sensorValue > 10) {
       Serial.print(j);
       Serial.print(" "); 
       Serial.println(sensorValue);
     }
-    */
+    
   }
 
   if (dpad_right.isPressed() && dpad_left.isPressed())

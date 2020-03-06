@@ -12,6 +12,7 @@ void listen_for_transport_events()
 
   if (transport_button_pressed == true || midistarted == true || midistopped == true)
   {
+
     // now we'll check the playstatus to see if it's false.
     // this means that we're not playing anything.
     if (transport_button_pressed == true && playstatus == false)
@@ -141,6 +142,11 @@ void run_chase_lights(unsigned int this_step)
 
 void stepsend(int current_step, int last_step)
 {
+
+
+    // current_step = seq.getPosition();
+
+    run_chase_lights(seq.getPosition());
 
   if (step_data[pattern_value][0][last_step] == 1)
   {

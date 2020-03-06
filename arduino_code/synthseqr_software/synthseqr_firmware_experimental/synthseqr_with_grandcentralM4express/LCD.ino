@@ -66,7 +66,7 @@ void run_LCD_update()
 {
     // lcd.print(lcdflag);
     // lcd.print(" ");
-    // lcd.print(seq.getWhole());
+    // lcd.print(seq.getbeathlength());
     // maybe we only periodically clear the screen
     if (clear_the_lcd == true) // something changed
     {

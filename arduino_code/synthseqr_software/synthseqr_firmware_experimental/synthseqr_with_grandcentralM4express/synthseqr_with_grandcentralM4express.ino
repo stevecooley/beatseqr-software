@@ -45,12 +45,13 @@ void setup()
 
 void loop()
 {
-
-  read_midi();
   // this is needed to keep the sequencer
   // running. there are other methods for
   // start, stop, and pausing the steps
+
   seq.run();
+  
+  read_midi();
 
   listen_for_navigation_events();
 
@@ -61,11 +62,7 @@ void loop()
 
   run_step_button_routine();
 
-  // current_step = seq.getPosition();
-
-  run_chase_lights(seq.getPosition());
-
-  // run_diagnostics();
+  run_diagnostics();
 
   run_pattern_select_routine();
 
