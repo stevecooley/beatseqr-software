@@ -1,9 +1,9 @@
-#include "MIDIUSB.h"
 #include "Button.h"
-#include "LED.h"
-#include "Potentiometer.h"
-#include "PString.h"
 #include "FifteenStep.h"
+#include "LED.h"
+#include "MIDIUSB.h"
+#include "PString.h"
+#include "Potentiometer.h"
 #include <stdlib.h> // because dtostrf()
 
 const char *firmware_version_number = "2.0x";
@@ -18,25 +18,17 @@ uint8_t last_voice_selected = 0;
 ////////////////////////////////
 
 Potentiometer voice_sliders[16] = {
-    Potentiometer(A15, 255),
-    Potentiometer(A14, 255),
-    Potentiometer(A13, 255),
-    Potentiometer(A12, 255),
+    Potentiometer(A15, 255), Potentiometer(A14, 255),
+    Potentiometer(A13, 255), Potentiometer(A12, 255),
 
-    Potentiometer(A11, 255),
-    Potentiometer(A10, 255),
-    Potentiometer(A9, 255),
-    Potentiometer(A8, 255),
+    Potentiometer(A11, 255), Potentiometer(A10, 255),
+    Potentiometer(A9, 255),  Potentiometer(A8, 255),
 
-    Potentiometer(A7, 255),
-    Potentiometer(A6, 255),
-    Potentiometer(A5, 255),
-    Potentiometer(A4, 255),
+    Potentiometer(A7, 255),  Potentiometer(A6, 255),
+    Potentiometer(A5, 255),  Potentiometer(A4, 255),
 
-    Potentiometer(A2, 255),
-    Potentiometer(A3, 255),
-    Potentiometer(A1, 255),
-    Potentiometer(A0, 255)};
+    Potentiometer(A2, 255),  Potentiometer(A3, 255),
+    Potentiometer(A1, 255),  Potentiometer(A0, 255)};
 
 int voice_slider_values[16];
 
@@ -49,10 +41,10 @@ int MC_cleared_to_update_values[16];
 
 int voice_slider_midivelocity[16];
 int voice_slider_midicc[16];
-int voice_slider_midinotenum[16] = {
-    36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51};
-int voice_slider_midichannel[16] = {
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+int voice_slider_midinotenum[16] = {36, 37, 38, 39, 40, 41, 42, 43,
+                                    44, 45, 46, 47, 48, 49, 50, 51};
+int voice_slider_midichannel[16] = {1, 1, 1, 1, 1, 1, 1, 1,
+                                    1, 1, 1, 1, 1, 1, 1, 1};
 
 int last_voice_slider_values[16];
 uint8_t slider_mode = 1;
@@ -72,17 +64,17 @@ uint8_t midinn_sliderrangehigh = -1;
 //
 ///////////////////////////////////
 
-LED step_leds[16] = {
-    LED(22), LED(24), LED(26), LED(28),
-    LED(30), LED(32), LED(34), LED(36),
-    LED(38), LED(40), LED(42), LED(44),
-    LED(46), LED(48), LED(50), LED(52)};
+LED step_leds[16] = {LED(22), LED(24), LED(26), LED(28), LED(30), LED(32),
+                     LED(34), LED(36), LED(38), LED(40), LED(42), LED(44),
+                     LED(46), LED(48), LED(50), LED(52)};
 
 Button step_buttons[16] = {
-    Button(23, PULLUP), Button(25, PULLUP), Button(27, PULLUP), Button(29, PULLUP),
-    Button(31, PULLUP), Button(33, PULLUP), Button(35, PULLUP), Button(37, PULLUP),
-    Button(39, PULLUP), Button(41, PULLUP), Button(43, PULLUP), Button(45, PULLUP),
-    Button(47, PULLUP), Button(49, PULLUP), Button(51, PULLUP), Button(53, PULLUP)};
+    Button(23, PULLUP), Button(25, PULLUP), Button(27, PULLUP),
+    Button(29, PULLUP), Button(31, PULLUP), Button(33, PULLUP),
+    Button(35, PULLUP), Button(37, PULLUP), Button(39, PULLUP),
+    Button(41, PULLUP), Button(43, PULLUP), Button(45, PULLUP),
+    Button(47, PULLUP), Button(49, PULLUP), Button(51, PULLUP),
+    Button(53, PULLUP)};
 
 // step_data = 4 patterns, 1 voice, 16 steps
 int step_data[4][1][16];
@@ -122,18 +114,13 @@ LED enterbutton_LED = LED(3);
 
 LED pattern_select_leds[4] = {
 
-    LED(4),
-    LED(5),
-    LED(7),
-    LED(9)};
+    LED(4), LED(5), LED(7), LED(9)};
 
 uint8_t pattern_select_button_pressing_counter = 0;
 
 Button pattern_select_buttons[4] = {
 
-    Button(15, PULLUP),
-    Button(14, PULLUP),
-    Button(6, PULLUP),
+    Button(15, PULLUP), Button(14, PULLUP), Button(6, PULLUP),
     Button(8, PULLUP)};
 
 uint8_t extended_step_length_mode = 0;
@@ -155,7 +142,9 @@ char *step_padding;
 //
 //////////////////////////////////
 
-#define rxPin 255  // rxPin is immaterial - not used - just make this an unused Arduino pin number
+#define rxPin                                                                  \
+  255 // rxPin is immaterial - not used - just make this an unused Arduino pin
+      // number
 #define lcdTxPin 1 //
 #define lcd Serial1
 

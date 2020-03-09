@@ -1,6 +1,4 @@
-template <class T>
-inline Print &operator<<(Print &obj, T arg)
-{
+template <class T> inline Print &operator<<(Print &obj, T arg) 
   obj.print(arg);
   return obj;
 }
@@ -12,7 +10,8 @@ inline Print &operator<<(Print &obj, T arg)
   license: public domain
 
   http://beatseqr.com for the latest news
-  http://github.com/stevecooley/beatseqr-software for the latest versions of related software
+  http://github.com/stevecooley/beatseqr-software for the latest versions of
+  related software
 */
 
 #include "config.h"
@@ -22,12 +21,12 @@ inline Print &operator<<(Print &obj, T arg)
   Author:  Alexander Brevig
   Contact: alexanderbrevig@gmail.com
 
-  note: Alexander is awesome. this project wouldn't have taken off as fast as it has without his awesome code
+  note: Alexander is awesome. this project wouldn't have taken off as fast as it
+  has without his awesome code
 
 */
 
-void setup()
-{
+void setup() {
 
   Serial.begin(57600);
   lcd.begin(9850);
@@ -43,14 +42,13 @@ void setup()
   seq.setStepHandler(stepsend);
 }
 
-void loop()
-{
+void loop() {
   // this is needed to keep the sequencer
   // running. there are other methods for
   // start, stop, and pausing the steps
 
   seq.run();
-  
+
   read_midi();
 
   listen_for_navigation_events();
@@ -58,7 +56,8 @@ void loop()
   listen_for_transport_events();
   // process_incoming_serial();
 
-  // chase lights are high when the step buttons tell you what step you're on when the transport is playing
+  // chase lights are high when the step buttons tell you what step you're on
+  // when the transport is playing
 
   run_step_button_routine();
 
