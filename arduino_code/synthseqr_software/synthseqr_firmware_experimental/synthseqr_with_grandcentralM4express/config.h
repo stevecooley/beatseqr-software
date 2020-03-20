@@ -1,13 +1,13 @@
+#include <stdlib.h>  // because dtostrf()
 #include "Button.h"
 #include "FifteenStep.h"
 #include "LED.h"
 #include "MIDIUSB.h"
 #include "PString.h"
 #include "Potentiometer.h"
-#include <stdlib.h> // because dtostrf()
 
-const char *firmware_version_number = "2.0x";
-const char *hardware_version_number = "1.0";
+const char* firmware_version_number = "2.0x";
+const char* hardware_version_number = "1.0";
 
 uint8_t last_voice_selected = 0;
 
@@ -50,7 +50,7 @@ int last_voice_slider_values[16];
 uint8_t slider_mode = 1;
 uint8_t slider_mode_total = 4;
 uint8_t slider_reset_counter = 0;
-const char *slider_message_header = "NN";
+const char* slider_message_header = "NN";
 uint8_t slider_map_low_value = 36;
 uint8_t slider_map_high_value = 52;
 uint8_t slider_step_value = 2;
@@ -107,7 +107,7 @@ Button dpad_right = Button(16, PULLUP);
 Button dpad_down = Button(18, PULLUP);
 Button dpad_left = Button(17, PULLUP);
 
-uint8_t navmode = 100; // default to tempo and swing adjust
+uint8_t navmode = 100;  // default to tempo and swing adjust
 
 Button enterbutton = Button(20);
 LED enterbutton_LED = LED(3);
@@ -133,8 +133,8 @@ uint8_t copy_pattern_to;
 bool not_told_which_pattern_mode_to_use = true;
 uint8_t pattern_mode;
 
-char *pattern_padding;
-char *step_padding;
+char* pattern_padding;
+char* step_padding;
 
 //////////////////////////////////
 //
@@ -142,10 +142,12 @@ char *step_padding;
 //
 //////////////////////////////////
 
-#define rxPin                                                                  \
-  255 // rxPin is immaterial - not used - just make this an unused Arduino pin
-      // number
-#define lcdTxPin 1 //
+#define rxPin \
+  255  // rxPin is immaterial - not used - just make this an unused Arduino pin
+       // number
+
+#define lcdTxPin 1 // hardware version 1.0, hack version 2.0
+
 #define lcd Serial1
 
 uint8_t lcdflag = 255;
@@ -217,7 +219,7 @@ char last_buffer[30];
 char copy_pattern_return_message[30];
 PString the_serial_message(buffer, sizeof(buffer));
 PString last_serial(last_buffer, sizeof(last_buffer));
-const char *last_last_message;
+const char* last_last_message;
 
 // incoming serial data
 uint8_t inByte;
