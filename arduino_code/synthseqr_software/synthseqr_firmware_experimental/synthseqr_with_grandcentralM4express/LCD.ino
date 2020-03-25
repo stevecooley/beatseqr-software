@@ -297,6 +297,12 @@ void run_LCD_update() {
         Serial.println(SWING);
       }
 
+      // cursor set!!
+      if (cursor_flag == true) {
+        cursor_flag = false;
+        set_lcd_cursor(cursor_y, cursor_x);
+      }
+
       next_lcdflag = 255;
       break;
     }
@@ -305,18 +311,7 @@ void run_LCD_update() {
 
 void set_lcd_cursor(int line, int position) {
   sprintf(the_string, "?x%02d?y%d", position, line);
-  /*
-  the_string += "?x";
-  the_string += position;
-  the_string += "?y";
-  the_string += line;
-*/
-  // Serial.println(the_string);
-  lcd.print(the_string);       // move cursor
-  Serial.println(the_string);  // move cursor
-  // sprintf(the_string, "");
-  // the_string = "";
-  Serial.print("set lcd cursor: ");
+  lcd.print(the_string);  // move cursor
   Serial.println(the_string);
 }
 

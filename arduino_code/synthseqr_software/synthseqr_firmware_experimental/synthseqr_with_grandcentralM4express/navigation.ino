@@ -9,6 +9,7 @@ void listen_for_navigation_events() {
         if (timing_mode > 1) {
           timing_mode--;
         }
+        switch_timing_mode_events();
       }
       // mode switching
       if (dpad_right_flag == true) {
@@ -16,6 +17,7 @@ void listen_for_navigation_events() {
         if (timing_mode < 5) {
           timing_mode++;
         }
+        switch_timing_mode_events();
       }
 
       if (enterbutton_flag == true) {
@@ -30,23 +32,28 @@ void listen_for_navigation_events() {
       if ((dpad_up_flag == true) || (dpad_down_flag == true)) {
         switch (timing_mode) {
           case 1: {
+            switch_timing_mode_events();
             set_timing_resolution();
             break;
           }
           case 2: {
+            switch_timing_mode_events();
             set_timing_resolution();
             break;
           }
           case 3: {
+            switch_timing_mode_events();
             set_timing_resolution();
             break;
           }
           case 4: {
+            switch_timing_mode_events();
             set_timing_resolution();
             break;
           }
           case 5: {
             swing_events();
+            switch_timing_mode_events();
             break;
           }
         }
@@ -99,41 +106,46 @@ void listen_for_navigation_events() {
   }
 }
 
-void set_timing_resolution() {
+void switch_timing_mode_events() {
   switch (timing_mode) {
     case 1:  //
     {
       timing_resolution = 10.0;
-      lcd.print("?x11?y0");
-      Serial.println("?x11?y0");
+      cursor_x = 11;
+      cursor_y = 0;
       break;
     }
     case 2:  //
     {
       timing_resolution = 1.0;
-      lcd.print("?x12?y0");
-      Serial.println("?x12?y0");
-
+      cursor_x = 12;
+      cursor_y = 0;
       break;
     }
     case 3:  //
     {
       timing_resolution = 0.1;
-      lcd.print("?x14?y0");
-      Serial.println("?x14?y0");
-
+      cursor_x = 14;
+      cursor_y = 0;
       break;
     }
     case 4:  //
     {
       timing_resolution = 0.01;
-      lcd.print("?x15?y0");
-      Serial.println("?x15?y0");
-
+      cursor_x = 15;
+      cursor_y = 0;
       break;
     }
+    case 5:  // swing?
+      cursor_x = 1;
+      cursor_y = 1;
+      break;
   }
+  // update the cursor position
+  cursor_flag = true;
+}
 
+void set_timing_resolution() {
   if (dpad_up_flag == true) {
     dpad_up_flag = false;
 
@@ -157,8 +169,8 @@ void swing_events() {
   if (dpad_down_flag == true) {
     dpad_down_flag = false;
 
-    lcd.print("?x01?y1");
-    Serial.println("?x01?y1");
+    cursor_x = 1;
+    cursor_y = 1;
 
     if (SWING > 0) {
       SWING--;
@@ -180,4 +192,6 @@ void swing_events() {
       Serial.println(seq.getShuffle());
     }
   }
+  // set cursor position
+  cursor_flag = true;
 }

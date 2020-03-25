@@ -165,6 +165,10 @@ char lcd_lastline2[100];
 char voicemodechar[10] = "?6";
 bool clear_the_lcd = false;
 
+uint8_t cursor_x = 0;
+uint8_t cursor_y = 0;
+bool cursor_flag = true;
+
 // lcd:
 // for LCD command string
 char the_string[32];
