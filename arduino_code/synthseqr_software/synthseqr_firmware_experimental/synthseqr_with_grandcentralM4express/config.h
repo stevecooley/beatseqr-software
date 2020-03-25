@@ -1,4 +1,5 @@
 #include <stdlib.h>  // because dtostrf()
+
 #include "Button.h"
 #include "FifteenStep.h"
 #include "LED.h"
@@ -98,19 +99,23 @@ uint8_t step_value;
 
 Button playbutton = Button(21, PULLUP);
 LED playbutton_LED = LED(2);
-bool transport_button_pressed = false;
+bool playbutton_flag = false;
 
 uint8_t isRecordingArmed = 0;
 
 Button dpad_up = Button(19, PULLUP);
+bool dpad_up_flag = false;
 Button dpad_right = Button(16, PULLUP);
+bool dpad_right_flag = false;
 Button dpad_down = Button(18, PULLUP);
+bool dpad_down_flag = false;
 Button dpad_left = Button(17, PULLUP);
+bool dpad_left_flag = false;
+Button enterbutton = Button(20);
+bool enterbutton_flag = false;
+LED enterbutton_LED = LED(3);
 
 uint8_t navmode = 100;  // default to tempo and swing adjust
-
-Button enterbutton = Button(20);
-LED enterbutton_LED = LED(3);
 
 LED pattern_select_leds[4] = {
 
@@ -118,16 +123,16 @@ LED pattern_select_leds[4] = {
 
 uint8_t pattern_select_button_pressing_counter = 0;
 
-Button pattern_select_buttons[4] = {
+Button pattern_select_buttons[4] = {Button(15, PULLUP), Button(14, PULLUP),
+                                    Button(6, PULLUP), Button(8, PULLUP)};
 
-    Button(15, PULLUP), Button(14, PULLUP), Button(6, PULLUP),
-    Button(8, PULLUP)};
+bool pattern_select_button_flags[4] = {false,false,false,false};
 
 uint8_t extended_step_length_mode = 0;
 uint8_t current_pattern = 0;
 uint8_t patterns_to_play_in_a_row = 1;
 
-bool not_told_which_pattern_to_copy_to = true;
+bool told_which_pattern_to_copy_to = false;
 uint8_t copy_pattern_to;
 
 bool not_told_which_pattern_mode_to_use = true;
@@ -146,15 +151,16 @@ char* step_padding;
   255  // rxPin is immaterial - not used - just make this an unused Arduino pin
        // number
 
-#define lcdTxPin 1 // hardware version 1.0, hack version 2.0
+#define lcdTxPin 1  // hardware version 1.0, hack version 2.0
 
 #define lcd Serial1
 
 uint8_t lcdflag = 255;
-uint8_t last_lcdflag = 255;
+uint8_t next_lcdflag = 255;
 char lcd_line1[100];
 char lcd_line2[100];
 bool update_line1 = true;
+bool update_line2 = true;
 char lcd_lastline2[100];
 char voicemodechar[10] = "?6";
 bool clear_the_lcd = false;

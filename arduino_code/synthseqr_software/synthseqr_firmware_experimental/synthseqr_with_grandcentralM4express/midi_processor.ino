@@ -88,7 +88,7 @@ void noteOn(byte channel, byte pitch, byte velocity)
 
 void noteOff(byte channel, byte pitch, byte velocity)
 {
-  midiEventPacket_t thenote = {0x08, 0x80 | channel, pitch, 0};
+  midiEventPacket_t thenote = {0x08, 0x90 | channel, pitch, 0};
   MidiUSB.sendMIDI(thenote);
   MidiUSB.flush();
 }

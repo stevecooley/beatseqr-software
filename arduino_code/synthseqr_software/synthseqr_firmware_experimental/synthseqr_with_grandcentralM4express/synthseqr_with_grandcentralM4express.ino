@@ -1,4 +1,5 @@
-template <class T> inline Print &operator<<(Print &obj, T arg) {
+template <class T>
+inline Print& operator<<(Print& obj, T arg) {
   obj.print(arg);
   return obj;
 }
@@ -27,7 +28,6 @@ template <class T> inline Print &operator<<(Print &obj, T arg) {
 */
 
 void setup() {
-
   Serial.begin(57600);
   lcd.begin(9850);
 
@@ -51,6 +51,41 @@ void loop() {
 
   read_midi();
 
+  if (dpad_left.uniquePress()) {
+    Serial.println("listening for nav-left events");
+    dpad_left_flag = true;
+  }
+
+  if (dpad_right.uniquePress()) {
+    Serial.println("listening for nav-right events");
+    dpad_right_flag = true;
+  }
+
+  if (dpad_up.uniquePress()) {
+    Serial.println("listening for nav-up events");
+    dpad_up_flag = true;
+  }
+
+  if (dpad_down.uniquePress()) {
+    Serial.println("listening for nav-down events");
+    dpad_down_flag = true;
+  }
+
+  if (enterbutton.uniquePress()) {
+    Serial.println("listening for enter button events");
+    enterbutton_flag = true;
+  }
+
+  if (enterbutton.uniquePress()) {
+    Serial.println("listening for enter button events");
+    enterbutton_flag = true;
+  }
+
+  if (playbutton.uniquePress()) {
+    Serial.println("listening for play button events");
+    playbutton_flag = true;
+  }
+
   listen_for_navigation_events();
 
   listen_for_transport_events();
@@ -63,9 +98,28 @@ void loop() {
 
   run_diagnostics();
 
-  run_pattern_select_routine();
+// listen for pattern select button presses and set flags
+  for (uint8_t i = 0; i < 4; i++)
+  {
+    if (pattern_select_buttons[i].uniquePress()) {
+      pattern_select_button_flags[i] = true;
+    }
 
-  run_voice_slider_routine();
+    // pattern copy
+    if (pattern_select_buttons[i].heldFor(2000)) {
+      // Serial.print(last_serial);
+      told_which_pattern_to_copy_to =
+          false;      // this is us being told to copy the pattern
+      lcdflag = 100;  // pattern copy
+    }
 
-  run_LCD_update();
-}
+  }
+
+ 
+
+    run_pattern_select_routine();
+
+    run_voice_slider_routine();
+
+    run_LCD_update();
+  }
