@@ -16,8 +16,10 @@ void listen_for_transport_events() {
 
       // update the play/stop character on the LCD
       // one time for yo mind
-      lcd.print("?x00?y0");  // move cursor to beginning of line 0
-      lcd.print("?0");       // play
+      lcd.print("?x00?y0");       // move cursor to beginning of line 0
+      Serial.println("?x00?y0");  // move cursor to beginning of line 0
+      lcd.print("?0");            // play
+      Serial.println("?0");       // play
 
       // start the outbound midi clock
 
@@ -40,8 +42,10 @@ void listen_for_transport_events() {
 
       // update the play/stop character on the LCD
       // one time for yo mind
-      lcd.print("?x00?y0");  // move cursor to beginning of line 0
-      lcd.print("?7");       // stop
+      lcd.print("?x00?y0");       // move cursor to beginning of line 0
+      Serial.println("?x00?y0");  // move cursor to beginning of line 0
+      lcd.print("?7");            // stop
+      Serial.println("?7");       // stop
 
       // stop the outbound midi clock
       clockStop();
@@ -63,8 +67,10 @@ void listen_for_transport_events() {
 
       // update the play/stop character on the LCD
       // one time for yo mind
-      lcd.print("?x00?y0");  // move cursor to beginning of line 0
-      lcd.print("?0");       // play
+      lcd.print("?x00?y0");       // move cursor to beginning of line 0
+      Serial.println("?x00?y0");  // move cursor to beginning of line 0
+      lcd.print("?0");            // play
+      Serial.println("?0");       // play
 
       // start the outbound midi clock
       clockStart();
@@ -86,8 +92,10 @@ void listen_for_transport_events() {
 
       // update the play/stop character on the LCD
       // one time for yo mind
-      lcd.print("?x00?y0");  // move cursor to beginning of line 0
-      lcd.print("?7");       // stop
+      lcd.print("?x00?y0");       // move cursor to beginning of line 0
+      Serial.println("?x00?y0");  // move cursor to beginning of line 0
+      lcd.print("?7");            // stop
+      Serial.println("?7");       // stop
 
       // stop the outbound midi clock
       clockStop();
@@ -109,7 +117,7 @@ void run_chase_lights(unsigned int this_step) {
       // clear the LEDs back to their data
       read_step_memory(0, pattern_value);
       // if (step_leds[this_step].getState() == 0) {
-        step_leds[this_step].toggle();  // chase lights!
+      step_leds[this_step].toggle();  // chase lights!
       // }
       last_step = this_step;
     }

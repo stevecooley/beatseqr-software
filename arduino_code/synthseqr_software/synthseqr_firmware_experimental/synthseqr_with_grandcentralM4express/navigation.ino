@@ -104,27 +104,31 @@ void set_timing_resolution() {
     case 1:  //
     {
       timing_resolution = 10.0;
-      lcd.println("?x11?y0");
+      lcd.print("?x11?y0");
+      Serial.println("?x11?y0");
       break;
     }
     case 2:  //
     {
       timing_resolution = 1.0;
-      lcd.println("?x12?y0");
+      lcd.print("?x12?y0");
+      Serial.println("?x12?y0");
 
       break;
     }
     case 3:  //
     {
       timing_resolution = 0.1;
-      lcd.println("?x14?y0");
+      lcd.print("?x14?y0");
+      Serial.println("?x14?y0");
 
       break;
     }
     case 4:  //
     {
       timing_resolution = 0.01;
-      lcd.println("?x15?y0");
+      lcd.print("?x15?y0");
+      Serial.println("?x15?y0");
 
       break;
     }
@@ -154,6 +158,7 @@ void swing_events() {
     dpad_down_flag = false;
 
     lcd.print("?x01?y1");
+    Serial.println("?x01?y1");
 
     if (SWING > 0) {
       SWING--;
@@ -166,6 +171,7 @@ void swing_events() {
     dpad_up_flag = false;
 
     lcd.print("?x01?y1");
+    Serial.println("?x01?y1");
 
     if (SWING < 6) {
       SWING++;
