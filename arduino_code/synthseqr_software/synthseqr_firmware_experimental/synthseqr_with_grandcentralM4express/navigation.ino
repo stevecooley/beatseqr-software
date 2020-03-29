@@ -57,6 +57,15 @@ void listen_for_navigation_events() {
             break;
           }
         }
+        Serial.print(" getTempo : ");
+        Serial.print(seq.getTempo());
+        Serial.print(" getShuffle : ");
+        Serial.print(seq.getShuffle());
+        Serial.print(" getbeatlength : ");
+        Serial.print(seq.getbeatlength());
+        Serial.print(" getPosition : ");
+        Serial.print(seq.getPosition());
+        Serial.println();
       }
 
       break;

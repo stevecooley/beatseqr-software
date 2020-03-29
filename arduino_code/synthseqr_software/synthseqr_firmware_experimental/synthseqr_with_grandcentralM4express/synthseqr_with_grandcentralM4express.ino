@@ -98,9 +98,8 @@ void loop() {
 
   run_diagnostics();
 
-// listen for pattern select button presses and set flags
-  for (uint8_t i = 0; i < 4; i++)
-  {
+  // listen for pattern select button presses and set flags
+  for (uint8_t i = 0; i < 4; i++) {
     if (pattern_select_buttons[i].uniquePress()) {
       pattern_select_button_flags[i] = true;
     }
@@ -112,14 +111,11 @@ void loop() {
           false;      // this is us being told to copy the pattern
       lcdflag = 100;  // pattern copy
     }
-
   }
 
- 
+  run_pattern_select_routine();
 
-    run_pattern_select_routine();
+  run_voice_slider_routine();
 
-    run_voice_slider_routine();
-
-    run_LCD_update();
-  }
+  run_LCD_update();
+}
