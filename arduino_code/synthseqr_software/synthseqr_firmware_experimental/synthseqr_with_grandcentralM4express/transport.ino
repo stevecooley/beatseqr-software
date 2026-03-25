@@ -55,6 +55,12 @@ void listen_for_transport_events() {
 
       // stop the internal sequencer
       seq.stop();
+
+      // experimental to see if this can help prevent the last note from being held open. Midi.flush should have done it??
+      if (step_data[pattern_value][0][last_step] == 1) {
+        noteOff(MIDICHANNEL - 1, voice_slider_midinotenum[last_step], 0);
+      }
+
     } else if (midistarted == true) {
       // stand down the event flag, we got this
       midistarted = false;
@@ -131,7 +137,9 @@ void stepsend(int current_step, int last_step) {
 
   run_chase_lights(seq.getPosition());
 
-  if (step_data[pattern_value][0][last_step] == 1) {
+  // Guard against out-of-bounds on the first callback after start(),
+  // where last_step arrives as 255 (byte wrap of -1 sentinel).
+  if (last_step >= 0 && last_step < 16 && step_data[pattern_value][0][last_step] == 1) {
     noteOff(MIDICHANNEL - 1, voice_slider_midinotenum[last_step], 0);
   }
 

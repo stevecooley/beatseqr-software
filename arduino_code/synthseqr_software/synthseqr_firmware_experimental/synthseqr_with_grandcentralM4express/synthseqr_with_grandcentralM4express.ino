@@ -4,6 +4,14 @@ inline Print& operator<<(Print& obj, T arg) {
   return obj;
 }
 
+// template <typename T>
+/*
+long Round(T x) {
+  return (x >= 0) ? (long)(x + 0.5) : (long)(x - 0.5);
+}
+#define round(x) Round(x)  // for backwards compatibility
+*/
+
 /*
   synthseqr arduino firmware
   2011 steve cooley
