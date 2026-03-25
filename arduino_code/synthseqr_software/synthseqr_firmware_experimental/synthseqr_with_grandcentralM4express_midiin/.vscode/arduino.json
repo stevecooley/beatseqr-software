@@ -1,0 +1,6 @@
+{
+    "board": "adafruit:samd:adafruit_grandcentral_m4",
+    "configuration": "cache=on,speed=120,opt=small,maxqspi=50,usbstack=arduino,debug=off",
+    "sketch": "synthseqr_with_grandcentralM4express.ino",
+    "port": "/dev/tty.usbmodem14101"
+}
