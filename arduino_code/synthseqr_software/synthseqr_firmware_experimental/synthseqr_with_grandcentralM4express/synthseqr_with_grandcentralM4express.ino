@@ -48,6 +48,12 @@ void setup() {
   seq.stop();
   seq.setMidiHandler(midi);
   seq.setStepHandler(stepsend);
+
+  // Enable hardware timer mode and start TC4.
+  // The timer fires at the MIDI clock rate (24x per quarter note) regardless
+  // of play state; seq.run() only processes the resulting flags when playing.
+  seq.setHardwareTimerMode(true);
+  setupSequencerTimer(60000000UL / (unsigned long)TEMPO / 24UL);
 }
 
 void loop() {

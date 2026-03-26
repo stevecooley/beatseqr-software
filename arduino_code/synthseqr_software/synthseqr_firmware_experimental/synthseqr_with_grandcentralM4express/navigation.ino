@@ -14,7 +14,7 @@ void listen_for_navigation_events() {
       // mode switching
       if (dpad_right_flag == true) {
         dpad_right_flag = false;
-        if (timing_mode < 5) {
+        if (timing_mode < 6) {
           timing_mode++;
         }
         switch_timing_mode_events();
@@ -54,6 +54,10 @@ void listen_for_navigation_events() {
           case 5: {
             swing_events();
             switch_timing_mode_events();
+            break;
+          }
+          case 6: {
+            clock_source_events();
             break;
           }
         }
@@ -116,6 +120,13 @@ void listen_for_navigation_events() {
 }
 
 void switch_timing_mode_events() {
+  // If navigating away from clock source mode, restore main display.
+  if (timing_mode != 6 && lcdflag == 202) {
+    clear_the_lcd = true;
+    lcdflag = 255;
+    next_lcdflag = 255;
+    update_line1 = true;
+  }
   switch (timing_mode) {
     case 1:  //
     {
@@ -145,9 +156,13 @@ void switch_timing_mode_events() {
       cursor_y = 0;
       break;
     }
-    case 5:  // swing?
+    case 5:  // swing
       cursor_x = 1;
       cursor_y = 1;
+      break;
+    case 6:  // clock source (INT/EXT)
+      lcdflag = 202;
+      next_lcdflag = 202;
       break;
   }
   // update the cursor position
@@ -160,6 +175,8 @@ void set_timing_resolution() {
 
     TEMPO = TEMPO + timing_resolution;
     seq.setTempo(TEMPO);
+    // Keep the hardware timer aligned with the new tempo.
+    setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
     update_line1 = true;
     Serial.println(TEMPO);
   }
@@ -169,6 +186,8 @@ void set_timing_resolution() {
 
     TEMPO = TEMPO - timing_resolution;
     seq.setTempo(TEMPO);
+    // Keep the hardware timer aligned with the new tempo.
+    setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
     update_line1 = true;
     Serial.println(TEMPO);
   }
@@ -203,4 +222,51 @@ void swing_events() {
   }
   // set cursor position
   cursor_flag = true;
+}
+
+// setExternalClockMode(bool)
+//
+// Switch between internal TC4 clock and external USB-MIDI clock.
+// - false (internal): restarts TC4, sequencer is self-clocked.
+// - true  (external): stops TC4, incoming 0xF8 drives hardwareClockPulse().
+//
+void setExternalClockMode(bool enable) {
+  if (enable == external_clock_mode) return;  // no change
+  external_clock_mode = enable;
+  if (external_clock_mode) {
+    stopSequencerTimer();
+  } else {
+    // Resync timer period to current TEMPO before re-enabling.
+    setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
+    startSequencerTimer();
+  }
+  Serial.print("clock mode: ");
+  Serial.println(external_clock_mode ? "EXT" : "INT");
+}
+
+// clock_source_events()
+//
+// Called from listen_for_navigation_events() when timing_mode == 6.
+// Up = external clock, down = internal clock.
+// After one selection the display returns to the main screen (mode 5).
+//
+void clock_source_events() {
+  if (dpad_up_flag == true) {
+    dpad_up_flag = false;
+    setExternalClockMode(true);
+    timing_mode = 5;
+    clear_the_lcd = true;
+    update_line1 = true;
+    lcdflag = 255;
+    next_lcdflag = 255;
+  }
+  if (dpad_down_flag == true) {
+    dpad_down_flag = false;
+    setExternalClockMode(false);
+    timing_mode = 5;
+    clear_the_lcd = true;
+    update_line1 = true;
+    lcdflag = 255;
+    next_lcdflag = 255;
+  }
 }

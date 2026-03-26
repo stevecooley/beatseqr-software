@@ -1,5 +1,12 @@
 void run_voice_slider_routine()
 {
+  // Rate-limit ADC reads to every 20 ms.
+  // 16 analogRead() calls on SAMD51 take ~160–800 µs and are the dominant
+  // source of main-loop jitter. Sliders don't need sub-20ms update rates.
+  static unsigned long last_slider_ms = 0;
+  unsigned long now_ms = millis();
+  if (now_ms - last_slider_ms < 20) return;
+  last_slider_ms = now_ms;
 
   // voice select sliders
 

@@ -21,11 +21,12 @@ void listen_for_transport_events() {
       lcd.print("?0");            // play
       Serial.println("?0");       // play
 
-      // start the outbound midi clock
-
-      clockStart();
+      // In external clock mode the host is the master; don't send transport.
+      if (!external_clock_mode) clockStart();
       // start the sequencer
       seq.start();
+      // Synchronise TC4 counter (internal mode only; TC4 is stopped in ext mode).
+      if (!external_clock_mode) resetSequencerTimerSync();
 
       // turn on the chase lights, I guess? I mean there might be times you
       // wouldn't want this to always happen. *sigh*
@@ -47,8 +48,7 @@ void listen_for_transport_events() {
       lcd.print("?7");            // stop
       Serial.println("?7");       // stop
 
-      // stop the outbound midi clock
-      clockStop();
+      if (!external_clock_mode) clockStop();
 
       // flush
       MidiUSB.flush();
@@ -78,10 +78,10 @@ void listen_for_transport_events() {
       lcd.print("?0");            // play
       Serial.println("?0");       // play
 
-      // start the outbound midi clock
-      clockStart();
+      if (!external_clock_mode) clockStart();
       // start the sequencer
       seq.start();
+      if (!external_clock_mode) resetSequencerTimerSync();
 
       // turn on the chase lights, I guess? I mean there might be times you
       // wouldn't want this to always happen. *sigh*
@@ -103,8 +103,7 @@ void listen_for_transport_events() {
       lcd.print("?7");            // stop
       Serial.println("?7");       // stop
 
-      // stop the outbound midi clock
-      clockStop();
+      if (!external_clock_mode) clockStop();
       // stop the sequencer
       seq.stop();
 
