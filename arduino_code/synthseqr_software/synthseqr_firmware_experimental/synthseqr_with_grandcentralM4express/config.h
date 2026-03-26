@@ -44,6 +44,19 @@ int voice_slider_midivelocity[16];
 int voice_slider_midicc[16];
 int voice_slider_midinotenum[16] = {36, 37, 38, 39, 40, 41, 42, 43,
                                     44, 45, 46, 47, 48, 49, 50, 51};
+
+// Per-pattern saved pitches. Updated whenever a slider moves (after pickup).
+// Restored when switching patterns so each pattern remembers its own tuning.
+uint8_t pattern_step_pitches[4][16] = {
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51}
+};
+
+// When true for a step, that slider must physically reach the stored pitch
+// before it takes control. Set on pattern switch; cleared per-slider on pickup.
+bool slider_needs_pickup[16];
 int voice_slider_midichannel[16] = {1, 1, 1, 1, 1, 1, 1, 1,
                                     1, 1, 1, 1, 1, 1, 1, 1};
 

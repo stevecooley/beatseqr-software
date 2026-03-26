@@ -60,6 +60,8 @@ class Button
 
     bool operator==(Button &rhs);
 
+    void setDebounceDelay(unsigned int ms);
+
   private:
     uint8_t pin;
     uint8_t mode;
@@ -72,6 +74,8 @@ class Button
     buttonEventHandler cb_onHold;
     unsigned int numberOfPresses;
     bool triggeredHoldEvent;
+    unsigned long _debounce_until;
+    unsigned int  _debounce_delay;
 };
 
 #endif

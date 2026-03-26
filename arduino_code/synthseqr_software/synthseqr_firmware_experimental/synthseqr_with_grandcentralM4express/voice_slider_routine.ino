@@ -16,10 +16,21 @@ void run_voice_slider_routine()
     // get the raw value
     raw_voice_slider_values[j] = map(voice_sliders[j].getSector(), 0, 255, slider_map_low_value, slider_map_high_value);
 
-    if (raw_voice_slider_values[j] != voice_slider_midinotenum[j])
+    if (slider_needs_pickup[j])
+    {
+      // After a pattern switch the slider is locked to the stored pitch.
+      // Unlock when the physical position comes within 1 note of that pitch.
+      if (abs((int)raw_voice_slider_values[j] - (int)voice_slider_midinotenum[j]) <= 1)
+      {
+        slider_needs_pickup[j] = false;
+      }
+    }
+    else if (raw_voice_slider_values[j] != voice_slider_midinotenum[j])
     {
       voice_slider_midinotenum[j] = raw_voice_slider_values[j];
       voice_slider_values[j] = raw_voice_slider_values[j];
+      // Persist pitch for this pattern so it survives future pattern switches.
+      pattern_step_pitches[pattern_value][j] = (uint8_t)raw_voice_slider_values[j];
     }
 
     last_voice_slider_values[j] = voice_slider_values[j];
@@ -54,6 +65,8 @@ void resetSliders()
   for (int i = 0; i <= 15; i++)
   {
     voice_slider_midinotenum[i] = notenum_count_up_from + i;
+    pattern_step_pitches[pattern_value][i] = notenum_count_up_from + i;
+    slider_needs_pickup[i] = false;
     slider_serial_message_factory("NN", i);
     slider_serial_message_factory("CC", i);
     slider_serial_message_factory("VL", i);

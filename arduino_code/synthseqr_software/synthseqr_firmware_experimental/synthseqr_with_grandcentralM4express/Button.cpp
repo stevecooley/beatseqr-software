@@ -48,6 +48,8 @@ Button::Button(uint8_t buttonPin, uint8_t buttonMode)
 
   numberOfPresses = 0;
   triggeredHoldEvent = true;
+  _debounce_until = 0;
+  _debounce_delay = 20;  // 20 ms debounce window — covers typical mechanical bounce
 }
 
 /*
@@ -84,6 +86,16 @@ void Button::pulldown(void)
 */
 bool Button::isPressed(void)
 {
+  unsigned long now = millis();
+
+  // Within the debounce window: freeze state and report no change.
+  // This swallows electrical bounce that follows a real press or release.
+  if (now < _debounce_until)
+  {
+    bitWrite(state, CHANGED, false);
+    return bitRead(state, CURRENT);
+  }
+
   //save the previous value
   bitWrite(state, PREVIOUS, bitRead(state, CURRENT));
 
@@ -102,11 +114,14 @@ bool Button::isPressed(void)
   //handle state changes
   if (bitRead(state, CURRENT) != bitRead(state, PREVIOUS))
   {
+    // Start debounce window on any real transition
+    _debounce_until = now + _debounce_delay;
+
     //the state changed to PRESSED
     if (bitRead(state, CURRENT) == true)
     {
       numberOfPresses++;
-      pressedStartTime = millis();             //start timing
+      pressedStartTime = now;
       triggeredHoldEvent = false;
 
       if (cb_onPress)
@@ -138,7 +153,7 @@ bool Button::isPressed(void)
     //should we trigger a onHold event?
     if (pressedStartTime != -1 && !triggeredHoldEvent)
     {
-      if (millis() - pressedStartTime > holdEventThreshold)
+      if (now - pressedStartTime > holdEventThreshold)
       {
         if (cb_onHold)
         {
@@ -229,6 +244,11 @@ bool Button::heldFor(unsigned int time)
 void Button::setHoldThreshold(unsigned int holdTime)
 {
   holdEventThreshold = holdTime;
+}
+
+void Button::setDebounceDelay(unsigned int ms)
+{
+  _debounce_delay = ms;
 }
 
 /*
