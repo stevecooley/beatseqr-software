@@ -34,17 +34,26 @@ void read_midi()
       */
       if (rx.byte1 == CLOCKBYTE)
       {
-        // forward clock pulse
-        clockPulse();
-
-        clock_pulse_count++;
-        if (clock_pulse_count > 5)
+        if (external_clock_mode)
         {
-          clock_pulse_count = 0;
-          current_step++;
-          if (current_step > 15)
+          // Slave mode: let incoming clock drive the sequencer directly.
+          // TC4 is stopped, so this is the only clock source.
+          seq.hardwareClockPulse();
+        }
+        else
+        {
+          // Master mode: forward our own outgoing clock pulse.
+          clockPulse();
+
+          clock_pulse_count++;
+          if (clock_pulse_count > 5)
           {
-            current_step = 0;
+            clock_pulse_count = 0;
+            current_step++;
+            if (current_step > 15)
+            {
+              current_step = 0;
+            }
           }
         }
       }

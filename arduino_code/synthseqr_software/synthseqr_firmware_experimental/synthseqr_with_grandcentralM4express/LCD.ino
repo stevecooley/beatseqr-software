@@ -287,14 +287,16 @@ void run_LCD_update() {
       if (update_line2 == true) {
         Serial.println("update line 2");
         update_line2 = false;
-        lcd.print("?x00?y1");       // move cursor to beginning of line 0
-        Serial.println("?x00?y1");  // move cursor to beginning of line 0
-        // 15 swing
+        lcd.print("?x00?y1");
+        Serial.println("?x00?y1");
         lcd.print("s");
-        Serial.println("s");
-        // 16 swing value
         lcd.print(SWING);
-        Serial.println(SWING);
+        lcd.print(" clk:");
+        lcd.print(external_clock_mode ? "ext" : "int");
+        Serial.print("s");
+        Serial.print(SWING);
+        Serial.print(" clk:");
+        Serial.println(external_clock_mode ? "ext" : "int");
       }
 
       // cursor set!!

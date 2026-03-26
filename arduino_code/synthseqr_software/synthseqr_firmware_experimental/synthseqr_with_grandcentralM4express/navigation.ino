@@ -120,13 +120,6 @@ void listen_for_navigation_events() {
 }
 
 void switch_timing_mode_events() {
-  // If navigating away from clock source mode, restore main display.
-  if (timing_mode != 6 && lcdflag == 202) {
-    clear_the_lcd = true;
-    lcdflag = 255;
-    next_lcdflag = 255;
-    update_line1 = true;
-  }
   switch (timing_mode) {
     case 1:  //
     {
@@ -160,9 +153,10 @@ void switch_timing_mode_events() {
       cursor_x = 1;
       cursor_y = 1;
       break;
-    case 6:  // clock source (INT/EXT)
-      lcdflag = 202;
-      next_lcdflag = 202;
+    case 6:  // clock source (int/ext) — cursor on the value after "clk:"
+      cursor_x = 7;
+      cursor_y = 1;
+      update_line2 = true;
       break;
   }
   // update the cursor position
@@ -248,25 +242,19 @@ void setExternalClockMode(bool enable) {
 //
 // Called from listen_for_navigation_events() when timing_mode == 6.
 // Up = external clock, down = internal clock.
-// After one selection the display returns to the main screen (mode 5).
+// Shown inline on line 2 as "clk:int" or "clk:ext" after the swing value.
 //
 void clock_source_events() {
   if (dpad_up_flag == true) {
     dpad_up_flag = false;
     setExternalClockMode(true);
-    timing_mode = 5;
-    clear_the_lcd = true;
-    update_line1 = true;
-    lcdflag = 255;
-    next_lcdflag = 255;
+    update_line2 = true;
+    cursor_flag = true;
   }
   if (dpad_down_flag == true) {
     dpad_down_flag = false;
     setExternalClockMode(false);
-    timing_mode = 5;
-    clear_the_lcd = true;
-    update_line1 = true;
-    lcdflag = 255;
-    next_lcdflag = 255;
+    update_line2 = true;
+    cursor_flag = true;
   }
 }

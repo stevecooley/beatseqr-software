@@ -49,17 +49,8 @@ void listen_for_transport_events() {
       Serial.println("?7");       // stop
 
       if (!external_clock_mode) clockStop();
-
-      // flush
-      MidiUSB.flush();
-
-      // stop the internal sequencer
       seq.stop();
-
-      // experimental to see if this can help prevent the last note from being held open. Midi.flush should have done it??
-      if (step_data[pattern_value][0][last_step] == 1) {
-        noteOff(MIDICHANNEL - 1, voice_slider_midinotenum[last_step], 0);
-      }
+      allNotesOff();
 
     } else if (midistarted == true) {
       // stand down the event flag, we got this
@@ -104,8 +95,8 @@ void listen_for_transport_events() {
       Serial.println("?7");       // stop
 
       if (!external_clock_mode) clockStop();
-      // stop the sequencer
       seq.stop();
+      allNotesOff();
 
       // turn on the chase lights, I guess? I mean there might be times you
       // wouldn't want this to always happen. *sigh*
@@ -131,19 +122,36 @@ void run_chase_lights(unsigned int this_step) {
   }
 }
 
-void stepsend(int current_step, int last_step) {
-  // current_step = seq.getPosition();
+// allNotesOff()
+//
+// Sends note-off for every step that is currently sounding, using the exact
+// pitch that was sent in the note-on. Safe to call on stop, pattern change,
+// or any other situation where notes might be left open.
+//
+void allNotesOff() {
+  for (int i = 0; i < 16; i++) {
+    if (sounding_notes[i] >= 0) {
+      noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[i], 0);
+      sounding_notes[i] = -1;
+    }
+  }
+  MidiUSB.flush();
+}
 
+void stepsend(int current_step, int last_step) {
   run_chase_lights(seq.getPosition());
 
-  // Guard against out-of-bounds on the first callback after start(),
+  // Note-off for the previous step using the pitch that was actually played.
+  // Guards against out-of-bounds on the first callback after start()
   // where last_step arrives as 255 (byte wrap of -1 sentinel).
-  if (last_step >= 0 && last_step < 16 && step_data[pattern_value][0][last_step] == 1) {
-    noteOff(MIDICHANNEL - 1, voice_slider_midinotenum[last_step], 0);
+  if (last_step >= 0 && last_step < 16 && sounding_notes[last_step] >= 0) {
+    noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[last_step], 0);
+    sounding_notes[last_step] = -1;
   }
 
   if (step_data[pattern_value][0][current_step] == 1) {
-    noteOn(MIDICHANNEL - 1, voice_slider_midinotenum[current_step], 127);
+    uint8_t pitch = voice_slider_midinotenum[current_step];
+    noteOn(MIDICHANNEL - 1, pitch, 127);
+    sounding_notes[current_step] = (int8_t)pitch;
   }
-  return;
 }

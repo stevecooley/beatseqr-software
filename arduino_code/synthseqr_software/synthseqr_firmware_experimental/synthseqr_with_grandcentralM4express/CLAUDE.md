@@ -32,14 +32,15 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 |------|------|
 | `synthseqr_with_grandcentralM4express.ino` | `setup()` and `loop()` — polls all subsystems in order |
 | `config.h` | All global state: pin definitions, arrays, library includes |
-| `transport.ino` | Play/stop button, MIDI clock output |
+| `transport.ino` | Play/stop button, MIDI clock output, `stepsend()` callback, `allNotesOff()` |
 | `midi_processor.ino` | MIDI input: clock sync (0xF8), start (0xFA), stop (0xFC) |
-| `navigation.ino` | D-pad + enter button: adjusts tempo and swing |
+| `navigation.ino` | D-pad + enter button: adjusts tempo, swing, and clock source |
+| `sequencer_timer.ino` | TC4 hardware timer driver: setup, period update, stop/start, ISR |
 | `step_button_routine.ino` | Step button presses, LED toggling, pattern clear |
 | `voice_slider_routine.ino` | Reads 16 analog sliders → MIDI note numbers |
 | `pattern_select_routine.ino` | Pattern switching, copy, and 4-pattern chain mode |
 | `LCD.ino` | LCD initialization and display updates |
-| `midi_note_sending.ino` | `stepsend()` callback: fires note on/off per step |
+| `midi_note_sending.ino` | `step()` blink callback and `midi()` MIDI clock output callback |
 | `diagnostics.ino` | Hardware test mode (hold Play + Enter 2s to activate) |
 
 **HAL classes** (Button, LED, Potentiometer) provide debouncing and event helpers used throughout.
@@ -48,21 +49,36 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 
 ```cpp
 // In config.h:
-bool step_data[4][1][16]           // [pattern][voice][step] — on/off for each step
+bool step_data[4][1][16]             // [pattern][voice][step] — on/off for each step
 uint8_t voice_slider_midinotenum[16] // MIDI note per slider (default 36–51)
-uint8_t current_pattern            // Active pattern 0–3
-bool playstatus                    // Is sequencer playing?
-float TEMPO                        // BPM (10–250)
-uint8_t SWING                      // 0–6
-uint8_t lcdflag                    // LCD display mode selector
+uint8_t current_pattern              // Active pattern 0–3
+bool playstatus                      // Is sequencer playing?
+float TEMPO                          // BPM (10–250)
+uint8_t SWING                        // 0–6
+uint8_t lcdflag                      // LCD display mode selector
+bool external_clock_mode             // false = internal TC4, true = follow USB-MIDI clock
+int8_t sounding_notes[16]           // pitch currently sounding per step (-1 = silent)
 ```
 
 ## Sequencer Flow
 
 1. `seq.run()` (FifteenStep) ticks the sequencer on each `loop()` call
-2. On each step change, `stepsend(current_step, last_step)` fires as a callback
-3. `stepsend()` sends note-off for the previous step, note-on for the current step (if `step_data[pattern][0][step] == 1`), and updates chase lights
-4. MIDI external sync: incoming 0xF8 clock pulses are counted; every 6 pulses advances one step
+2. Timing is driven by the **TC4 hardware timer** (internal mode) or **incoming USB-MIDI 0xF8** (external mode) — both call `seq.hardwareClockPulse()` which sets volatile flags; `seq.run()` processes those flags in main-loop context
+3. On each step change, `stepsend(current_step, last_step)` fires as the step callback
+4. `stepsend()` sends note-off for the previous step using `sounding_notes[last_step]` (the exact pitch that was played), note-on for the current step, records the new pitch in `sounding_notes[current_step]`, and updates chase lights
+5. On stop (play button or MIDI stop), `allNotesOff()` sends note-off for every entry in `sounding_notes[]` and clears the array
+
+## Hardware Timer (TC4)
+
+The sequencer uses the SAMD51's TC4 peripheral in 16-bit MFRQ mode for drift-free timing. Key details:
+
+- Clock: GCLK0 (120 MHz) / prescaler 1024 → 8.533 µs/tick
+- The ISR (`TC4_Handler`) only sets two `volatile bool` flags — no USB or MIDI in ISR context
+- `setupSequencerTimer(us)` — call once from `setup()`
+- `setSequencerTimerPeriod(us)` — call after every `seq.setTempo()` to update without stopping
+- `resetSequencerTimerSync()` — resets TC4 counter to zero on play-start for phase alignment
+- `stopSequencerTimer()` / `startSequencerTimer()` — used when switching to/from external clock mode
+- CMSIS-Atmel 1.2.2 (Adafruit SAMD 1.7.17) is missing `MCLK_APBDMASK_TC4`; the raw bit `(1ul << 5)` is used instead (SAMD51P20A datasheet Table 14-8)
 
 ## Key Hardware Details
 
@@ -73,12 +89,28 @@ uint8_t lcdflag                    // LCD display mode selector
 
 ## Navigation / Timing Modes
 
-D-pad left/right cycles through 5 `timing_mode` values controlling what up/down adjusts:
+D-pad left/right cycles through 6 `timing_mode` values controlling what up/down adjusts:
 1. ±10 BPM
 2. ±1 BPM
 3. ±0.1 BPM
 4. ±0.01 BPM
 5. Swing (0–6)
+6. Clock source (up = EXT, down = INT)
+
+Modes 5 and 6 are both shown on LCD line 2 as `s0 clk:int` / `s0 clk:ext`. The cursor sits on the swing digit in mode 5, and on the `int`/`ext` value in mode 6. Switching clock source via mode 6 calls `setExternalClockMode()` which stops or starts TC4 as needed.
+
+## External MIDI Clock Mode
+
+When `external_clock_mode == true`:
+- TC4 is stopped (`stopSequencerTimer()`)
+- Incoming USB-MIDI 0xF8 bytes in `read_midi()` call `seq.hardwareClockPulse()` directly
+- Transport messages (0xFA start, 0xFC stop) still start/stop the sequencer
+- The sequencer does NOT output MIDI clock or transport messages (it is a follower)
+- The play button still works as a local arm/start
+
+When `external_clock_mode == false` (default):
+- TC4 drives `hardwareClockPulse()` from its ISR at the rate set by `TEMPO`
+- Sequencer outputs MIDI clock (0xF8), start (0xFA), and stop (0xFC)
 
 ## Pattern Operations
 

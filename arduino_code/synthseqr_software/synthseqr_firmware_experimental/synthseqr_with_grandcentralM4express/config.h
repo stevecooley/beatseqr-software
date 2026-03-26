@@ -7,7 +7,7 @@
 #include "PString.h"
 #include "Potentiometer.h"
 
-const char* firmware_version_number = "2.1";
+const char* firmware_version_number = "2.2";
 const char* hardware_version_number = "1.0";
 
 uint8_t last_voice_selected = 0;
@@ -237,6 +237,11 @@ uint8_t lastInByte;
 uint8_t current_step;
 uint8_t last_step = 15;
 
+// Tracks the MIDI pitch actually sent for each step so note-off always
+// uses the exact pitch from the note-on, regardless of slider changes.
+// -1 means the step is not currently sounding.
+int8_t sounding_notes[16] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+
 //////////////////////////////////
 //
 // voice modes.. um.. not sure what we're doing here yet
@@ -248,3 +253,11 @@ uint8_t voice_mode_total = 3;
 
 uint8_t voice_mode_pulse_counter = 1;
 uint8_t pulse_adder = 1;
+
+/////////////////////////////////
+// clock source
+/////////////////////////////////
+
+// false = internal TC4 hardware timer (default)
+// true  = follow incoming USB-MIDI clock (0xF8 / 0xFA / 0xFC)
+bool external_clock_mode = false;
