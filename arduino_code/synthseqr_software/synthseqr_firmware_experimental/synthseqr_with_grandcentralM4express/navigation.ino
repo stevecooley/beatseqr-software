@@ -25,6 +25,7 @@ void listen_for_navigation_events() {
         clear_the_lcd = true;
         enterbutton_LED.toggle();
         update_line1 = true;
+        update_line2 = true;
         lcdflag = 255;
         next_lcdflag = 255;
       }
@@ -203,9 +204,6 @@ void swing_events() {
   }
   if (dpad_up_flag == true) {
     dpad_up_flag = false;
-
-    lcd.print("?x01?y1");
-    Serial.println("?x01?y1");
 
     if (SWING < 6) {
       SWING++;

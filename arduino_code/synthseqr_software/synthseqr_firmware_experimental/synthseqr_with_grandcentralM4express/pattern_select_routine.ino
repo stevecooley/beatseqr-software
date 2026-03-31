@@ -23,28 +23,10 @@ void run_pattern_select_routine() {
     if (extended_step_length_mode == 1) {
       lcdflag = 200;  // pattern chain single
       extended_step_length_mode = 0;
-      pattern_select_leds[0].on();
-      pattern_select_leds[1].on();
-      pattern_select_leds[2].on();
-      pattern_select_leds[3].on();
-      delay(10);
-      pattern_select_leds[3].off();
-      pattern_select_leds[2].off();
-      pattern_select_leds[1].off();
-      pattern_select_leds[0].off();
       go_to_pattern(0, 1);
     } else {
       lcdflag = 201;  // pattern chain 4
       extended_step_length_mode = 1;
-      pattern_select_leds[0].off();
-      pattern_select_leds[1].off();
-      pattern_select_leds[2].off();
-      pattern_select_leds[3].off();
-      delay(10);
-      pattern_select_leds[0].on();
-      pattern_select_leds[1].on();
-      pattern_select_leds[2].on();
-      pattern_select_leds[3].on();
       go_to_pattern(0, 1);
     }
   }

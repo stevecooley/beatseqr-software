@@ -85,20 +85,21 @@ void run_LCD_setup_routine() {
 }
 
 void run_LCD_update() {
-  // lcd.print(lcdflag);
-  // Serial.print("lcdflag :");
-  // Serial.println(lcdflag);
-  // lcd.print(" ");
-  // Serial.println(" ");
-  // lcd.print(seq.getbeatlength());
-  // Serial.println(seq.getbeatlength());
-  // maybe we only periodically clear the screen
-  if (clear_the_lcd == true)  // something changed
+  // Rate-limit all LCD writes to ~15 fps (every 66 ms).
+  // The LCD serial port is only 9850 baud (~985 bytes/sec). Without this gate
+  // the main loop floods the LCD's receive buffer and produces garbage output.
+  // Flag-driven updates (update_line1, update_line2) are still processed every
+  // frame — they just can't arrive faster than the LCD can handle.
+  static unsigned long last_lcd_ms = 0;
+  unsigned long now_ms = millis();
+  if (now_ms - last_lcd_ms < 66) return;
+  last_lcd_ms = now_ms;
+
+  if (clear_the_lcd == true)
   {
-    // stand down
     clear_the_lcd = false;
-    lcd.print("?f");       // clear the lcd
-    Serial.println("?f");  // clear the lcd
+    lcd.print("?f");
+    Serial.println("?f");
   }
 
   if (next_lcdflag != lcdflag) {
@@ -194,13 +195,14 @@ void run_LCD_update() {
     }
     case 93:  // reset voice_slider_values
     {
-      lcd.print("?f");            // clear the LCD
-      Serial.println("?f");       // clear the LCD
-      lcd.print("?x00?y0");       // move cursor to beginning of line 1
-      Serial.println("?x00?y0");  // move cursor to beginning of line 1
+      lcd.print("?f");
+      Serial.println("?f");
+      lcd.print("?x00?y0");
+      Serial.println("?x00?y0");
       lcd.print("notenum reset");
       Serial.println("notenum reset");
-      next_lcdflag = 93;
+      next_lcdflag = 255;  // return to main display after showing once
+      break;               // was missing — caused fall-through into case 100
     }
     case 100:  // pattern copy
     {
@@ -233,26 +235,22 @@ void run_LCD_update() {
           255;  // here's why... we can escape from one LCD mode to another
       break;
     }
-    case 200:  // pattern chain single
+    case 200:  // pattern chain single — show once then return to main display
     {
-      // lcd.print("?f");      // clear the lcd
-      Serial.println("?f");       // clear the lcd
-      lcd.print("?x00?y0");       // move cursor to beginning of line 1
-      Serial.println("?x00?y0");  // move cursor to beginning of line 1
-      lcd.print("single");
+      lcd.print("?x00?y0");
+      Serial.println("?x00?y0");
+      lcd.print("single  ");
       Serial.println("single");
-      next_lcdflag = 200;
+      next_lcdflag = 255;
       break;
     }
-    case 201:  // pattern chain 4
+    case 201:  // pattern chain 4 — show once then return to main display
     {
-      // lcd.print("?f");      // clear the lcd
-      Serial.println("?f");       // clear the lcd
-      lcd.print("?x00?y0");       // move cursor to beginning of line 1
-      Serial.println("?x00?y0");  // move cursor to beginning of line 1
+      lcd.print("?x00?y0");
+      Serial.println("?x00?y0");
       lcd.print("chain 4 ");
-      Serial.println("chain 4 ");
-      next_lcdflag = 201;
+      Serial.println("chain 4");
+      next_lcdflag = 255;
       break;
     }
     case 255:
@@ -262,7 +260,7 @@ void run_LCD_update() {
         update_line1 = false;
 
         // prep the string
-        sprintf(lcd_line1, " C%02d %s%u T%.2f", MIDICHANNEL, voicemodechar,
+        sprintf(lcd_line1, " C%02d %s%u T%6.2f", MIDICHANNEL, voicemodechar,
                 voice_mode, seq.getTempo());
 
         Serial.println(lcd_line1);

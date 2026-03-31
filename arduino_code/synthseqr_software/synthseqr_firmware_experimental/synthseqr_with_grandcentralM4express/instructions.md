@@ -128,7 +128,7 @@ Press **pattern buttons 1 and 4 simultaneously** to toggle chain mode.
 
 - **Chain on** (`chain 4` on LCD): patterns auto-advance 1 → 2 → 3 → 4 → 1 ... each time step 15 is reached.
 - **Chain off** (`single` on LCD): only the active pattern plays on loop.
-- LED flash confirms the mode change.
+- The LCD briefly shows the new mode (`chain 4` or `single`) as confirmation.
 
 ---
 
