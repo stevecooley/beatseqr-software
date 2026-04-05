@@ -37,6 +37,9 @@ long Round(T x) {
 
 void setup() {
   Serial.begin(57600);
+  // Initialize Serial1 (LCD TX) immediately so the TX line idles HIGH
+  // during the startup delay. Without this, pin 1 floats or sits LOW,
+  // which the LCD can misinterpret as a break or garbage before init.
   lcd.begin(9850);
 
   delay(500);
@@ -48,6 +51,10 @@ void setup() {
   seq.stop();
   seq.setMidiHandler(midi);
   seq.setStepHandler(stepsend);
+
+  // Hardware interrupt for play button — fires immediately on press (falling
+  // edge), independent of loop() timing. Debounce is handled in the ISR.
+  attachInterrupt(digitalPinToInterrupt(21), playButtonISR, FALLING);
 
   // Enable hardware timer mode and start TC4.
   // The timer fires at the MIDI clock rate (24x per quarter note) regardless
@@ -95,8 +102,13 @@ void loop() {
     enterbutton_flag = true;
   }
 
-  if (playbutton.uniquePress()) {
-    Serial.println("listening for play button events");
+  // Keep Button state current for heldFor() (diagnostics combo).
+  playbutton.isPressed();
+  // Use the hardware interrupt flag for play press detection — much more
+  // responsive than polling uniquePress() through the main loop.
+  if (play_button_isr_fired) {
+    play_button_isr_fired = false;
+    Serial.println("play button interrupt fired");
     playbutton_flag = true;
   }
 
@@ -122,7 +134,7 @@ void loop() {
     if (pattern_select_buttons[i].heldFor(2000)) {
       // Serial.print(last_serial);
       told_which_pattern_to_copy_to =
-          false;      // this is us being told to copy the pattern
+          true;       // this is us being told to copy the pattern
       lcdflag = 100;  // pattern copy
     }
   }

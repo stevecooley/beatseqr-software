@@ -1,3 +1,19 @@
+// Hardware interrupt for the play button (pin 21, PULLUP).
+// The ISR fires on the falling edge (press) and sets a volatile flag with a
+// 50 ms debounce guard. The main loop reads the flag and sets playbutton_flag.
+// millis() is safe to read here on SAMD51 — SysTick runs at higher priority
+// than user interrupt lines so it keeps incrementing inside the EIC ISR.
+volatile bool play_button_isr_fired = false;
+volatile unsigned long play_button_last_isr_ms = 0;
+
+void playButtonISR() {
+  unsigned long now = millis();
+  if (now - play_button_last_isr_ms >= 100) {
+    play_button_last_isr_ms = now;
+    play_button_isr_fired = true;
+  }
+}
+
 void listen_for_delay_tasks() {}
 
 void listen_for_transport_events() {
@@ -153,5 +169,19 @@ void stepsend(int current_step, int last_step) {
     uint8_t pitch = voice_slider_midinotenum[current_step];
     noteOn(MIDICHANNEL - 1, pitch, 127);
     sounding_notes[current_step] = (int8_t)pitch;
+  }
+
+  // Apply swing by alternating TC4 clock periods.
+  // FifteenStep's setShuffle() is a no-op in hardware timer mode, so we
+  // implement swing here: even steps get a longer gap to the next (odd) step,
+  // odd steps get a shorter gap back. Total time per pair stays the same.
+  // SWING=0 → straight (both multipliers = 6/6 = 1). SWING=6 → extreme.
+  if (!external_clock_mode) {
+    unsigned long base_us = 60000000UL / (unsigned long)TEMPO / 24UL;
+    if (current_step % 2 == 0) {
+      setSequencerTimerPeriod(base_us * (6 + SWING) / 6);
+    } else {
+      setSequencerTimerPeriod(base_us * (6 - SWING) / 6);
+    }
   }
 }

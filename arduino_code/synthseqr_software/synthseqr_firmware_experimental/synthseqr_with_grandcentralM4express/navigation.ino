@@ -14,7 +14,7 @@ void listen_for_navigation_events() {
       // mode switching
       if (dpad_right_flag == true) {
         dpad_right_flag = false;
-        if (timing_mode < 6) {
+        if (timing_mode < 8) {
           timing_mode++;
         }
         switch_timing_mode_events();
@@ -32,33 +32,29 @@ void listen_for_navigation_events() {
 
       if ((dpad_up_flag == true) || (dpad_down_flag == true)) {
         switch (timing_mode) {
-          case 1: {
+          case 1: {  // pattern select
+            pattern_select_events();
+            break;
+          }
+          case 2:  // ±10 BPM
+          case 3:  // ±1 BPM
+          case 4:  // ±0.1 BPM
+          case 5: {  // ±0.01 BPM
             switch_timing_mode_events();
             set_timing_resolution();
             break;
           }
-          case 2: {
-            switch_timing_mode_events();
-            set_timing_resolution();
-            break;
-          }
-          case 3: {
-            switch_timing_mode_events();
-            set_timing_resolution();
-            break;
-          }
-          case 4: {
-            switch_timing_mode_events();
-            set_timing_resolution();
-            break;
-          }
-          case 5: {
+          case 6: {  // swing
             swing_events();
             switch_timing_mode_events();
             break;
           }
-          case 6: {
+          case 7: {  // clock source
             clock_source_events();
+            break;
+          }
+          case 8: {  // MIDI channel
+            midi_channel_events();
             break;
           }
         }
@@ -122,42 +118,42 @@ void listen_for_navigation_events() {
 
 void switch_timing_mode_events() {
   switch (timing_mode) {
-    case 1:  //
-    {
+    case 1:  // pattern select — cursor on pattern digit
+      cursor_x = LCD_L1_X_PATTERN;
+      cursor_y = 0;
+      break;
+    case 2:  // ±10 BPM
       timing_resolution = 10.0;
-      cursor_x = 11;
+      cursor_x = LCD_L1_X_TEMPO_10;
       cursor_y = 0;
       break;
-    }
-    case 2:  //
-    {
+    case 3:  // ±1 BPM
       timing_resolution = 1.0;
-      cursor_x = 12;
+      cursor_x = LCD_L1_X_TEMPO_1;
       cursor_y = 0;
       break;
-    }
-    case 3:  //
-    {
+    case 4:  // ±0.1 BPM
       timing_resolution = 0.1;
-      cursor_x = 14;
+      cursor_x = LCD_L1_X_TEMPO_01;
       cursor_y = 0;
       break;
-    }
-    case 4:  //
-    {
+    case 5:  // ±0.01 BPM
       timing_resolution = 0.01;
-      cursor_x = 15;
+      cursor_x = LCD_L1_X_TEMPO_001;
       cursor_y = 0;
       break;
-    }
-    case 5:  // swing
-      cursor_x = 1;
+    case 6:  // swing — cursor on swing digit
+      cursor_x = LCD_L2_X_SWING;
       cursor_y = 1;
       break;
-    case 6:  // clock source (int/ext) — cursor on the value after "clk:"
-      cursor_x = 7;
+    case 7:  // clock source — cursor on int/ext value; redraw line 2
+      cursor_x = LCD_L2_X_CLOCK;
       cursor_y = 1;
       update_line2 = true;
+      break;
+    case 8:  // MIDI channel — cursor on channel digits
+      cursor_x = LCD_L2_X_MIDICHAN;
+      cursor_y = 1;
       break;
   }
   // update the cursor position
@@ -234,6 +230,63 @@ void setExternalClockMode(bool enable) {
   }
   Serial.print("clock mode: ");
   Serial.println(external_clock_mode ? "EXT" : "INT");
+}
+
+// pattern_select_events()
+//
+// Called from listen_for_navigation_events() when timing_mode == 8.
+// Up advances to the next pattern (wraps 4→1), down goes to the previous
+// (wraps 1→4). Delegates to go_to_pattern() so LEDs, step display, and
+// slider pickup arming all behave the same as pressing a pattern button.
+//
+void pattern_select_events() {
+  if (dpad_up_flag == true) {
+    dpad_up_flag = false;
+    uint8_t next = (current_pattern + 1) % 4;
+    go_to_pattern(next, 0);
+    read_step_memory(0, next);
+    cursor_x = 7;
+    cursor_y = 0;
+    cursor_flag = true;
+  }
+  if (dpad_down_flag == true) {
+    dpad_down_flag = false;
+    uint8_t next = (current_pattern + 3) % 4;  // -1 with wrap
+    go_to_pattern(next, 0);
+    read_step_memory(0, next);
+    cursor_x = 7;
+    cursor_y = 0;
+    cursor_flag = true;
+  }
+}
+
+// midi_channel_events()
+//
+// Called from listen_for_navigation_events() when timing_mode == 7.
+// Up increments MIDI channel (max 16), down decrements (min 1).
+// Line 1 redraws to show the updated "C%02d" value.
+//
+void midi_channel_events() {
+  if (dpad_up_flag == true) {
+    dpad_up_flag = false;
+    if (MIDICHANNEL < 16) {
+      MIDICHANNEL++;
+    }
+    update_line2 = true;
+    cursor_flag = true;
+    Serial.print("MIDI channel: ");
+    Serial.println(MIDICHANNEL);
+  }
+  if (dpad_down_flag == true) {
+    dpad_down_flag = false;
+    if (MIDICHANNEL > 1) {
+      MIDICHANNEL--;
+    }
+    update_line2 = true;
+    cursor_flag = true;
+    Serial.print("MIDI channel: ");
+    Serial.println(MIDICHANNEL);
+  }
 }
 
 // clock_source_events()

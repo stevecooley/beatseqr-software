@@ -168,6 +168,18 @@ char* step_padding;
 
 #define lcd Serial1
 
+// LCD field cursor positions — update these if the display format changes.
+// Line 1: [icon] [space] P{pattern} T{tempo}
+#define LCD_L1_X_PATTERN    3   // pattern digit in "P%u" (icon+space+P+digit)
+#define LCD_L1_X_TEMPO_10   7   // tempo hundreds/tens digit (±10 BPM)
+#define LCD_L1_X_TEMPO_1    8   // tempo units digit (±1 BPM)
+#define LCD_L1_X_TEMPO_01   10  // tempo tenths digit, after decimal at col 9 (±0.1 BPM)
+#define LCD_L1_X_TEMPO_001  11  // tempo hundredths digit (±0.01 BPM)
+// Line 2: s{swing} clk:{int|ext} Ch{channel}
+#define LCD_L2_X_SWING      1   // swing digit in "s%d"
+#define LCD_L2_X_CLOCK      7   // first char of int/ext in "clk:%s"
+#define LCD_L2_X_MIDICHAN   13  // first channel digit in "Ch%02d"
+
 uint8_t lcdflag = 255;
 uint8_t next_lcdflag = 255;
 char lcd_line1[100];
@@ -229,7 +241,7 @@ byte last_pitch;
 FifteenStep seq = FifteenStep(1024);
 float TEMPO = 120.0;
 float timing_resolution = 1.0;
-uint8_t timing_mode = 1;
+uint8_t timing_mode = 2;  // default: ±10 BPM (mode 2 in new visual order)
 uint8_t SWING = 0;
 uint8_t MIDICHANNEL = 2;
 String nn;
@@ -274,3 +286,7 @@ uint8_t pulse_adder = 1;
 // false = internal TC4 hardware timer (default)
 // true  = follow incoming USB-MIDI clock (0xF8 / 0xFA / 0xFC)
 bool external_clock_mode = false;
+
+// Declared in transport.ino; forward-declared here so the main sketch can
+// read the flag set by the play button hardware interrupt.
+extern volatile bool play_button_isr_fired;

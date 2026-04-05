@@ -56,26 +56,44 @@ Each of the 16 sliders sets the **MIDI pitch** for the corresponding step.
 
 ## Tempo and Swing
 
-The D-pad navigates through 6 timing modes. Press **D-pad left/right** to move between them. Press **D-pad up/down** to adjust the selected value.
+The D-pad navigates through 8 timing modes in visual left-to-right order. Press **D-pad left/right** to move between them. Press **D-pad up/down** to adjust the selected value.
 
-The current mode and its cursor position are shown on the LCD.
+The cursor on the LCD blinks on the field that up/down currently controls.
 
-| Mode (D-pad left/right) | Up/Down adjusts |
-|---|---|
-| 1 | Tempo ±10 BPM |
-| 2 | Tempo ±1 BPM |
-| 3 | Tempo ±0.1 BPM |
-| 4 | Tempo ±0.01 BPM |
-| 5 | Swing (0–6) |
-| 6 | Clock source (INT / EXT) |
+| Mode (D-pad left/right) | Up/Down adjusts | LCD location |
+|---|---|---|
+| 1 | Pattern (1–4, wraps) | Line 1 — pattern digit |
+| 2 | Tempo ±10 BPM | Line 1 — tempo hundreds/tens |
+| 3 | Tempo ±1 BPM | Line 1 — tempo units |
+| 4 | Tempo ±0.1 BPM | Line 1 — tempo tenths |
+| 5 | Tempo ±0.01 BPM | Line 1 — tempo hundredths |
+| 6 | Swing (0–6) | Line 2 — swing digit |
+| 7 | Clock source (INT / EXT) | Line 2 — int/ext value |
+| 8 | MIDI channel (1–16) | Line 2 — channel digits |
 
 **Tempo range:** 10–250 BPM
-**Swing:** 0 = straight, 6 = maximum shuffle
+**MIDI channel range:** 1–16
+**Swing:** 0 = straight, 1–2 = mild, 3 = heavy (classic triplet feel), 6 = maximum shuffle
+
+> **Note:** When swing is active, the MIDI clock output (0xF8) also swings. If you are syncing an external device to the sequencer's MIDI clock, set swing to 0.
+
+### LCD Line 1
+
+```
+[play/stop] P{pattern} T{tempo}
+```
+
+Example: `▶P1 T120.00     `
 
 ### LCD Line 2
 
-Line 2 always shows: `s0 clk:int` (swing value + clock source).
-The cursor sits on the active value as you navigate modes 5 and 6.
+```
+s{swing} clk:{int|ext} C{channel}
+```
+
+Example: `s0 clk:int C02  `
+
+Line 2 shows swing, clock source, and MIDI channel together. The cursor sits on the active value as you navigate modes 6, 7, and 8.
 
 ---
 
@@ -166,18 +184,18 @@ Calling `resetSliders()` (wired to your preferred button combo or Serial command
 ### Line 1
 
 ```
-[play/stop] [channel] [voice mode] [tempo]
+[play/stop] P[pattern] T[tempo]
 ```
 
-Example: `▶ C02 ♩1 T120.00`
+Example: `▶ P1 T120.00    `
 
 ### Line 2
 
 ```
-s[swing] clk:[int|ext]
+s[swing] clk:[int|ext] Ch[channel]
 ```
 
-Example: `s0 clk:int`
+Example: `s0 clk:int Ch02 `
 
 The cursor blinks on the field that D-pad up/down currently adjusts.
 
@@ -222,10 +240,12 @@ Connect at **57600 baud** to see:
 | Start / stop | Play button |
 | Toggle a step | Step button |
 | Set step pitch | Voice slider |
-| Adjust tempo (coarse) | D-pad left/right to mode 1–2, then up/down |
-| Adjust tempo (fine) | D-pad left/right to mode 3–4, then up/down |
-| Adjust swing | D-pad right to mode 5, then up/down |
-| Set clock source | D-pad right to mode 6, up=EXT / down=INT |
+| Select pattern (d-pad) | D-pad left to mode 1, up/down cycles patterns |
+| Adjust tempo (coarse) | D-pad right to mode 2–3, then up/down |
+| Adjust tempo (fine) | D-pad right to mode 4–5, then up/down |
+| Adjust swing | D-pad right to mode 6, then up/down |
+| Set clock source | D-pad right to mode 7, up=EXT / down=INT |
+| Set MIDI channel | D-pad right to mode 8, up/down = channel 1–16 |
 | Select pattern | Pattern button 1–4 |
 | Copy pattern | Hold pattern button 2s → press destination |
 | Chain 4 patterns | Pattern buttons 1 + 4 simultaneously |

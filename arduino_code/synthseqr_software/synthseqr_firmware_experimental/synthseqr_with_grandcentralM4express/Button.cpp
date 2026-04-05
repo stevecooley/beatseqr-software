@@ -49,7 +49,7 @@ Button::Button(uint8_t buttonPin, uint8_t buttonMode)
   numberOfPresses = 0;
   triggeredHoldEvent = true;
   _debounce_until = 0;
-  _debounce_delay = 20;  // 20 ms debounce window — covers typical mechanical bounce
+  _debounce_delay = 50;  // 50 ms debounce window — covers sluggish mechanical contacts
 }
 
 /*
@@ -63,7 +63,9 @@ void Button::pullup(uint8_t buttonMode)
   mode = BUTTON_PULLUP;
   if (buttonMode == BUTTON_PULLUP_INTERNAL)
   {
-    digitalWrite(pin, HIGH);
+    // Use INPUT_PULLUP rather than the legacy AVR digitalWrite(HIGH) trick —
+    // the latter does not reliably enable the pull-up on SAMD51 (Cortex-M4).
+    pinMode(pin, INPUT_PULLUP);
   }
 }
 

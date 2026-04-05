@@ -3,12 +3,17 @@ void run_step_button_routine()
   // step buttons
   detect_step_button_presses();
 
-  if (step_buttons[0].isPressed() && step_buttons[15].isPressed()) // clear the pattern for this voice
+  // Use wasPressed() here (not isPressed()) — uniquePress() already called
+  // isPressed() for all step buttons in detect_step_button_presses() above.
+  // Calling isPressed() a second time on the same button in the same loop
+  // iteration can steal the CHANGED flag and cause the next uniquePress() to
+  // miss a press. wasPressed() reads the cached state with no side effects.
+  if (step_buttons[0].wasPressed() && step_buttons[15].wasPressed()) // clear the pattern for this voice
   {
     clear_pattern_memory_for_voice(0); //synthseqr configuration
   }
 
-  if (step_buttons[0].isPressed() && step_buttons[11].isPressed()) // clear the entire pattern
+  if (step_buttons[0].wasPressed() && step_buttons[11].wasPressed()) // clear the entire pattern
   {
     clear_pattern_memory();
   }
@@ -22,9 +27,15 @@ void detect_step_button_presses()
   {
     if (step_buttons[i].uniquePress())
     {
-      step_leds[i].toggle();
+      // Toggle step_data directly — do not rely on LED state, which the
+      // chase light may have inverted for the currently-playing step.
+      step_data[pattern_value][0][i] = step_data[pattern_value][0][i] ? 0 : 1;
 
-      step_data[pattern_value][0][i] = step_leds[i].getState();
+      if (step_data[pattern_value][0][i]) {
+        step_leds[i].on();
+      } else {
+        step_leds[i].off();
+      }
       // nn = String(voice_slider_midinotenum[i], HEX);
       if (step_data[pattern_value][0][i] == 1)
       {

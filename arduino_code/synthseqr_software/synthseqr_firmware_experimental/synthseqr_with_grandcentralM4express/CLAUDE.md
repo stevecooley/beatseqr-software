@@ -45,7 +45,13 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 
 **HAL classes** (Button, LED, Potentiometer) provide debouncing and event helpers used throughout.
 
-**Button debouncing**: `Button.h`/`Button.cpp` are sketch-local copies with a 20 ms hardware debounce added to `isPressed()`. A `_debounce_until` timestamp gates all state transitions — during the window `CHANGED` is suppressed and the cached state is returned. This prevents electrical bounce from firing `uniquePress()` multiple times per physical press. Call `setDebounceDelay(ms)` to override the default per-instance.
+**Button debouncing**: `Button.h`/`Button.cpp` are sketch-local copies with a 50 ms hardware debounce in `isPressed()`. A `_debounce_until` timestamp gates all state transitions — during the window `CHANGED` is suppressed and the cached state is returned. This prevents electrical bounce from firing `uniquePress()` multiple times per physical press. Call `setDebounceDelay(ms)` to override the default per-instance.
+
+**Button pull-up on SAMD51**: `Button::pullup()` uses `pinMode(pin, INPUT_PULLUP)` — NOT the legacy AVR `digitalWrite(pin, HIGH)` trick. The AVR trick does not reliably enable the internal pull-up on SAMD51 (Cortex-M4). Without a valid pull-up the input pin floats, causing random noise reads and unreliable button detection. Do not revert to `digitalWrite(HIGH)` here.
+
+**Step button / LED decoupling**: `detect_step_button_presses()` toggles `step_data[pattern_value][0][i]` directly and then calls `step_leds[i].on()` / `step_leds[i].off()` to match. It does NOT read `step_leds[i].getState()` as the source of truth. The chase light in `run_chase_lights()` inverts the current step's LED, so reading LED state would cancel out a button press on the currently-playing step. Always keep step toggle logic coupled to `step_data`, not LED state.
+
+**`isPressed()` vs `wasPressed()` for combo checks**: Each call to `isPressed()` updates internal state (PREVIOUS, CHANGED, debounce window). Calling it a second time on the same button within the same loop iteration — after `uniquePress()` already ran — can steal a CHANGED flag and cause the next loop's `uniquePress()` to miss a press. For combo checks (step-clear, chain toggle) that run after `uniquePress()` has already been called for those buttons, always use `wasPressed()` instead. `wasPressed()` reads the cached CURRENT bit with no side effects.
 
 ## Core State
 
@@ -91,29 +97,51 @@ The sequencer uses the SAMD51's TC4 peripheral in 16-bit MFRQ mode for drift-fre
 
 ## Navigation / Timing Modes
 
-D-pad left/right cycles through 6 `timing_mode` values controlling what up/down adjusts:
-1. ±10 BPM
-2. ±1 BPM
-3. ±0.1 BPM
-4. ±0.01 BPM
-5. Swing (0–6)
-6. Clock source (up = EXT, down = INT)
+D-pad left/right cycles through 8 `timing_mode` values controlling what up/down adjusts, in visual left-to-right order matching the LCD layout:
 
-Modes 5 and 6 are both shown on LCD line 2 as `s0 clk:int` / `s0 clk:ext`. The cursor sits on the swing digit in mode 5, and on the `int`/`ext` value in mode 6. Switching clock source via mode 6 calls `setExternalClockMode()` which stops or starts TC4 as needed.
+| Mode | Up/Down adjusts | LCD location |
+|------|----------------|--------------|
+| 1 | Pattern (1–4, wraps) | Line 1, column 2 |
+| 2 | Tempo ±10 BPM | Line 1, column 6 |
+| 3 | Tempo ±1 BPM | Line 1, column 7 |
+| 4 | Tempo ±0.1 BPM | Line 1, column 9 |
+| 5 | Tempo ±0.01 BPM | Line 1, column 10 |
+| 6 | Swing (0–6) | Line 2, column 1 |
+| 7 | Clock source (up=EXT, down=INT) | Line 2, column 7 |
+| 8 | MIDI channel (1–16) | Line 2, column 12 |
 
-**LCD line 1 format** (case 255): `[icon] C%02d [vmicon]%u T%6.2f` where `[icon]` is custom char `?0` (play) or `?7` (stop) and `[vmicon]` is custom char `?6`. The tempo uses `%6.2f` (right-aligned, 6 chars wide) so cursor positions are constant across all BPM values — `cursor_x` 11/12/14/15 for modes 1–4 are correct for any tempo from 10–250 BPM. Do not change to `%.2f` (variable width breaks cursor alignment for sub-100 BPM).
+Default `timing_mode = 2` (±10 BPM).
 
-**LCD cursor positions on line 0 (y=0):**
-- Mode 1 (±10): `cursor_x = 11` — tens digit of tempo
-- Mode 2 (±1): `cursor_x = 12` — units digit
-- Mode 3 (±0.1): `cursor_x = 14` — tenths digit
-- Mode 4 (±0.01): `cursor_x = 15` — hundredths digit
+**LCD line 1 format** (case 255): `[icon] P%u T%6.2f    ` where `[icon]` is custom char `?0` (play) or `?7` (stop) printed first (1 char), then the 15-char sprintf result. Example: `▶ P1 T120.00    `. Do not change `%6.2f` to `%.2f` — variable width breaks cursor alignment. `go_to_pattern()` sets `update_line1 = true` so the pattern number refreshes on every pattern switch.
 
-**LCD cursor positions on line 1 (y=1):**
-- Mode 5 (swing): `cursor_x = 1` — SWING digit after `s`
-- Mode 6 (clock): `cursor_x = 7` — first char of `int`/`ext`
+**LCD line 2 format** (case 255): `s%d clk:%s Ch%02d ` (exactly 16 chars). Example: `s0 clk:int Ch02 `. MIDI channel is on line 2; `midi_channel_events()` sets `update_line2 = true`.
+
+**LCD cursor positions** are defined as named constants in config.h — use these instead of hardcoded numbers:
+- `LCD_L1_X_PATTERN = 3` — pattern digit (after icon+space+'P')
+- `LCD_L1_X_TEMPO_10 = 7` — hundreds/tens digit of tempo
+- `LCD_L1_X_TEMPO_1 = 8` — units digit
+- `LCD_L1_X_TEMPO_01 = 10` — tenths digit (after decimal at col 9)
+- `LCD_L1_X_TEMPO_001 = 11` — hundredths digit
+- `LCD_L2_X_SWING = 1` — swing digit after 's'
+- `LCD_L2_X_CLOCK = 7` — first char of int/ext in "clk:%s"
+- `LCD_L2_X_MIDICHAN = 13` — first channel digit in "Ch%02d"
+
+Switching clock source calls `setExternalClockMode()` which stops or starts TC4 as needed.
 
 **Enter button** clears the LCD and sets both `update_line1 = true` and `update_line2 = true` so both lines redraw. Missing `update_line2` here would leave line 2 blank after clear.
+
+## Swing Implementation
+
+`seq.setShuffle()` is a no-op in hardware timer mode — FifteenStep only applies shuffle in its software polling path. Swing is instead implemented directly in `stepsend()` by adjusting the TC4 clock period after each step:
+
+- **Even step just fired**: set TC4 period to `base_us * (6 + SWING) / 6` — the next (odd) step arrives late
+- **Odd step just fired**: set TC4 period to `base_us * (6 - SWING) / 6` — the next (even) step arrives early
+
+The total time per pair of steps stays constant (`(6+SWING) + (6-SWING) = 12` base periods = 2 × 16th notes). When `SWING == 0` both paths produce `base_us * 6/6 = base_us`, giving straight timing identical to the previous behaviour. Only applied in internal clock mode (`!external_clock_mode`).
+
+Because TC4's period changes, the MIDI clock output (0xF8) also swings. Avoid using MIDI clock output to sync external devices when SWING > 0.
+
+`SWING` range 0–6: SWING=1 is mild, SWING=2 is 2:1 (classic triplet feel), SWING=3 is 3:1 (heavy). SWING=6 is extreme (odd step fires almost immediately after even step).
 
 ## External MIDI Clock Mode
 
@@ -134,3 +162,7 @@ When `external_clock_mode == false` (default):
 - **Clear all patterns**: Hold step button 0 + step button 11
 - **Copy pattern**: Hold a pattern select button for 2s, then press destination pattern button
 - **Chain 4 patterns**: Press pattern buttons 0 + 3 simultaneously to toggle
+
+**`go_to_pattern(pattern, silent)`**: Turns all 4 pattern LEDs off then calls `on()` (not `toggle()`) for the active pattern. `toggle()` was previously used but is state-dependent and misfires if the LED state is out of sync. Always use `on()` here. The `silent` parameter is accepted but currently unused.
+
+**Chain toggle one-shot guard**: The `isPressed()` check for pattern buttons 0+3 fires every loop iteration while both are held. A `static bool chain_toggle_handled` in `run_pattern_select_routine()` ensures the mode flip and `go_to_pattern()` call happen only once per press. It resets when the buttons are released. Do not remove this guard — without it the mode flips back and forth on every loop frame.

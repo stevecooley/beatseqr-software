@@ -18,17 +18,25 @@ void run_pattern_select_routine() {
     
   }
 
-  if (pattern_select_buttons[0].isPressed() &&
-      pattern_select_buttons[3].isPressed()) {
-    if (extended_step_length_mode == 1) {
-      lcdflag = 200;  // pattern chain single
-      extended_step_length_mode = 0;
-      go_to_pattern(0, 1);
-    } else {
-      lcdflag = 201;  // pattern chain 4
-      extended_step_length_mode = 1;
+  static bool chain_toggle_handled = false;
+  // Use wasPressed() — uniquePress() already called isPressed() for these
+  // buttons earlier in the loop. A second isPressed() call can steal the
+  // CHANGED flag and cause the next uniquePress() to miss a press.
+  if (pattern_select_buttons[0].wasPressed() &&
+      pattern_select_buttons[3].wasPressed()) {
+    if (!chain_toggle_handled) {
+      chain_toggle_handled = true;
+      if (extended_step_length_mode == 1) {
+        lcdflag = 200;  // pattern chain single
+        extended_step_length_mode = 0;
+      } else {
+        lcdflag = 201;  // pattern chain 4
+        extended_step_length_mode = 1;
+      }
       go_to_pattern(0, 1);
     }
+  } else {
+    chain_toggle_handled = false;
   }
 }
 
@@ -50,7 +58,7 @@ void go_to_pattern(int pattern, int silent) {
   pattern_select_leds[1].off();
   pattern_select_leds[2].off();
   pattern_select_leds[3].off();
-  pattern_select_leds[pattern].toggle();
+  pattern_select_leds[pattern].on();
 
   // When switching to a different pattern, restore its saved pitches and arm
   // pickup so sliders don't immediately overwrite them.
@@ -62,6 +70,7 @@ void go_to_pattern(int pattern, int silent) {
   }
 
   pattern_value = pattern;
+  update_line1 = true;
   // pattern_select_button_pressing_counter = 0;
 
   // "P"age / pattern "S"elect

@@ -1,11 +1,14 @@
 void run_LCD_setup_routine() {
+  // On SAMD51, pinMode() disables PMUX on the pin, which would break Serial1
+  // TX. The lcd.begin() call immediately after re-enables PMUX, restoring
+  // UART function. Both calls must stay together in this order.
+  //
+  // Baud rate quirk: some LCD backpack batches run at 9850 baud, not the
+  // standard 9600. Change the value in both lcd.begin() calls (here and in
+  // setup()) if you swap in a different module.
+  // lcd.begin(9600);  // ← use this line instead for standard-baud modules
   pinMode(lcdTxPin, OUTPUT);
-
-  // I bought a bunch of LCD backpacks for the LCD screens, and the controller
-  // chip runs not at 9600 baud, Nooooo they run at 9850!
-
-  lcd.begin(9850);  // 9850 baud is chip comm speed
-  // lcd.begin(9600); // 9600 baud is chip comm speed
+  lcd.begin(9850);
 
   lcd.print("?c0");
   Serial.println("?c0");
@@ -259,9 +262,10 @@ void run_LCD_update() {
         // stand down the update line 1 flag
         update_line1 = false;
 
-        // prep the string
-        sprintf(lcd_line1, " C%02d %s%u T%6.2f", MIDICHANNEL, voicemodechar,
-                voice_mode, seq.getTempo());
+        // prep the string — icon (1 char) printed separately, so this fills
+        // the remaining 15 chars: P{pat} T{tempo} padded to end of line.
+        sprintf(lcd_line1, " P%u T%6.2f    ", current_pattern + 1,
+                seq.getTempo());
 
         Serial.println(lcd_line1);
         lcd.print("?x00?y0");       // move cursor to beginning of line 0
@@ -285,16 +289,13 @@ void run_LCD_update() {
       if (update_line2 == true) {
         Serial.println("update line 2");
         update_line2 = false;
+        // Line 2 format: s{swing} clk:{int|ext} C{channel}  (exactly 16 chars)
+        sprintf(lcd_line2, "s%d clk:%s Ch%02d ", SWING,
+                external_clock_mode ? "ext" : "int", MIDICHANNEL);
         lcd.print("?x00?y1");
         Serial.println("?x00?y1");
-        lcd.print("s");
-        lcd.print(SWING);
-        lcd.print(" clk:");
-        lcd.print(external_clock_mode ? "ext" : "int");
-        Serial.print("s");
-        Serial.print(SWING);
-        Serial.print(" clk:");
-        Serial.println(external_clock_mode ? "ext" : "int");
+        lcd.print(lcd_line2);
+        Serial.println(lcd_line2);
       }
 
       // cursor set!!
