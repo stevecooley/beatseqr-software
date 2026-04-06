@@ -44,13 +44,20 @@ void setup() {
 
   delay(500);
   run_LCD_setup_routine();
-  go_to_pattern(0, 1);
 
   // start sequencer and set callbacks
   seq.begin(TEMPO, 16);
   seq.stop();
   seq.setMidiHandler(midi);
   seq.setStepHandler(stepsend);
+
+  // Restore saved state. On first boot the magic byte won't match and
+  // globals keep their defaults. After a save the last working session
+  // is fully restored: patterns, pitches, tempo, swing, channel, clock mode.
+  load_from_eeprom();
+  go_to_pattern(current_pattern, 1);
+  seq.setTempo(TEMPO);
+  update_line2 = true;  // ensure swing/clock/channel redraw with loaded values
 
   // Hardware interrupt for play button — fires immediately on press (falling
   // edge), independent of loop() timing. Debounce is handled in the ISR.
@@ -61,6 +68,8 @@ void setup() {
   // of play state; seq.run() only processes the resulting flags when playing.
   seq.setHardwareTimerMode(true);
   setupSequencerTimer(60000000UL / (unsigned long)TEMPO / 24UL);
+  // If external clock mode was saved, stop the internal timer now.
+  if (external_clock_mode) stopSequencerTimer();
 }
 
 void loop() {
@@ -135,7 +144,7 @@ void loop() {
       // Serial.print(last_serial);
       told_which_pattern_to_copy_to =
           true;       // this is us being told to copy the pattern
-      lcdflag = 100;  // pattern copy
+      lcdflag = 100;  next_lcdflag = 100;  // pattern copy
     }
   }
 

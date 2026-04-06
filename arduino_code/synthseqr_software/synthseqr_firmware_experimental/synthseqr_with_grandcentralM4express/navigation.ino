@@ -30,6 +30,22 @@ void listen_for_navigation_events() {
         next_lcdflag = 255;
       }
 
+      // Hold Enter for 2 s (without Play) → save all patterns to EEPROM.
+      // Play+Enter held is the diagnostics combo, so we guard against that.
+      {
+        static bool save_handled = false;
+        if (enterbutton.heldFor(2000) && !playbutton.wasPressed()) {
+          if (!save_handled) {
+            save_handled = true;
+            save_to_eeprom();
+            lcdflag = 202;
+            next_lcdflag = 202;
+          }
+        } else if (!enterbutton.wasPressed()) {
+          save_handled = false;
+        }
+      }
+
       if ((dpad_up_flag == true) || (dpad_down_flag == true)) {
         switch (timing_mode) {
           case 1: {  // pattern select

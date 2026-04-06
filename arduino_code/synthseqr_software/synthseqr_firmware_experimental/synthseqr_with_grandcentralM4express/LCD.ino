@@ -238,6 +238,26 @@ void run_LCD_update() {
           255;  // here's why... we can escape from one LCD mode to another
       break;
     }
+    case 202:  // EEPROM save confirmation — hold for 2 s then return to main display
+    {
+      static unsigned long msg_until = 0;
+      if (msg_until == 0) {
+        msg_until = millis() + 2000;
+        lcd.print("?x00?y0");
+        Serial.println("?x00?y0");
+        lcd.print("saved!          ");  // 16 chars — overwrites full line 1
+        Serial.println("saved!");
+      }
+      if (millis() >= msg_until) {
+        msg_until = 0;
+        update_line1 = true;
+        update_line2 = true;
+        next_lcdflag = 255;
+      } else {
+        next_lcdflag = 202;  // stay on this message until timer expires
+      }
+      break;
+    }
     case 200:  // pattern chain single — show once then return to main display
     {
       lcd.print("?x00?y0");

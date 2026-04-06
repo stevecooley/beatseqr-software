@@ -201,24 +201,43 @@ The cursor blinks on the field that D-pad up/down currently adjusts.
 
 ### Enter Button
 
-Press the **Enter button** to return to the main display from any temporary LCD screen, and to toggle the Enter LED indicator.
+- **Tap** — return to the main display from any temporary LCD screen, and toggle the Enter LED indicator.
+- **Hold 2 seconds** (without Play) — save all patterns to EEPROM. The LCD shows `saved!` for 2 seconds as confirmation.
+
+---
+
+## Saving Your Work
+
+Hold the **Enter button for 2 seconds** to save the current session to EEPROM.
+
+The following are saved:
+
+- All 4 patterns (step on/off + pitch per step)
+- Tempo, swing, MIDI channel
+- Active pattern, chain mode on/off, clock source (INT/EXT)
+
+On the next power-up, everything is automatically restored exactly as you left it. On first boot (no save yet), the sequencer starts with factory defaults.
+
+> **Note:** Do not hold Play at the same time. Enter alone triggers the save.
 
 ---
 
 ## Diagnostics Mode
 
-Hold **Play + Enter for 2 seconds** to enter diagnostics mode. The Serial monitor (57600 baud) will print hardware test output.
+Hold **D-pad left + D-pad right simultaneously for 1 second** to enter diagnostics mode. The Serial monitor (57600 baud) will print hardware test output.
 
 In diagnostics mode:
 
-- Press any **step button** — its LED toggles and the button index is printed to Serial.
-- Press any **pattern select button** — its LED toggles and the index is printed.
-- Move any **voice slider** — its index and mapped value are printed.
-- Press **D-pad up** and hold — hold duration is printed continuously.
-- Press **D-pad right** — prints confirmation.
-- Hold **D-pad left for 2 seconds** — prints EEPROM values (addresses 100–115).
+- Press any **step button** — its LED toggles and `step N pressed` is printed to Serial.
+- Press any **pattern select button** — its LED toggles and `pattern N pressed` is printed.
+- Move any **voice slider** — `slider N value` is printed only when the value changes.
+- Press **D-pad up** and hold — hold duration in ms is printed continuously while held.
+- Press **D-pad down** — prints `dpad down pressed`.
+- Press **D-pad left** — prints `dpad left pressed`.
+- Press **D-pad right** — prints `dpad right pressed`.
+- Press **Enter** — prints `enter pressed`.
 
-**Exit diagnostics:** press **D-pad left + D-pad right simultaneously**.
+**Enter / exit diagnostics:** hold **D-pad left + D-pad right simultaneously for 1 second**, then release. The same combo exits. A brief spin-wait after entry ensures the buttons are released before the exit check begins, so you don't exit immediately upon entering.
 
 ---
 
@@ -251,5 +270,5 @@ Connect at **57600 baud** to see:
 | Chain 4 patterns | Pattern buttons 1 + 4 simultaneously |
 | Clear current pattern | Hold step 0 + step 15 |
 | Clear all patterns | Hold step 0 + step 11 |
-| Diagnostics | Hold Play + Enter 2s |
-| Exit diagnostics | D-pad left + right simultaneously |
+| Save to EEPROM | Hold Enter 2s (without Play) |
+| Enter / exit diagnostics | Hold D-pad left + right 1s |

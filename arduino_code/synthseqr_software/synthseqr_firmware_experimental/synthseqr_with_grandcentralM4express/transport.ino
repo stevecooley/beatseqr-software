@@ -171,6 +171,13 @@ void stepsend(int current_step, int last_step) {
     sounding_notes[current_step] = (int8_t)pitch;
   }
 
+  // Auto-advance to the next pattern at the end of step 15 when chain mode
+  // is active. Fires here so step 15 plays from the current pattern first,
+  // then the new pattern takes over from step 0.
+  if (extended_step_length_mode == 1 && current_step == 15) {
+    run_auto_pattern_select_routine();
+  }
+
   // Apply swing by alternating TC4 clock periods.
   // FifteenStep's setShuffle() is a no-op in hardware timer mode, so we
   // implement swing here: even steps get a longer gap to the next (odd) step,

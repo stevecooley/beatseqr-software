@@ -57,7 +57,7 @@ void run_voice_slider_routine()
 void resetSliders()
 {
 
-  lcdflag = 93; // reset sliders
+  lcdflag = 93;  next_lcdflag = 93;  // reset sliders
   slider_reset_counter = 0;
 
   int notenum_count_up_from = 36;

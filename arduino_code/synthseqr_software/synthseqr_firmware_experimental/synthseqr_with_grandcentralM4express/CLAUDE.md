@@ -41,7 +41,8 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 | `pattern_select_routine.ino` | Pattern switching, copy, and 4-pattern chain mode |
 | `LCD.ino` | LCD initialization and display updates |
 | `midi_note_sending.ino` | `step()` blink callback and `midi()` MIDI clock output callback |
-| `diagnostics.ino` | Hardware test mode (hold Play + Enter 2s to activate) |
+| `diagnostics.ino` | Hardware test mode (hold D-pad left + right 1s to enter/exit) |
+| `storage.ino` | EEPROM save/load: `save_to_eeprom()`, `load_from_eeprom()` |
 
 **HAL classes** (Button, LED, Potentiometer) provide debouncing and event helpers used throughout.
 
@@ -130,6 +131,8 @@ Switching clock source calls `setExternalClockMode()` which stops or starts TC4 
 
 **Enter button** clears the LCD and sets both `update_line1 = true` and `update_line2 = true` so both lines redraw. Missing `update_line2` here would leave line 2 blank after clear.
 
+**`lcdflag` / `next_lcdflag` rule**: `run_LCD_update()` starts every frame with `if (next_lcdflag != lcdflag) lcdflag = next_lcdflag`. Any code that sets `lcdflag` externally (outside `run_LCD_update`) **must also set `next_lcdflag` to the same value** — otherwise `next_lcdflag` (still 255 from the previous frame) immediately overwrites `lcdflag` before the switch runs and the message is never displayed. This applies to every transient message trigger: save (202), chain single/4 (200/201), pattern copy (100/101), slider reset (93).
+
 ## Swing Implementation
 
 `seq.setShuffle()` is a no-op in hardware timer mode — FifteenStep only applies shuffle in its software polling path. Swing is instead implemented directly in `stepsend()` by adjusting the TC4 clock period after each step:
@@ -166,3 +169,35 @@ When `external_clock_mode == false` (default):
 **`go_to_pattern(pattern, silent)`**: Turns all 4 pattern LEDs off then calls `on()` (not `toggle()`) for the active pattern. `toggle()` was previously used but is state-dependent and misfires if the LED state is out of sync. Always use `on()` here. The `silent` parameter is accepted but currently unused.
 
 **Chain toggle one-shot guard**: The `isPressed()` check for pattern buttons 0+3 fires every loop iteration while both are held. A `static bool chain_toggle_handled` in `run_pattern_select_routine()` ensures the mode flip and `go_to_pattern()` call happen only once per press. It resets when the buttons are released. Do not remove this guard — without it the mode flips back and forth on every loop frame.
+
+**Pattern chain auto-advance**: When `extended_step_length_mode == 1`, `stepsend()` calls `run_auto_pattern_select_routine()` at `current_step == 15`. This advances `current_pattern` via `(current_pattern + 1) % 4`, cycling all four patterns. The advance happens at the start of step 15 so step 15 plays from the current pattern; the new pattern takes over from step 0.
+
+## EEPROM Save / Load
+
+**Trigger**: Hold Enter for 2 seconds (without Play held — Play+Enter was the old diagnostics combo; the new combo is D-pad left+right). The LCD shows `saved!` on line 1 for 2 seconds as confirmation. Implemented in `navigation.ino` with a `static bool save_handled` one-shot guard, same pattern as chain toggle.
+
+**On boot**: `load_from_eeprom()` is called in `setup()` after `seq.begin()`. It checks for a magic sentinel byte (`0xBE` at address 0). If missing (first boot), globals keep their compiled-in defaults. If present, all state is restored before `go_to_pattern()` and `setupSequencerTimer()` run, so the timer uses the saved TEMPO.
+
+**EEPROM layout** (138 bytes, defined as `#define` constants in `storage.ino`):
+
+| Address | Size | Content |
+|---------|------|---------|
+| 0 | 1 | Magic byte `0xBE` |
+| 1 | 1 | `MIDICHANNEL` |
+| 2 | 1 | `SWING` |
+| 3 | 4 | `TEMPO` (float) |
+| 7 | 1 | `current_pattern` |
+| 8 | 1 | `extended_step_length_mode` |
+| 9 | 1 | `external_clock_mode` |
+| 10 | 64 | `step_data[4][16]` (1 byte per step) |
+| 74 | 64 | `pattern_step_pitches[4][16]` |
+
+**Validation**: All loaded values are range-checked (`TEMPO` 10–250, `MIDICHANNEL` 1–16, etc.) so corrupted flash can't put the sequencer in a broken state.
+
+**`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All `EEPROM.write()` / `EEPROM.put()` calls only update a RAM buffer. `EEPROM.commit()` at the end of `save_to_eeprom()` is what actually burns the buffer to flash. Without it, saves appear to work within a session (reads hit the buffer) but vanish on power-off.
+
+**Flash endurance**: SAMD51 NVM is rated 25,000 write cycles per page minimum. The Arduino EEPROM emulation uses wear leveling across multiple pages, giving an effective endurance far beyond typical use. Save-on-demand (not continuous) makes exhaustion essentially impossible in practice.
+
+**Magic byte**: If the EEPROM layout changes (new fields, reordered addresses), increment `EEPROM_MAGIC_VALUE` in `storage.ino` so old saves are ignored on first boot rather than misread.
+
+**LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display. This is the same pattern used for all timed LCD messages.

@@ -28,9 +28,11 @@ void run_pattern_select_routine() {
       chain_toggle_handled = true;
       if (extended_step_length_mode == 1) {
         lcdflag = 200;  // pattern chain single
+        next_lcdflag = 200;
         extended_step_length_mode = 0;
       } else {
         lcdflag = 201;  // pattern chain 4
+        next_lcdflag = 201;
         extended_step_length_mode = 1;
       }
       go_to_pattern(0, 1);
@@ -41,16 +43,8 @@ void run_pattern_select_routine() {
 }
 
 void run_auto_pattern_select_routine() {
-  if (seq.getPosition() >= 15)  // seems wrong
-  {
-    current_pattern++;
-    if (current_pattern >= 3) {
-      current_pattern = 0;
-    }
-
-    // go_to_pattern(pattern to go to, silent?)
-    go_to_pattern(current_pattern, 1);
-  }
+  current_pattern = (current_pattern + 1) % 4;
+  go_to_pattern(current_pattern, 1);
 }
 
 void go_to_pattern(int pattern, int silent) {
@@ -129,7 +123,7 @@ void listen_for_copy_command() {
         told_which_pattern_to_copy_to = false;
         ended_on = copy_pattern_to;
 
-        lcdflag = 101;  // pattern copy to N
+        lcdflag = 101;  next_lcdflag = 101;  // pattern copy to N
       }
     }
   }

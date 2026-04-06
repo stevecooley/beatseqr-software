@@ -1,20 +1,13 @@
-int voiceval = 0;
-int lowest_reading = 1000;
-int highest_reading = 0;
-int average_reading = 0;
-int diagnostic_total = 0;
-int diagnostic_readings[10] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int save_high = 0;
-int save_low = 0;
 
 void run_diagnostics()
 {
-
-  if (playbutton.heldFor(2000) && enterbutton.heldFor(2000))
+  if (dpad_left.heldFor(1000) && dpad_right.heldFor(1000))
   {
-
     Serial.println("running diagnostics...");
+
+    // Wait for both buttons to be released before entering — otherwise the
+    // exit check (same combo) inside captive_diagnostic_routine fires immediately.
+    while (dpad_left.isPressed() || dpad_right.isPressed()) {}
 
     captive_diagnostic_routine();
   }
@@ -22,7 +15,7 @@ void run_diagnostics()
 
 void captive_diagnostic_routine()
 {
-
+  // D-pad up: print hold duration while held
   if (dpad_up.uniquePress())
   {
     long now = millis();
@@ -30,16 +23,17 @@ void captive_diagnostic_routine()
     {
       Serial.print("dpad up held for ");
       Serial.println(millis() - now);
-
-      if (dpad_up.held())
-      {
-        Serial.println("up held");
-      }
-      if (dpad_up.heldFor(2000))
-      {
-        Serial.println("up held for 2000+");
-      }
     }
+  }
+
+  if (dpad_down.uniquePress())
+  {
+    Serial.println("dpad down pressed");
+  }
+
+  if (dpad_left.uniquePress())
+  {
+    Serial.println("dpad left pressed");
   }
 
   if (dpad_right.uniquePress())
@@ -47,55 +41,51 @@ void captive_diagnostic_routine()
     Serial.println("dpad right pressed");
   }
 
-  if (dpad_left.heldFor(2000))
+  if (enterbutton.uniquePress())
   {
-    for (int i = 100; i <= 115; i++)
-    {
-      // int value = EEPROM.read(i);
-      Serial.print("eeprom ");
-      Serial.print(i);
-      Serial.print(" ");
-      // Serial.println(value);
-      delay(200);
-    }
+    Serial.println("enter pressed");
   }
 
-  // step buttons
+  // Step buttons
   for (int i = 0; i <= 15; i++)
   {
     if (step_buttons[i].uniquePress())
     {
       step_leds[i].toggle();
+      Serial.print("step ");
       Serial.print(i);
-      Serial.println(" received");
+      Serial.println(" pressed");
     }
   }
 
-  // pattern select buttons
+  // Pattern select buttons
   for (int i = 0; i <= 3; i++)
   {
     if (pattern_select_buttons[i].uniquePress())
     {
       pattern_select_leds[i].toggle();
+      Serial.print("pattern ");
       Serial.print(i);
-      Serial.println(" received");
+      Serial.println(" pressed");
     }
   }
 
-  // get the raw value
+  // Voice sliders: only print when value changes
+  static int last_diag_slider[16] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
   for (int j = 0; j <= 15; j++)
   {
-    int sensorValue = map(voice_sliders[j].getSector(), 0, 255, slider_map_low_value, slider_map_high_value);
-
-    
-    if(sensorValue > 10) {
+    int val = map(voice_sliders[j].getSector(), 0, 255, slider_map_low_value, slider_map_high_value);
+    if (val != last_diag_slider[j])
+    {
+      last_diag_slider[j] = val;
+      Serial.print("slider ");
       Serial.print(j);
-      Serial.print(" "); 
-      Serial.println(sensorValue);
+      Serial.print(" ");
+      Serial.println(val);
     }
-    
   }
 
+  // Exit: hold left + right simultaneously (same combo as entry)
   if (dpad_right.isPressed() && dpad_left.isPressed())
   {
     Serial.println("exiting diagnostics");
