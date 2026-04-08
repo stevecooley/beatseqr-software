@@ -49,7 +49,7 @@ Button::Button(uint8_t buttonPin, uint8_t buttonMode)
   numberOfPresses = 0;
   triggeredHoldEvent = true;
   _debounce_until = 0;
-  _debounce_delay = 50;  // 50 ms debounce window — covers sluggish mechanical contacts
+  _debounce_delay = 70;  // 7/0 ms debounce window — covers sluggish mechanical contacts
 }
 
 /*
