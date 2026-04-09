@@ -70,7 +70,7 @@ bool load_from_eeprom() {
   if (MIDICHANNEL < 1 || MIDICHANNEL > 16) MIDICHANNEL = 2;
 
   SWING = EEPROM.read(EEPROM_SWING_ADDR);
-  if (SWING > 6) SWING = 0;
+  if (SWING > 5) SWING = 0;
 
   EEPROM.get(EEPROM_TEMPO_ADDR, TEMPO);
   if (TEMPO < 10.0f || TEMPO > 250.0f) TEMPO = 120.0f;

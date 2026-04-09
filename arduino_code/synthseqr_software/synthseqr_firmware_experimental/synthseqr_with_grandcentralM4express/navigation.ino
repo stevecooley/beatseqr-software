@@ -204,7 +204,7 @@ void swing_events() {
   if (dpad_down_flag == true) {
     dpad_down_flag = false;
 
-    cursor_x = 1;
+    cursor_x = LCD_L2_X_SWING;
     cursor_y = 1;
 
     if (SWING > 0) {
@@ -217,7 +217,7 @@ void swing_events() {
   if (dpad_up_flag == true) {
     dpad_up_flag = false;
 
-    if (SWING < 6) {
+    if (SWING < 5) {
       SWING++;
       seq.setShuffle(SWING);
       update_line2 = true;
@@ -261,7 +261,7 @@ void pattern_select_events() {
     uint8_t next = (current_pattern + 1) % 4;
     go_to_pattern(next, 0);
     read_step_memory(0, next);
-    cursor_x = 7;
+    cursor_x = LCD_L1_X_PATTERN;
     cursor_y = 0;
     cursor_flag = true;
   }
@@ -270,7 +270,7 @@ void pattern_select_events() {
     uint8_t next = (current_pattern + 3) % 4;  // -1 with wrap
     go_to_pattern(next, 0);
     read_step_memory(0, next);
-    cursor_x = 7;
+    cursor_x = LCD_L1_X_PATTERN;
     cursor_y = 0;
     cursor_flag = true;
   }

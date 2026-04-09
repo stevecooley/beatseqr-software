@@ -97,14 +97,16 @@ void clear_pattern_memory_for_voice(int voice)
 
 void clear_pattern_memory()
 {
-  for (int v = 0; v < 1; v++) // synthseqr configuration
+  for (int p = 0; p < 4; p++)
+  {
+    for (int v = 0; v < 1; v++) // synthseqr configuration
     {
       for (int i = 0; i <= 15; i++)
       {
-        step_data[pattern_value][v][i] = 0;
-        step_leds[i].off();
-
+        step_data[p][v][i] = 0;
       }
     }
-    return;
+  }
+  // Refresh LEDs to reflect the cleared active pattern
+  read_step_memory(0, pattern_value);
 }

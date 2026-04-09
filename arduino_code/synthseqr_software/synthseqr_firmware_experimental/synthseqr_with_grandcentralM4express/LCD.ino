@@ -204,8 +204,10 @@ void run_LCD_update() {
       Serial.println("?x00?y0");
       lcd.print("notenum reset");
       Serial.println("notenum reset");
-      next_lcdflag = 255;  // return to main display after showing once
-      break;               // was missing — caused fall-through into case 100
+      update_line1 = true;
+      update_line2 = true;
+      next_lcdflag = 255;
+      break;
     }
     case 100:  // pattern copy
     {
@@ -234,8 +236,9 @@ void run_LCD_update() {
       Serial.println(current_pattern + 1);
       lcd.print("->       ");
       Serial.println("->       ");
-      next_lcdflag =
-          255;  // here's why... we can escape from one LCD mode to another
+      update_line1 = true;
+      update_line2 = true;
+      next_lcdflag = 255;
       break;
     }
     case 202:  // EEPROM save confirmation — hold for 2 s then return to main display
@@ -264,6 +267,8 @@ void run_LCD_update() {
       Serial.println("?x00?y0");
       lcd.print("single  ");
       Serial.println("single");
+      update_line1 = true;
+      update_line2 = true;
       next_lcdflag = 255;
       break;
     }
@@ -273,14 +278,19 @@ void run_LCD_update() {
       Serial.println("?x00?y0");
       lcd.print("chain 4 ");
       Serial.println("chain 4");
+      update_line1 = true;
+      update_line2 = true;
       next_lcdflag = 255;
       break;
     }
     case 255:
     default: {
+      bool did_redraw = false;
+
       if (update_line1 == true) {
         // stand down the update line 1 flag
         update_line1 = false;
+        did_redraw = true;
 
         // prep the string — icon (1 char) printed separately, so this fills
         // the remaining 15 chars: P{pat} T{tempo} padded to end of line.
@@ -302,14 +312,13 @@ void run_LCD_update() {
 
         lcd.print(lcd_line1);
         Serial.println(lcd_line1);
-        // lcd.print("?x00?y1");  // move cursor to beginning of line 0
-        Serial.println("?x00?y1");  // move cursor to beginning of line 0
       }
 
       if (update_line2 == true) {
         Serial.println("update line 2");
         update_line2 = false;
-        // Line 2 format: s{swing} clk:{int|ext} C{channel}  (exactly 16 chars)
+        did_redraw = true;
+        // Line 2 format: s{swing} clk:{int|ext} Ch{channel}  (exactly 16 chars)
         sprintf(lcd_line2, "s%d clk:%s Ch%02d ", SWING,
                 external_clock_mode ? "ext" : "int", MIDICHANNEL);
         lcd.print("?x00?y1");
@@ -318,8 +327,9 @@ void run_LCD_update() {
         Serial.println(lcd_line2);
       }
 
-      // cursor set!!
-      if (cursor_flag == true) {
+      // Reposition cursor whenever navigation moves it (cursor_flag) OR after
+      // any line redraw — redraws leave the cursor at an unpredictable position.
+      if (cursor_flag || did_redraw) {
         cursor_flag = false;
         set_lcd_cursor(cursor_y, cursor_x);
       }
