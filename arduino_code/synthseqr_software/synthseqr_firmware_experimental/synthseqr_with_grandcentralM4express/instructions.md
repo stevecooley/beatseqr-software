@@ -67,13 +67,13 @@ The cursor on the LCD blinks on the field that up/down currently controls.
 | 3 | Tempo ±1 BPM | Line 1 — tempo units |
 | 4 | Tempo ±0.1 BPM | Line 1 — tempo tenths |
 | 5 | Tempo ±0.01 BPM | Line 1 — tempo hundredths |
-| 6 | Swing (0–6) | Line 2 — swing digit |
+| 6 | Swing (0–5) | Line 2 — swing digit |
 | 7 | Clock source (INT / EXT) | Line 2 — int/ext value |
 | 8 | MIDI channel (1–16) | Line 2 — channel digits |
 
 **Tempo range:** 10–250 BPM
 **MIDI channel range:** 1–16
-**Swing:** 0 = straight, 1–2 = mild, 3 = heavy (classic triplet feel), 6 = maximum shuffle
+**Swing:** 0 = straight, 1–2 = mild, 3 = heavy (classic triplet feel), 5 = maximum shuffle
 
 > **Note:** When swing is active, the MIDI clock output (0xF8) also swings. If you are syncing an external device to the sequencer's MIDI clock, set swing to 0.
 
@@ -91,7 +91,7 @@ Example: `▶P1 T120.00     `
 s{swing} clk:{int|ext} C{channel}
 ```
 
-Example: `s0 clk:int C02  `
+Example: `s0 clk:int Ch02 `
 
 Line 2 shows swing, clock source, and MIDI channel together. The cursor sits on the active value as you navigate modes 6, 7, and 8.
 

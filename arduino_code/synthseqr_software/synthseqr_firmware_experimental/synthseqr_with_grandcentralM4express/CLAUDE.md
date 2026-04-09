@@ -63,7 +63,7 @@ uint8_t voice_slider_midinotenum[16] // MIDI note per slider (default 36–51)
 uint8_t current_pattern              // Active pattern 0–3
 bool playstatus                      // Is sequencer playing?
 float TEMPO                          // BPM (10–250)
-uint8_t SWING                        // 0–6
+uint8_t SWING                        // 0–5
 uint8_t lcdflag                      // LCD display mode selector
 bool external_clock_mode             // false = internal TC4, true = follow USB-MIDI clock
 int8_t sounding_notes[16]           // pitch currently sounding per step (-1 = silent)
@@ -107,7 +107,7 @@ D-pad left/right cycles through 8 `timing_mode` values controlling what up/down 
 | 3 | Tempo ±1 BPM | Line 1, column 7 |
 | 4 | Tempo ±0.1 BPM | Line 1, column 9 |
 | 5 | Tempo ±0.01 BPM | Line 1, column 10 |
-| 6 | Swing (0–6) | Line 2, column 1 |
+| 6 | Swing (0–5) | Line 2, column 1 |
 | 7 | Clock source (up=EXT, down=INT) | Line 2, column 7 |
 | 8 | MIDI channel (1–16) | Line 2, column 12 |
 
@@ -131,6 +131,8 @@ Switching clock source calls `setExternalClockMode()` which stops or starts TC4 
 
 **Enter button** clears the LCD and sets both `update_line1 = true` and `update_line2 = true` so both lines redraw. Missing `update_line2` here would leave line 2 blank after clear.
 
+**Cursor restore after redraw**: `run_LCD_update()` case 255 tracks a local `did_redraw` flag. If either `update_line1` or `update_line2` was processed that frame, the cursor is repositioned to `cursor_x`/`cursor_y` afterward — even if `cursor_flag` is false. This ensures that events like play/stop toggling line 1 or pattern switches don't leave the cursor stranded after the redraw. All transient message cases (93, 101, 200, 201, 202) set `update_line1 = true` and `update_line2 = true` before returning to `next_lcdflag = 255` for the same reason.
+
 **`lcdflag` / `next_lcdflag` rule**: `run_LCD_update()` starts every frame with `if (next_lcdflag != lcdflag) lcdflag = next_lcdflag`. Any code that sets `lcdflag` externally (outside `run_LCD_update`) **must also set `next_lcdflag` to the same value** — otherwise `next_lcdflag` (still 255 from the previous frame) immediately overwrites `lcdflag` before the switch runs and the message is never displayed. This applies to every transient message trigger: save (202), chain single/4 (200/201), pattern copy (100/101), slider reset (93).
 
 ## Swing Implementation
@@ -144,7 +146,7 @@ The total time per pair of steps stays constant (`(6+SWING) + (6-SWING) = 12` ba
 
 Because TC4's period changes, the MIDI clock output (0xF8) also swings. Avoid using MIDI clock output to sync external devices when SWING > 0.
 
-`SWING` range 0–6: SWING=1 is mild, SWING=2 is 2:1 (classic triplet feel), SWING=3 is 3:1 (heavy). SWING=6 is extreme (odd step fires almost immediately after even step).
+`SWING` range 0–5: SWING=1 is mild, SWING=2 is 2:1 (classic triplet feel), SWING=3 is 3:1 (heavy). SWING=5 is maximum (SWING=6 produced unusable timing and was removed).
 
 ## External MIDI Clock Mode
 
@@ -169,6 +171,8 @@ When `external_clock_mode == false` (default):
 **`go_to_pattern(pattern, silent)`**: Turns all 4 pattern LEDs off then calls `on()` (not `toggle()`) for the active pattern. `toggle()` was previously used but is state-dependent and misfires if the LED state is out of sync. Always use `on()` here. The `silent` parameter is accepted but currently unused.
 
 **Chain toggle one-shot guard**: The `isPressed()` check for pattern buttons 0+3 fires every loop iteration while both are held. A `static bool chain_toggle_handled` in `run_pattern_select_routine()` ensures the mode flip and `go_to_pattern()` call happen only once per press. It resets when the buttons are released. Do not remove this guard — without it the mode flips back and forth on every loop frame.
+
+**`clear_pattern_memory()` clears all 4 patterns**: The step 0+11 combo calls `clear_pattern_memory()`, which loops over all 4 patterns (`p = 0..3`) and zeros every step. After clearing, it calls `read_step_memory(0, pattern_value)` to refresh the LEDs for the active pattern. Do not scope this loop to only `pattern_value` — that was a prior bug where only the active pattern was cleared.
 
 **Pattern chain auto-advance**: When `extended_step_length_mode == 1`, `stepsend()` calls `run_auto_pattern_select_routine()` at `current_step == 15`. This advances `current_pattern` via `(current_pattern + 1) % 4`, cycling all four patterns. The advance happens at the start of step 15 so step 15 plays from the current pattern; the new pattern takes over from step 0.
 
