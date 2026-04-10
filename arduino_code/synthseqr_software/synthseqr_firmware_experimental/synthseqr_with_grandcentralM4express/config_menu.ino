@@ -22,7 +22,11 @@
 #define CONFIG_ITEM_CLEAR_ALL     3
 #define CONFIG_ITEM_RESET_SLIDERS 4
 #define CONFIG_ITEM_MODE          5
-#define CONFIG_MENU_ITEM_COUNT    6
+#define CONFIG_ITEM_OCTAVE_SHIFT  6  // placeholder — not yet implemented
+#define CONFIG_ITEM_NOTE_SHIFT    7  // placeholder — not yet implemented
+#define CONFIG_ITEM_NOTE_RANGE    8  // placeholder — not yet implemented
+#define CONFIG_ITEM_NOTE_SCALES   9  // placeholder — not yet implemented
+#define CONFIG_MENU_ITEM_COUNT    10
 
 // line1_label: 14 chars printed after "> " on line 1.
 // For Mode the value is appended at draw time so it fits on one line.
@@ -32,7 +36,11 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Clear pattern ",   // 14 chars
   "Clear all pats",   // 14 chars
   "Reset sliders ",   // 14 chars
-  "Mode:         "    // value overwritten at draw time
+  "Mode:         ",   // value overwritten at draw time
+  "Octave shift  ",   // 14 chars — placeholder
+  "Note shift    ",   // 14 chars — placeholder
+  "Note range    ",   // 14 chars — placeholder
+  "Note scales   "    // 14 chars — placeholder
 };
 
 // Build the 14-char label for a given item index.
@@ -177,6 +185,14 @@ void run_config_menu() {
         Serial.print("mode: ");
         Serial.println(advanced_mode ? "Advanced" : "Simple");
         draw_config_menu();
+        break;
+      case CONFIG_ITEM_OCTAVE_SHIFT:
+      case CONFIG_ITEM_NOTE_SHIFT:
+      case CONFIG_ITEM_NOTE_RANGE:
+      case CONFIG_ITEM_NOTE_SCALES:
+        // Placeholder — not yet implemented. Show a message on line 2.
+        lcd.print("?x00?y1");
+        lcd.print("Coming soon...  ");
         break;
     }
   }

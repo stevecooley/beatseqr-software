@@ -224,6 +224,10 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Clear all pats | Clear all 4 patterns (confirmation required) |
 | Reset sliders | Reset all pitches to defaults (confirmation required) |
 | Mode: Simple/Advanced | Toggle between Simple and Advanced mode |
+| Octave shift | (Coming soon — not yet implemented) |
+| Note shift | (Coming soon — not yet implemented) |
+| Note range | (Coming soon — not yet implemented) |
+| Note scales | (Coming soon — not yet implemented) |
 
 **Confirmation prompt**: for destructive actions, line 2 shows `Entr=ok  Lft=no`. Press Enter to confirm or D-pad left to cancel.
 

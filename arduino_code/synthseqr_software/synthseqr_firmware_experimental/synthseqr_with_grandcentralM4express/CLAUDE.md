@@ -210,6 +210,10 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 4. **Clear all pats** — confirmation required
 5. **Reset sliders** — confirmation required
 6. **Mode: Simple/Advanced** — toggles immediately, value shown inline on line 1
+7. **Octave shift** — placeholder, shows `Coming soon...` (not yet implemented)
+8. **Note shift** — placeholder, shows `Coming soon...` (not yet implemented)
+9. **Note range** — placeholder, shows `Coming soon...` (not yet implemented)
+10. **Note scales** — placeholder, shows `Coming soon...` (not yet implemented)
 
 **Double-tap detection**: implemented in the main `loop()` with a static `last_enter_ms` timestamp. Two `uniquePress()` events within 400 ms trigger `enter_config_menu()` instead of setting `enterbutton_flag`. Single tap still behaves as before (LCD refresh, enter LED toggle).
 
