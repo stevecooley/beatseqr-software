@@ -89,12 +89,33 @@ The sequencer uses the SAMD51's TC4 peripheral in 16-bit MFRQ mode for drift-fre
 - `stopSequencerTimer()` / `startSequencerTimer()` — used when switching to/from external clock mode
 - CMSIS-Atmel 1.2.2 (Adafruit SAMD 1.7.17) is missing `MCLK_APBDMASK_TC4`; the raw bit `(1ul << 5)` is used instead (SAMD51P20A datasheet Table 14-8)
 
+## Physical Layout
+
+The enclosure is 3D-printed with a honeycomb texture. Controls from left to right / top to bottom:
+
+- **Top-left**: Play button (single yellow/green LED, pin 21) + LCD (16×2, Serial1)
+- **Top-center**: D-pad (up/down/left/right, pins 16–19) + Enter button (pin 20) with LED
+- **Top-right**: 4 pattern select buttons (pins 6/8/14/15) with yellow/green LEDs
+- **Middle**: 16 faders (analog pins A0–A15), one per step
+- **Bottom row**: 16 step buttons (pins 23–53 odd) paired with red LEDs (pins 22–52 even)
+
 ## Key Hardware Details
 
 - **Step LEDs/buttons**: Paired on adjacent even/odd pins (LEDs 22–52 even, buttons 23–53 odd)
 - **Voice sliders**: Analog pins A15 (slider 0) down to A0 (slider 15)
 - **LCD**: `Serial1` at 9850 baud using a custom command protocol (`?f` = clear, `?x??y?` = cursor, `?B??` = backlight). `run_LCD_update()` is rate-limited to 66 ms (≈15 fps) to prevent buffer overflow at 9850 baud. All LCD writes go through this function — never call `lcd.print()` directly from other routines.
 - **Pattern chain mode**: Patterns auto-advance when step 15 is reached (toggled by pressing pattern buttons 0+3 simultaneously). The toggle is non-blocking — no `delay()` calls; LED state changes and `go_to_pattern()` execute immediately.
+
+## Play Button Hardware Interrupt
+
+The play button (pin 21) is attached to a SAMD51 EIC external interrupt (FALLING edge) so it responds immediately regardless of main loop timing. Key details:
+
+- `attachInterrupt(digitalPinToInterrupt(21), playButtonISR, FALLING)` called in `setup()`
+- The ISR sets a `volatile bool play_button_isr_fired` flag — no USB or MIDI in ISR context
+- A 100 ms software debounce (`play_button_last_isr_ms`) in the ISR suppresses contact bounce
+- `listen_for_transport_events()` checks the flag each loop and processes play/stop logic there
+- `playbutton.isPressed()` is still called each loop to keep `heldFor()` state current for diagnostics combo detection
+- Do NOT increase debounce beyond ~150 ms or quick tap-to-stop will feel sluggish
 
 ## Navigation / Timing Modes
 
@@ -176,9 +197,27 @@ When `external_clock_mode == false` (default):
 
 **Pattern chain auto-advance**: When `extended_step_length_mode == 1`, `stepsend()` calls `run_auto_pattern_select_routine()` at `current_step == 15`. This advances `current_pattern` via `(current_pattern + 1) % 4`, cycling all four patterns. The advance happens at the start of step 15 so step 15 plays from the current pattern; the new pattern takes over from step 0.
 
+## Config Menu
+
+Entered by **double-tapping Enter** (two presses within 400 ms). The menu is modal — all d-pad and enter flags are consumed by `run_config_menu()` and `listen_for_navigation_events()` is suppressed while active. The sequencer continues playing normally in the background.
+
+**Navigation**: d-pad up/down scrolls. Line 1 shows `> {current item}`, line 2 shows the next item (no cursor). D-pad left exits from anywhere (also cancels a pending confirmation). Enter selects.
+
+**Menu items (in order)**:
+1. **Exit** — Enter, left, or right all exit
+2. **Save** — saves to EEPROM; blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
+3. **Clear pattern** — confirmation required (line 2: `Entr=ok  Lft=no`)
+4. **Clear all pats** — confirmation required
+5. **Reset sliders** — confirmation required
+6. **Mode: Simple/Advanced** — toggles immediately, value shown inline on line 1
+
+**Double-tap detection**: implemented in the main `loop()` with a static `last_enter_ms` timestamp. Two `uniquePress()` events within 400 ms trigger `enter_config_menu()` instead of setting `enterbutton_flag`. Single tap still behaves as before (LCD refresh, enter LED toggle).
+
+**Save timing**: `EEPROM.commit()` can stall the CPU 10–50 ms during flash programming. Saving while playing would cause a timing hiccup. The Save item checks `playstatus` and refuses with `Stop first!` if the sequencer is running.
+
 ## EEPROM Save / Load
 
-**Trigger**: Hold Enter for 2 seconds (without Play held — Play+Enter was the old diagnostics combo; the new combo is D-pad left+right). The LCD shows `saved!` on line 1 for 2 seconds as confirmation. Implemented in `navigation.ino` with a `static bool save_handled` one-shot guard, same pattern as chain toggle.
+**Trigger**: Select **Save** from the config menu (double-tap Enter → scroll to Save → press Enter). The sequencer must be stopped. The LCD shows `saved!` for 2 seconds as confirmation.
 
 **On boot**: `load_from_eeprom()` is called in `setup()` after `seq.begin()`. It checks for a magic sentinel byte (`0xBE` at address 0). If missing (first boot), globals keep their compiled-in defaults. If present, all state is restored before `go_to_pattern()` and `setupSequencerTimer()` run, so the timer uses the saved TEMPO.
 

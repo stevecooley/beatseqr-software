@@ -3,7 +3,9 @@
     "allow": [
       "Bash(arduino-cli board:*)",
       "Bash(arduino-cli compile:*)",
-      "Bash(arduino-cli upload:*)"
+      "Bash(arduino-cli upload:*)",
+      "Bash(arduino-cli lib:*)",
+      "Bash(echo \"EXIT:$?\")"
     ]
   }
 }

@@ -101,14 +101,22 @@ void loop() {
     dpad_down_flag = true;
   }
 
-  if (enterbutton.uniquePress()) {
-    Serial.println("listening for enter button events");
-    enterbutton_flag = true;
-  }
-
-  if (enterbutton.uniquePress()) {
-    Serial.println("listening for enter button events");
-    enterbutton_flag = true;
+  // Double-tap Enter (two presses within 400 ms) enters the config menu.
+  // Single tap sets enterbutton_flag for normal navigation handling.
+  {
+    static unsigned long last_enter_ms = 0;
+    if (enterbutton.uniquePress()) {
+      unsigned long now_ms = millis();
+      if (now_ms - last_enter_ms <= 400 && last_enter_ms != 0) {
+        // Double-tap detected — enter config menu, suppress the flag.
+        last_enter_ms = 0;
+        enter_config_menu();
+      } else {
+        last_enter_ms = now_ms;
+        enterbutton_flag = true;
+        Serial.println("enter button pressed");
+      }
+    }
   }
 
   // Keep Button state current for heldFor() (diagnostics combo).
@@ -121,7 +129,13 @@ void loop() {
     playbutton_flag = true;
   }
 
-  listen_for_navigation_events();
+  // Config menu is modal — when active it consumes all d-pad/enter flags and
+  // normal navigation is suppressed.
+  run_config_menu();
+
+  if (!config_menu_active) {
+    listen_for_navigation_events();
+  }
 
   listen_for_transport_events();
   // process_incoming_serial();

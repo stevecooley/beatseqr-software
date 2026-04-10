@@ -7,7 +7,7 @@
 #include "PString.h"
 #include "Potentiometer.h"
 
-const char* firmware_version_number = "2.2";
+const char* firmware_version_number = "2.3";
 const char* hardware_version_number = "1.0";
 
 uint8_t last_voice_selected = 0;
@@ -286,6 +286,22 @@ uint8_t pulse_adder = 1;
 // false = internal TC4 hardware timer (default)
 // true  = follow incoming USB-MIDI clock (0xF8 / 0xFA / 0xFC)
 bool external_clock_mode = false;
+
+/////////////////////////////////
+// operating mode
+/////////////////////////////////
+
+// false = Simple mode (4 pattern buttons, current behaviour)
+// true  = Advanced mode (pattern buttons as function keys, 16 patterns, etc)
+bool advanced_mode = false;
+
+/////////////////////////////////
+// config menu
+/////////////////////////////////
+
+bool config_menu_active = false;
+uint8_t config_menu_item = 0;   // 0=Exit 1=ClearPat 2=ClearAll 3=ResetSliders 4=Mode
+bool config_confirm_pending = false;
 
 // Declared in transport.ino; forward-declared here so the main sketch can
 // read the flag set by the play button hardware interrupt.

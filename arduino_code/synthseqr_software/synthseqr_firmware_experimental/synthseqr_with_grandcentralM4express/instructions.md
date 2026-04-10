@@ -201,14 +201,37 @@ The cursor blinks on the field that D-pad up/down currently adjusts.
 
 ### Enter Button
 
-- **Tap** — return to the main display from any temporary LCD screen, and toggle the Enter LED indicator.
-- **Hold 2 seconds** (without Play) — save all patterns to EEPROM. The LCD shows `saved!` for 2 seconds as confirmation.
+- **Single tap** — return to the main display from any temporary LCD screen, toggle the Enter LED indicator.
+- **Double-tap** (two taps within ~400 ms) — open the **Config Menu**.
+
+---
+
+## Config Menu
+
+Double-tap the **Enter button** to open the config menu. The sequencer keeps playing while the menu is open.
+
+**Navigation**: D-pad up/down scrolls through items. Line 1 shows the selected item, line 2 shows the next item as a preview.
+
+**Exit**: D-pad left exits from anywhere. When `> Exit` is selected, Enter or D-pad right also exit.
+
+**Menu items:**
+
+| Item | Action |
+|---|---|
+| Exit | Leave the config menu |
+| Save | Save to EEPROM (sequencer must be stopped; shows `Stop first!` if playing) |
+| Clear pattern | Clear current pattern (confirmation required) |
+| Clear all pats | Clear all 4 patterns (confirmation required) |
+| Reset sliders | Reset all pitches to defaults (confirmation required) |
+| Mode: Simple/Advanced | Toggle between Simple and Advanced mode |
+
+**Confirmation prompt**: for destructive actions, line 2 shows `Entr=ok  Lft=no`. Press Enter to confirm or D-pad left to cancel.
 
 ---
 
 ## Saving Your Work
 
-Hold the **Enter button for 2 seconds** to save the current session to EEPROM.
+Open the config menu (double-tap Enter), scroll to **Save**, and press Enter. The sequencer must be **stopped** first — saving while playing is blocked to prevent timing hiccups.
 
 The following are saved:
 
@@ -217,8 +240,6 @@ The following are saved:
 - Active pattern, chain mode on/off, clock source (INT/EXT)
 
 On the next power-up, everything is automatically restored exactly as you left it. On first boot (no save yet), the sequencer starts with factory defaults.
-
-> **Note:** Do not hold Play at the same time. Enter alone triggers the save.
 
 ---
 
@@ -268,7 +289,8 @@ Connect at **57600 baud** to see:
 | Select pattern | Pattern button 1–4 |
 | Copy pattern | Hold pattern button 2s → press destination |
 | Chain 4 patterns | Pattern buttons 1 + 4 simultaneously |
-| Clear current pattern | Hold step 0 + step 15 |
-| Clear all patterns | Hold step 0 + step 11 |
-| Save to EEPROM | Hold Enter 2s (without Play) |
+| Clear current pattern | Config menu → Clear pattern |
+| Clear all patterns | Config menu → Clear all pats |
+| Save to EEPROM | Config menu → Save (sequencer stopped) |
+| Open config menu | Double-tap Enter |
 | Enter / exit diagnostics | Hold D-pad left + right 1s |
