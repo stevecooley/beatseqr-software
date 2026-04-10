@@ -1,7 +1,30 @@
 void run_step_button_routine()
 {
-  // step buttons
-  detect_step_button_presses();
+  // Advanced mode pattern copy: waiting for step button tap = copy destination.
+  if (adv_copy_armed) {
+    for (int i = 0; i < 16; i++) {
+      if (step_buttons[i].uniquePress()) {
+        // Copy all step data and pitches from current_pattern → destination i.
+        for (int s = 0; s < 16; s++) {
+          step_data[i][0][s] = step_data[current_pattern][0][s];
+          pattern_step_pitches[i][s] = pattern_step_pitches[current_pattern][s];
+        }
+        copy_pattern_to = i;
+        adv_copy_armed = false;
+        lcdflag = 101;  next_lcdflag = 101;  // "Copy P{n}-> done" then back to main
+        Serial.print("copied to pattern ");
+        Serial.println(i + 1);
+      }
+    }
+    return;  // consume all other input while copy is armed
+  }
+
+  // In advanced mode, when pattern button 0 is held, step buttons are
+  // consumed by run_pattern_select_routine() for pattern selection.
+  // Skip normal step-toggle processing to avoid double-handling.
+  if (!adv_pat_select_active) {
+    detect_step_button_presses();
+  }
 
   // Use wasPressed() here (not isPressed()) — uniquePress() already called
   // isPressed() for all step buttons in detect_step_button_presses() above.
@@ -97,7 +120,7 @@ void clear_pattern_memory_for_voice(int voice)
 
 void clear_pattern_memory()
 {
-  for (int p = 0; p < 4; p++)
+  for (int p = 0; p < 16; p++)
   {
     for (int v = 0; v < 1; v++) // synthseqr configuration
     {

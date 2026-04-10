@@ -166,7 +166,10 @@ void stepsend(int current_step, int last_step) {
   }
 
   if (step_data[pattern_value][0][current_step] == 1) {
-    uint8_t pitch = voice_slider_midinotenum[current_step];
+    int16_t shifted = (int16_t)voice_slider_midinotenum[current_step] + (int16_t)(octave_shift * 12);
+    if (shifted < 0) shifted = 0;
+    if (shifted > 127) shifted = 127;
+    uint8_t pitch = (uint8_t)shifted;
     noteOn(MIDICHANNEL - 1, pitch, 127);
     sounding_notes[current_step] = (int8_t)pitch;
   }

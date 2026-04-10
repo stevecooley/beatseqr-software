@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Synthseqr is Arduino firmware for a hardware MIDI step sequencer running on the **Adafruit Grand Central M4 Express** (ATSAMD51J19A ARM Cortex-M4). It's a 16-step, 4-pattern sequencer with physical step buttons, voice sliders, D-pad navigation, and an LCD display. Version 2.0x is experimental/in-progress.
+Synthseqr is Arduino firmware for a hardware MIDI step sequencer running on the **Adafruit Grand Central M4 Express** (ATSAMD51J19A ARM Cortex-M4). It's a 16-step, 16-pattern sequencer with physical step buttons, voice sliders, D-pad navigation, and an LCD display. Version 2.3 is experimental/in-progress.
 
 ## Build and Upload
 
@@ -43,6 +43,7 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 | `midi_note_sending.ino` | `step()` blink callback and `midi()` MIDI clock output callback |
 | `diagnostics.ino` | Hardware test mode (hold D-pad left + right 1s to enter/exit) |
 | `storage.ino` | EEPROM save/load: `save_to_eeprom()`, `load_from_eeprom()` |
+| `sd_storage.ino` | SD card save/load: `save_to_sd()`, `load_from_sd()`, `boot_load()`, `save_everywhere()` |
 
 **HAL classes** (Button, LED, Potentiometer) provide debouncing and event helpers used throughout.
 
@@ -58,15 +59,20 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 
 ```cpp
 // In config.h:
-bool step_data[4][1][16]             // [pattern][voice][step] — on/off for each step
-uint8_t voice_slider_midinotenum[16] // MIDI note per slider (default 36–51)
-uint8_t current_pattern              // Active pattern 0–3
-bool playstatus                      // Is sequencer playing?
-float TEMPO                          // BPM (10–250)
-uint8_t SWING                        // 0–5
-uint8_t lcdflag                      // LCD display mode selector
-bool external_clock_mode             // false = internal TC4, true = follow USB-MIDI clock
-int8_t sounding_notes[16]           // pitch currently sounding per step (-1 = silent)
+int step_data[16][1][16]              // [pattern][voice][step] — on/off for each step
+uint8_t pattern_step_pitches[16][16]  // saved pitch per pattern per step
+uint8_t voice_slider_midinotenum[16]  // MIDI note per slider (default 36–51)
+uint8_t current_pattern               // Active pattern 0–15
+bool playstatus                       // Is sequencer playing?
+float TEMPO                           // BPM (10–250)
+uint8_t SWING                         // 0–5
+uint8_t lcdflag                       // LCD display mode selector
+bool external_clock_mode              // false = internal TC4, true = follow USB-MIDI clock
+int8_t sounding_notes[16]            // pitch currently sounding per step (-1 = silent)
+bool advanced_mode                    // false = Simple (4 patterns, buttons select), true = Advanced (16 patterns, buttons are function keys)
+bool adv_pat_select_active            // true while pattern button 0 is held in advanced mode
+bool adv_copy_armed                   // true after double-click of pattern button 0 in advanced mode; step tap = copy destination
+int8_t octave_shift                   // semitone offset applied at MIDI send time; range -5 to +5 octaves
 ```
 
 ## Sequencer Flow
@@ -123,7 +129,7 @@ D-pad left/right cycles through 8 `timing_mode` values controlling what up/down 
 
 | Mode | Up/Down adjusts | LCD location |
 |------|----------------|--------------|
-| 1 | Pattern (1–4, wraps) | Line 1, column 2 |
+| 1 | Pattern (1–4 simple / 1–16 advanced, wraps) | Line 1, column 2 |
 | 2 | Tempo ±10 BPM | Line 1, column 6 |
 | 3 | Tempo ±1 BPM | Line 1, column 7 |
 | 4 | Tempo ±0.1 BPM | Line 1, column 9 |
@@ -134,16 +140,16 @@ D-pad left/right cycles through 8 `timing_mode` values controlling what up/down 
 
 Default `timing_mode = 2` (±10 BPM).
 
-**LCD line 1 format** (case 255): `[icon] P%u T%6.2f    ` where `[icon]` is custom char `?0` (play) or `?7` (stop) printed first (1 char), then the 15-char sprintf result. Example: `▶ P1 T120.00    `. Do not change `%6.2f` to `%.2f` — variable width breaks cursor alignment. `go_to_pattern()` sets `update_line1 = true` so the pattern number refreshes on every pattern switch.
+**LCD line 1 format** (case 255): `[icon] P%02u T%6.2f   ` where `[icon]` is custom char `?0` (play) or `?7` (stop) printed first (1 char), then the 15-char sprintf result. Example: `▶ P01 T120.00  `. Pattern is always 2 digits (P01–P16). Do not change `%6.2f` to `%.2f` — variable width breaks cursor alignment. `go_to_pattern()` sets `update_line1 = true` so the pattern number refreshes on every pattern switch.
 
 **LCD line 2 format** (case 255): `s%d clk:%s Ch%02d ` (exactly 16 chars). Example: `s0 clk:int Ch02 `. MIDI channel is on line 2; `midi_channel_events()` sets `update_line2 = true`.
 
 **LCD cursor positions** are defined as named constants in config.h — use these instead of hardcoded numbers:
-- `LCD_L1_X_PATTERN = 3` — pattern digit (after icon+space+'P')
-- `LCD_L1_X_TEMPO_10 = 7` — hundreds/tens digit of tempo
-- `LCD_L1_X_TEMPO_1 = 8` — units digit
-- `LCD_L1_X_TEMPO_01 = 10` — tenths digit (after decimal at col 9)
-- `LCD_L1_X_TEMPO_001 = 11` — hundredths digit
+- `LCD_L1_X_PATTERN = 3` — first digit of pattern in "P%02u" (after icon+space+'P')
+- `LCD_L1_X_TEMPO_10 = 8` — hundreds/tens digit of tempo (shifted right 1 vs old format due to 2-digit pattern)
+- `LCD_L1_X_TEMPO_1 = 9` — units digit
+- `LCD_L1_X_TEMPO_01 = 11` — tenths digit (after decimal at col 10)
+- `LCD_L1_X_TEMPO_001 = 12` — hundredths digit
 - `LCD_L2_X_SWING = 1` — swing digit after 's'
 - `LCD_L2_X_CLOCK = 7` — first char of int/ext in "clk:%s"
 - `LCD_L2_X_MIDICHAN = 13` — first channel digit in "Ch%02d"
@@ -186,16 +192,40 @@ When `external_clock_mode == false` (default):
 
 - **Clear current pattern**: Hold step button 0 + step button 15
 - **Clear all patterns**: Hold step button 0 + step button 11
-- **Copy pattern**: Hold a pattern select button for 2s, then press destination pattern button
-- **Chain 4 patterns**: Press pattern buttons 0 + 3 simultaneously to toggle
+- **Copy pattern (simple mode)**: Hold a pattern select button for 2s, then press destination pattern button
+- **Copy pattern (advanced mode)**: Double-click pattern button 0 (within 400 ms), then tap a step button as destination (0–15)
+- **Cancel copy (advanced mode)**: D-pad left while copy is armed
+- **Chain 4 patterns (simple mode)**: Press pattern buttons 0 + 3 simultaneously to toggle
+- **Select pattern 0–15 (advanced mode)**: Hold pattern button 0, tap a step button
 
-**`go_to_pattern(pattern, silent)`**: Turns all 4 pattern LEDs off then calls `on()` (not `toggle()`) for the active pattern. `toggle()` was previously used but is state-dependent and misfires if the LED state is out of sync. Always use `on()` here. The `silent` parameter is accepted but currently unused.
+**`go_to_pattern(pattern, silent)`**: Turns all 4 pattern LEDs off. In simple mode, lights the LED for `pattern % 4`. In advanced mode, no LED is lit during normal navigation — buttons are function keys. `toggle()` was previously used but is state-dependent; always use `on()`. The `silent` parameter is accepted but currently unused.
+
+**Pattern LEDs in advanced mode**: LEDs only illuminate while a function button is actively held (e.g. button 0 held for pattern select lights LED 0). They go dark when the button is released. Do not call `pattern_select_leds[x].on()` from `go_to_pattern()` in advanced mode.
+
+**Advanced mode double-click copy**: `adv_copy_armed` is set in the main loop when `pattern_select_button_flags[0]` fires twice within 400 ms. While armed, `run_step_button_routine()` intercepts all step button presses as copy destinations and returns early — normal step toggle is suppressed. D-pad left in `listen_for_navigation_events()` clears `adv_copy_armed` and returns to main display.
 
 **Chain toggle one-shot guard**: The `isPressed()` check for pattern buttons 0+3 fires every loop iteration while both are held. A `static bool chain_toggle_handled` in `run_pattern_select_routine()` ensures the mode flip and `go_to_pattern()` call happen only once per press. It resets when the buttons are released. Do not remove this guard — without it the mode flips back and forth on every loop frame.
 
-**`clear_pattern_memory()` clears all 4 patterns**: The step 0+11 combo calls `clear_pattern_memory()`, which loops over all 4 patterns (`p = 0..3`) and zeros every step. After clearing, it calls `read_step_memory(0, pattern_value)` to refresh the LEDs for the active pattern. Do not scope this loop to only `pattern_value` — that was a prior bug where only the active pattern was cleared.
+**`clear_pattern_memory()` clears all 16 patterns**: The step 0+11 combo calls `clear_pattern_memory()`, which loops over all 16 patterns (`p = 0..15`) and zeros every step. After clearing, it calls `read_step_memory(0, pattern_value)` to refresh the LEDs for the active pattern.
 
-**Pattern chain auto-advance**: When `extended_step_length_mode == 1`, `stepsend()` calls `run_auto_pattern_select_routine()` at `current_step == 15`. This advances `current_pattern` via `(current_pattern + 1) % 4`, cycling all four patterns. The advance happens at the start of step 15 so step 15 plays from the current pattern; the new pattern takes over from step 0.
+**Pattern chain auto-advance**: When `extended_step_length_mode == 1`, `stepsend()` calls `run_auto_pattern_select_routine()` at `current_step == 15`. This advances `current_pattern` within `chain_start..chain_end`, wrapping at `chain_end`. The advance happens at the start of step 15 so step 15 plays from the current pattern; the new pattern takes over from step 0.
+
+## Simple vs Advanced Mode
+
+**Simple mode** (`advanced_mode == false`, default):
+- Pattern buttons 0–3 select patterns 0–3 directly
+- Pattern buttons 0+3 simultaneously toggle chain mode (4 patterns)
+- Hold any pattern button 2s → pattern copy (press destination pattern button)
+- Pattern LEDs show the active pattern (0–3)
+- D-pad mode 1 navigates patterns 1–4
+
+**Advanced mode** (`advanced_mode == true`):
+- Pattern buttons are function keys — do NOT select patterns directly
+- Pattern button 0 **hold** + step button tap → select pattern 0–15 (`adv_pat_select_active`)
+- Pattern button 0 **double-click** → arm pattern copy (`adv_copy_armed`), then step button tap = destination
+- Pattern LEDs only light while a function button is held; off otherwise
+- D-pad mode 1 navigates patterns 1–16
+- Hold-for-2s pattern copy is disabled (would interfere with hold-to-select)
 
 ## Config Menu
 
@@ -205,12 +235,12 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 
 **Menu items (in order)**:
 1. **Exit** — Enter, left, or right all exit
-2. **Save** — saves to EEPROM; blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
+2. **Save** — saves to SD (primary) + EEPROM (backup); blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
 3. **Clear pattern** — confirmation required (line 2: `Entr=ok  Lft=no`)
 4. **Clear all pats** — confirmation required
 5. **Reset sliders** — confirmation required
 6. **Mode: Simple/Advanced** — toggles immediately, value shown inline on line 1
-7. **Octave shift** — placeholder, shows `Coming soon...` (not yet implemented)
+7. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); Enter or Left exits editing
 8. **Note shift** — placeholder, shows `Coming soon...` (not yet implemented)
 9. **Note range** — placeholder, shows `Coming soon...` (not yet implemented)
 10. **Note scales** — placeholder, shows `Coming soon...` (not yet implemented)
@@ -219,32 +249,62 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 
 **Save timing**: `EEPROM.commit()` can stall the CPU 10–50 ms during flash programming. Saving while playing would cause a timing hiccup. The Save item checks `playstatus` and refuses with `Stop first!` if the sequencer is running.
 
+## SD Card Storage
+
+**Primary storage**: `/synthseqr/autosave.json` on the onboard SD card slot (uses `SDCARD_SS_PIN`, not GPIO 10). The folder is created automatically on first init.
+
+**Boot sequence**: `boot_load()` in `sd_storage.ino` calls `sd_init()` then `load_from_sd()`. On failure (no card, no file), falls back to `load_from_eeprom()`. Called from `setup()` instead of the old direct `load_from_eeprom()`.
+
+**Save**: `save_everywhere()` writes to SD first, then EEPROM. Called from the config menu Save item.
+
+**JSON format**: hand-rolled minimal parser — no ArduinoJson dependency. Scans for known keys by name, ignores unknown keys (forward-compatible with extra fields added by external tools). All 16 patterns are saved. Users can hand-edit or generate JSON externally and load it on the device.
+
+```json
+{
+  "version": 1,
+  "tempo": 120.00,
+  "swing": 0,
+  "midi_channel": 2,
+  "octave_shift": 0,
+  "chain_active": 0,
+  "chain_start": 0,
+  "chain_end": 3,
+  "advanced_mode": 0,
+  "patterns": [
+    {"steps":[1,0,...16 values],"pitches":[36,37,...16 values]},
+    ...16 patterns
+  ]
+}
+```
+
+**Arduino prototype issue**: The Arduino build tool auto-generates function prototypes before `#include`s are processed. Functions with `File&` parameters fail with "File not declared in this scope". All SD helper functions use a module-level `static File _f` handle instead — no `File` type appears in any function signature. Do not add `File&` parameters to helpers in `sd_storage.ino`.
+
 ## EEPROM Save / Load
 
-**Trigger**: Select **Save** from the config menu (double-tap Enter → scroll to Save → press Enter). The sequencer must be stopped. The LCD shows `saved!` for 2 seconds as confirmation.
+EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Save still writes to both (`save_everywhere()`).
 
-**On boot**: `load_from_eeprom()` is called in `setup()` after `seq.begin()`. It checks for a magic sentinel byte (`0xBE` at address 0). If missing (first boot), globals keep their compiled-in defaults. If present, all state is restored before `go_to_pattern()` and `setupSequencerTimer()` run, so the timer uses the saved TEMPO.
+**On boot**: `load_from_eeprom()` is called only if `load_from_sd()` returns false. Checks for a magic sentinel byte at address 0. If missing (first boot or layout change), globals keep compiled-in defaults.
 
-**EEPROM layout** (138 bytes, defined as `#define` constants in `storage.ino`):
+**EEPROM layout** (524 bytes, defined as `#define` constants in `storage.ino`):
 
 | Address | Size | Content |
 |---------|------|---------|
-| 0 | 1 | Magic byte `0xBE` |
+| 0 | 1 | Magic byte `0xC1` |
 | 1 | 1 | `MIDICHANNEL` |
 | 2 | 1 | `SWING` |
 | 3 | 4 | `TEMPO` (float) |
 | 7 | 1 | `current_pattern` |
 | 8 | 1 | `extended_step_length_mode` |
 | 9 | 1 | `external_clock_mode` |
-| 10 | 64 | `step_data[4][16]` (1 byte per step) |
-| 74 | 64 | `pattern_step_pitches[4][16]` |
+| 10 | 256 | `step_data[16][16]` (1 byte per step) |
+| 266 | 256 | `pattern_step_pitches[16][16]` |
+| 522 | 1 | `octave_shift` (int8_t as raw byte) |
+| 523 | 1 | `advanced_mode` (bool) |
 
-**Validation**: All loaded values are range-checked (`TEMPO` 10–250, `MIDICHANNEL` 1–16, etc.) so corrupted flash can't put the sequencer in a broken state.
+**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer.
 
-**`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All `EEPROM.write()` / `EEPROM.put()` calls only update a RAM buffer. `EEPROM.commit()` at the end of `save_to_eeprom()` is what actually burns the buffer to flash. Without it, saves appear to work within a session (reads hit the buffer) but vanish on power-off.
+**`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Flash endurance**: SAMD51 NVM is rated 25,000 write cycles per page minimum. The Arduino EEPROM emulation uses wear leveling across multiple pages, giving an effective endurance far beyond typical use. Save-on-demand (not continuous) makes exhaustion essentially impossible in practice.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC1`.
 
-**Magic byte**: If the EEPROM layout changes (new fields, reordered addresses), increment `EEPROM_MAGIC_VALUE` in `storage.ino` so old saves are ignored on first boot rather than misread.
-
-**LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display. This is the same pattern used for all timed LCD messages.
+**LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.

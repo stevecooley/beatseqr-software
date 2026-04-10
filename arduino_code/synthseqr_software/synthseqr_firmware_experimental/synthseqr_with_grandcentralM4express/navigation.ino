@@ -1,4 +1,15 @@
 void listen_for_navigation_events() {
+  // Cancel advanced copy mode with d-pad left.
+  if (adv_copy_armed && dpad_left_flag) {
+    dpad_left_flag = false;
+    adv_copy_armed = false;
+    update_line1 = true;
+    update_line2 = true;
+    next_lcdflag = 255;
+    Serial.println("copy cancelled");
+    return;
+  }
+
   // Serial.println("listening for navigation events");
   switch (navmode) {
     case 100:  // default to tempo and swing adjustments
@@ -240,9 +251,10 @@ void setExternalClockMode(bool enable) {
 // slider pickup arming all behave the same as pressing a pattern button.
 //
 void pattern_select_events() {
+  uint8_t max_patterns = advanced_mode ? 16 : 4;
   if (dpad_up_flag == true) {
     dpad_up_flag = false;
-    uint8_t next = (current_pattern + 1) % 4;
+    uint8_t next = (current_pattern + 1) % max_patterns;
     go_to_pattern(next, 0);
     read_step_memory(0, next);
     cursor_x = LCD_L1_X_PATTERN;
@@ -251,7 +263,7 @@ void pattern_select_events() {
   }
   if (dpad_down_flag == true) {
     dpad_down_flag = false;
-    uint8_t next = (current_pattern + 3) % 4;  // -1 with wrap
+    uint8_t next = (current_pattern + max_patterns - 1) % max_patterns;  // -1 with wrap
     go_to_pattern(next, 0);
     read_step_memory(0, next);
     cursor_x = LCD_L1_X_PATTERN;

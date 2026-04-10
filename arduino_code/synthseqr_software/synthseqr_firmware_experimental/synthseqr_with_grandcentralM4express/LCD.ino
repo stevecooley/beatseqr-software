@@ -293,8 +293,8 @@ void run_LCD_update() {
         did_redraw = true;
 
         // prep the string — icon (1 char) printed separately, so this fills
-        // the remaining 15 chars: P{pat} T{tempo} padded to end of line.
-        sprintf(lcd_line1, " P%u T%6.2f    ", current_pattern + 1,
+        // the remaining 15 chars: P{pat:02} T{tempo} padded to end of line.
+        sprintf(lcd_line1, " P%02u T%6.2f   ", current_pattern + 1,
                 seq.getTempo());
 
         Serial.println(lcd_line1);

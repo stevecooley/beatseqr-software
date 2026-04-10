@@ -1,7 +1,7 @@
 // SAMD51 has no native EEPROM; use FlashStorage_SAMD for a compatible API.
 #include <FlashAsEEPROM_SAMD.h>
 
-// EEPROM layout — 138 bytes total.
+// EEPROM layout — 524 bytes total.
 // If you change the layout, increment EEPROM_MAGIC_VALUE so old saves are
 // ignored rather than misread as valid data.
 //
@@ -13,20 +13,24 @@
 //  7     1      current_pattern
 //  8     1      extended_step_length_mode (chain mode)
 //  9     1      external_clock_mode
-//  10    64     step_data[4][16]  (one byte per step, 0 or 1)
-//  74    64     pattern_step_pitches[4][16]
+//  10    256    step_data[16][16]  (one byte per step, 0 or 1)
+//  266   256    pattern_step_pitches[16][16]
+//  522   1      octave_shift (int8_t stored as raw byte)
+//  523   1      advanced_mode (bool)
 
-#define EEPROM_MAGIC_ADDR       0
-#define EEPROM_MIDICHANNEL_ADDR 1
-#define EEPROM_SWING_ADDR       2
-#define EEPROM_TEMPO_ADDR       3
-#define EEPROM_PATTERN_ADDR     7
-#define EEPROM_CHAIN_MODE_ADDR  8
-#define EEPROM_EXT_CLOCK_ADDR   9
-#define EEPROM_STEP_DATA_ADDR   10
-#define EEPROM_PITCHES_ADDR     74
+#define EEPROM_MAGIC_ADDR         0
+#define EEPROM_MIDICHANNEL_ADDR   1
+#define EEPROM_SWING_ADDR         2
+#define EEPROM_TEMPO_ADDR         3
+#define EEPROM_PATTERN_ADDR       7
+#define EEPROM_CHAIN_MODE_ADDR    8
+#define EEPROM_EXT_CLOCK_ADDR     9
+#define EEPROM_STEP_DATA_ADDR     10
+#define EEPROM_PITCHES_ADDR       266
+#define EEPROM_OCTAVE_SHIFT_ADDR  522
+#define EEPROM_ADVANCED_MODE_ADDR 523
 
-#define EEPROM_MAGIC_VALUE  0xBE  // bump this if the layout changes
+#define EEPROM_MAGIC_VALUE  0xC1  // bumped: expanded to 16 patterns
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -38,18 +42,21 @@ void save_to_eeprom() {
   EEPROM.write(EEPROM_EXT_CLOCK_ADDR, (uint8_t)external_clock_mode);
 
   int addr = EEPROM_STEP_DATA_ADDR;
-  for (int p = 0; p < 4; p++) {
+  for (int p = 0; p < 16; p++) {
     for (int s = 0; s < 16; s++) {
       EEPROM.write(addr++, (uint8_t)step_data[p][0][s]);
     }
   }
 
   addr = EEPROM_PITCHES_ADDR;
-  for (int p = 0; p < 4; p++) {
+  for (int p = 0; p < 16; p++) {
     for (int s = 0; s < 16; s++) {
       EEPROM.write(addr++, pattern_step_pitches[p][s]);
     }
   }
+
+  EEPROM.write(EEPROM_OCTAVE_SHIFT_ADDR, (uint8_t)octave_shift);
+  EEPROM.write(EEPROM_ADVANCED_MODE_ADDR, (uint8_t)advanced_mode);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -76,7 +83,7 @@ bool load_from_eeprom() {
   if (TEMPO < 10.0f || TEMPO > 250.0f) TEMPO = 120.0f;
 
   current_pattern = EEPROM.read(EEPROM_PATTERN_ADDR);
-  if (current_pattern > 3) current_pattern = 0;
+  if (current_pattern > 15) current_pattern = 0;
 
   extended_step_length_mode = EEPROM.read(EEPROM_CHAIN_MODE_ADDR);
   if (extended_step_length_mode > 1) extended_step_length_mode = 0;
@@ -84,18 +91,23 @@ bool load_from_eeprom() {
   external_clock_mode = (bool)EEPROM.read(EEPROM_EXT_CLOCK_ADDR);
 
   int addr = EEPROM_STEP_DATA_ADDR;
-  for (int p = 0; p < 4; p++) {
+  for (int p = 0; p < 16; p++) {
     for (int s = 0; s < 16; s++) {
       step_data[p][0][s] = EEPROM.read(addr++);
     }
   }
 
   addr = EEPROM_PITCHES_ADDR;
-  for (int p = 0; p < 4; p++) {
+  for (int p = 0; p < 16; p++) {
     for (int s = 0; s < 16; s++) {
       pattern_step_pitches[p][s] = EEPROM.read(addr++);
     }
   }
+
+  octave_shift = (int8_t)EEPROM.read(EEPROM_OCTAVE_SHIFT_ADDR);
+  if (octave_shift < -5 || octave_shift > 5) octave_shift = 0;
+
+  advanced_mode = (bool)EEPROM.read(EEPROM_ADVANCED_MODE_ADDR);
 
   // Sync the active voice array to the loaded pattern's pitches, and arm
   // pickup so sliders don't immediately overwrite them.

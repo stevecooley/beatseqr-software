@@ -1,13 +1,13 @@
 # Synthseqr Firmware — User Instructions
 
 Hardware: Adafruit Grand Central M4 Express
-Firmware version: 2.2
+Firmware version: 2.3
 
 ---
 
 ## Overview
 
-Synthseqr is a 16-step MIDI sequencer with 4 patterns, 16 voice sliders, a D-pad for navigation, and an LCD display. It outputs MIDI notes over USB and can follow an external MIDI clock.
+Synthseqr is a 16-step MIDI sequencer with 16 patterns, 16 voice sliders, a D-pad for navigation, and an LCD display. It outputs MIDI notes over USB and can follow an external MIDI clock.
 
 ---
 
@@ -21,8 +21,8 @@ Synthseqr is a 16-step MIDI sequencer with 4 patterns, 16 voice sliders, a D-pad
 | Play button | Transport — start/stop |
 | D-pad (up/down/left/right) | Navigation |
 | Enter button | Confirm / toggle LCD mode |
-| Pattern select buttons (4) | Select active pattern |
-| Pattern select LEDs (4) | Show active pattern |
+| Pattern select buttons (4) | Function keys (behavior depends on mode) |
+| Pattern select LEDs (4) | Mode indicator |
 
 ---
 
@@ -62,7 +62,7 @@ The cursor on the LCD blinks on the field that up/down currently controls.
 
 | Mode (D-pad left/right) | Up/Down adjusts | LCD location |
 |---|---|---|
-| 1 | Pattern (1–4, wraps) | Line 1 — pattern digit |
+| 1 | Pattern (wraps; 1–4 in Simple, 1–16 in Advanced) | Line 1 — pattern digit |
 | 2 | Tempo ±10 BPM | Line 1 — tempo hundreds/tens |
 | 3 | Tempo ±1 BPM | Line 1 — tempo units |
 | 4 | Tempo ±0.1 BPM | Line 1 — tempo tenths |
@@ -83,12 +83,12 @@ The cursor on the LCD blinks on the field that up/down currently controls.
 [play/stop] P{pattern} T{tempo}
 ```
 
-Example: `▶P1 T120.00     `
+Example: `▶ P01 T120.00  `
 
 ### LCD Line 2
 
 ```
-s{swing} clk:{int|ext} C{channel}
+s{swing} clk:{int|ext} Ch{channel}
 ```
 
 Example: `s0 clk:int Ch02 `
@@ -99,7 +99,7 @@ Line 2 shows swing, clock source, and MIDI channel together. The cursor sits on 
 
 ## Clock Source (INT / EXT)
 
-Navigate to **timing mode 6** (D-pad right five times from default).
+Navigate to **timing mode 7** (D-pad right six times from default).
 
 - **D-pad up** — switch to **EXT**: the sequencer follows incoming USB-MIDI clock (0xF8 / 0xFA / 0xFC from an external device such as a DAW or drum machine).
 - **D-pad down** — switch to **INT**: the sequencer uses its own internal hardware timer at the current BPM.
@@ -117,15 +117,42 @@ When EXT is active:
 
 ---
 
+## Modes: Simple and Advanced
+
+Synthseqr has two modes, switchable from the Config Menu.
+
+### Simple Mode (default)
+
+- 4 patterns (P01–P04)
+- Pattern buttons 1–4 directly select patterns 1–4
+- Pattern button 1 + 4 simultaneously toggle **chain mode** (4 patterns looping)
+- Hold any pattern button 2 seconds to begin **pattern copy**; press destination button to complete
+
+### Advanced Mode
+
+- 16 patterns (P01–P16)
+- Pattern buttons are **function keys** — their LEDs only light while held
+- **Hold pattern button 1** + tap a step button → jump to that pattern (step 1 = P01, step 16 = P16)
+- **Double-click pattern button 1** (two taps within ~400 ms) → arm **pattern copy**
+  - LCD shows `Copy P{n} ->`
+  - Tap any step button to set the destination pattern
+  - D-pad left cancels
+- D-pad mode 1 navigates patterns 1–16 with up/down
+
+---
+
 ## Patterns
 
-There are 4 patterns (1–4). Each pattern has its own 16 steps and its own set of 16 pitches.
+There are up to 16 patterns (P01–P16). Each pattern has its own 16 steps and its own set of 16 pitches.
 
 ### Selecting a Pattern
 
-Press any of the 4 **pattern select buttons** to switch to that pattern immediately.
+**Simple mode**: Press any of the 4 pattern select buttons to switch instantly.
 
-- The pattern select LED for the active pattern is lit.
+**Advanced mode**: Hold pattern button 1, then tap a step button (step 1 = P01 ... step 16 = P16).
+
+**Either mode**: Navigate to D-pad mode 1 and use up/down to scroll through patterns.
+
 - Step LEDs update to show the new pattern's data.
 - Slider pitches are restored from the pattern's saved values (see below).
 
@@ -137,16 +164,34 @@ Each slider is individually locked until its physical position reaches within 1 
 
 ### Copying a Pattern
 
+**Simple mode**:
 1. Hold a **pattern select button for 2 seconds**. The LCD shows `Copy N ->`.
 2. Press the **destination pattern button**. The entire pattern (steps + pitches) is copied there.
 
-### Chaining 4 Patterns
+**Advanced mode**:
+1. **Double-click pattern button 1** (two taps within ~400 ms). The LCD shows `Copy P{n} ->`.
+2. Tap any **step button** to select the destination (step 1 = P01 ... step 16 = P16).
+3. To cancel, press **D-pad left**.
+
+### Chaining Patterns (Simple Mode)
 
 Press **pattern buttons 1 and 4 simultaneously** to toggle chain mode.
 
 - **Chain on** (`chain 4` on LCD): patterns auto-advance 1 → 2 → 3 → 4 → 1 ... each time step 15 is reached.
 - **Chain off** (`single` on LCD): only the active pattern plays on loop.
-- The LCD briefly shows the new mode (`chain 4` or `single`) as confirmation.
+- The LCD briefly shows the new mode as confirmation.
+
+---
+
+## Octave Shift
+
+Open the **Config Menu** (double-tap Enter), scroll to **Octave shift**, and press Enter.
+
+- D-pad up/down shifts all notes up or down by one octave at a time.
+- Range: −5 to +5 octaves.
+- The shift is applied at MIDI send time — stored pitches are not changed.
+- Press Enter or D-pad left to exit the editor and return to the menu.
+- The shift is saved along with other settings.
 
 ---
 
@@ -156,22 +201,16 @@ These combos work while the sequencer is stopped or playing.
 
 | Action | Combo |
 |---|---|
-| Clear current pattern | Hold **step button 0** + **step button 15** |
-| Clear all patterns | Hold **step button 0** + **step button 11** |
+| Clear current pattern | Hold **step button 1** + **step button 16** |
+| Clear all patterns | Hold **step button 1** + **step button 12** |
 
 Clearing turns off all step LEDs and silences all steps. Slider pitches are not affected.
 
 ---
 
-## Resetting Slider Pitches
-
-Calling `resetSliders()` (wired to your preferred button combo or Serial command) resets all 16 pitches for the current pattern to the defaults (MIDI notes 36–51) and unlocks all sliders immediately.
-
----
-
 ## MIDI Output
 
-- **Channel:** set by `MIDICHANNEL` in config.h (default: channel 2)
+- **Channel:** selectable 1–16 (default: channel 2)
 - **Note-on velocity:** 127 (fixed)
 - **Note-off:** sent automatically when the sequencer leaves a step, and for all open notes on stop
 - **MIDI clock (0xF8):** output continuously while playing (internal mode only)
@@ -187,7 +226,7 @@ Calling `resetSliders()` (wired to your preferred button combo or Serial command
 [play/stop] P[pattern] T[tempo]
 ```
 
-Example: `▶ P1 T120.00    `
+Example: `▶ P01 T120.00  `
 
 ### Line 2
 
@@ -219,15 +258,15 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Item | Action |
 |---|---|
 | Exit | Leave the config menu |
-| Save | Save to EEPROM (sequencer must be stopped; shows `Stop first!` if playing) |
+| Save | Save to SD card (primary) + EEPROM (backup); sequencer must be stopped |
 | Clear pattern | Clear current pattern (confirmation required) |
-| Clear all pats | Clear all 4 patterns (confirmation required) |
+| Clear all pats | Clear all 16 patterns (confirmation required) |
 | Reset sliders | Reset all pitches to defaults (confirmation required) |
 | Mode: Simple/Advanced | Toggle between Simple and Advanced mode |
-| Octave shift | (Coming soon — not yet implemented) |
-| Note shift | (Coming soon — not yet implemented) |
-| Note range | (Coming soon — not yet implemented) |
-| Note scales | (Coming soon — not yet implemented) |
+| Octave shift | Adjust octave offset ±5; up/down to change, Enter or Left to exit |
+| Note shift | (Coming soon) |
+| Note range | (Coming soon) |
+| Note scales | (Coming soon) |
 
 **Confirmation prompt**: for destructive actions, line 2 shows `Entr=ok  Lft=no`. Press Enter to confirm or D-pad left to cancel.
 
@@ -239,11 +278,19 @@ Open the config menu (double-tap Enter), scroll to **Save**, and press Enter. Th
 
 The following are saved:
 
-- All 4 patterns (step on/off + pitch per step)
+- All 16 patterns (step on/off + pitch per step)
 - Tempo, swing, MIDI channel
 - Active pattern, chain mode on/off, clock source (INT/EXT)
+- Octave shift
+- Simple / Advanced mode
+
+**Primary storage**: SD card (`/synthseqr/autosave.json`). The file is human-readable JSON and can be edited or generated externally with any tool you prefer.
+
+**Fallback**: EEPROM (flash storage on the microcontroller). Used automatically on boot if no SD card or save file is found.
 
 On the next power-up, everything is automatically restored exactly as you left it. On first boot (no save yet), the sequencer starts with factory defaults.
+
+> **SD card tip**: You can create sequences in any external tool (DAW, text editor, custom script) and write them to the SD card as `/synthseqr/autosave.json`. The sequencer will load them on the next boot.
 
 ---
 
@@ -262,7 +309,7 @@ In diagnostics mode:
 - Press **D-pad right** — prints `dpad right pressed`.
 - Press **Enter** — prints `enter pressed`.
 
-**Enter / exit diagnostics:** hold **D-pad left + D-pad right simultaneously for 1 second**, then release. The same combo exits. A brief spin-wait after entry ensures the buttons are released before the exit check begins, so you don't exit immediately upon entering.
+**Enter / exit diagnostics:** hold **D-pad left + D-pad right simultaneously for 1 second**, then release. The same combo exits.
 
 ---
 
@@ -285,16 +332,21 @@ Connect at **57600 baud** to see:
 | Toggle a step | Step button |
 | Set step pitch | Voice slider |
 | Select pattern (d-pad) | D-pad left to mode 1, up/down cycles patterns |
+| Select pattern (simple) | Pattern button 1–4 |
+| Select pattern (advanced) | Hold pattern button 1 + tap step button |
 | Adjust tempo (coarse) | D-pad right to mode 2–3, then up/down |
 | Adjust tempo (fine) | D-pad right to mode 4–5, then up/down |
 | Adjust swing | D-pad right to mode 6, then up/down |
 | Set clock source | D-pad right to mode 7, up=EXT / down=INT |
 | Set MIDI channel | D-pad right to mode 8, up/down = channel 1–16 |
-| Select pattern | Pattern button 1–4 |
-| Copy pattern | Hold pattern button 2s → press destination |
-| Chain 4 patterns | Pattern buttons 1 + 4 simultaneously |
-| Clear current pattern | Config menu → Clear pattern |
-| Clear all patterns | Config menu → Clear all pats |
-| Save to EEPROM | Config menu → Save (sequencer stopped) |
+| Copy pattern (simple) | Hold pattern button 2s → press destination button |
+| Copy pattern (advanced) | Double-click pattern button 1 → tap step = destination |
+| Cancel copy (advanced) | D-pad left while copy is armed |
+| Chain 4 patterns (simple) | Pattern buttons 1 + 4 simultaneously |
+| Clear current pattern | Hold step 1 + step 16 |
+| Clear all patterns | Hold step 1 + step 12 |
+| Octave shift | Config menu → Octave shift, up/down |
+| Save | Config menu → Save (sequencer stopped) |
+| Toggle Simple/Advanced | Config menu → Mode |
 | Open config menu | Double-tap Enter |
 | Enter / exit diagnostics | Hold D-pad left + right 1s |

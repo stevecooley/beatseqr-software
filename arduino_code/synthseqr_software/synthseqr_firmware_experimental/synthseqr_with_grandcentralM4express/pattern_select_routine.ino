@@ -1,49 +1,87 @@
 void run_pattern_select_routine() {
   listen_for_copy_command();
 
-  // pattern select
-  for (int pattern = 0; pattern < 4; pattern++) {
-    if (pattern_select_button_flags[pattern] == true) {
-      
-      pattern_select_button_flags[pattern] = false;
-
-      // go_to_pattern(pattern to go to, silent?)
-      go_to_pattern(pattern, 0);
-      read_step_memory(0, pattern);
+  // -----------------------------------------------------------------------
+  // Advanced mode: pattern button 0 held + step tap = select pattern 0–15.
+  // While button 0 is held, step buttons are consumed here and do NOT toggle
+  // steps (run_step_button_routine() gates detect_step_button_presses() on
+  // adv_pat_select_active).
+  // -----------------------------------------------------------------------
+  if (advanced_mode) {
+    adv_pat_select_active = pattern_select_buttons[0].wasPressed();
+    if (adv_pat_select_active) {
+      // Light LED 0 to indicate pattern-select mode is armed.
+      pattern_select_leds[0].on();
+      pattern_select_leds[1].off();
+      pattern_select_leds[2].off();
+      pattern_select_leds[3].off();
+      for (int i = 0; i < 16; i++) {
+        if (step_buttons[i].uniquePress()) {
+          go_to_pattern(i, 0);
+          read_step_memory(0, i);
+          break;
+        }
+      }
+      // Consume all pattern button flags so simple-mode select doesn't fire.
+      for (int i = 0; i < 4; i++) pattern_select_button_flags[i] = false;
+      return;
+    } else {
+      adv_pat_select_active = false;
+      // In advanced mode, no LED lit while idle — buttons are function keys.
+      pattern_select_leds[0].off();
+      pattern_select_leds[1].off();
+      pattern_select_leds[2].off();
+      pattern_select_leds[3].off();
     }
-
-    
-
-      // pattern_select_button_pressing_counter = 0;
-    
   }
 
-  static bool chain_toggle_handled = false;
-  // Use wasPressed() — uniquePress() already called isPressed() for these
-  // buttons earlier in the loop. A second isPressed() call can steal the
-  // CHANGED flag and cause the next uniquePress() to miss a press.
-  if (pattern_select_buttons[0].wasPressed() &&
-      pattern_select_buttons[3].wasPressed()) {
-    if (!chain_toggle_handled) {
-      chain_toggle_handled = true;
-      if (extended_step_length_mode == 1) {
-        lcdflag = 200;  // pattern chain single
-        next_lcdflag = 200;
-        extended_step_length_mode = 0;
-      } else {
-        lcdflag = 201;  // pattern chain 4
-        next_lcdflag = 201;
-        extended_step_length_mode = 1;
+  // -----------------------------------------------------------------------
+  // Simple mode: pattern buttons 0–3 select patterns 0–3 directly.
+  // -----------------------------------------------------------------------
+  if (!advanced_mode) {
+    for (int pattern = 0; pattern < 4; pattern++) {
+      if (pattern_select_button_flags[pattern] == true) {
+        pattern_select_button_flags[pattern] = false;
+        go_to_pattern(pattern, 0);
+        read_step_memory(0, pattern);
       }
-      go_to_pattern(0, 1);
     }
-  } else {
-    chain_toggle_handled = false;
+  }
+
+  // -----------------------------------------------------------------------
+  // Simple mode chain toggle: buttons 0+3 simultaneously.
+  // Sets chain_start=0, chain_end=3 (the original 4-pattern loop).
+  // -----------------------------------------------------------------------
+  if (!advanced_mode) {
+    static bool chain_toggle_handled = false;
+    if (pattern_select_buttons[0].wasPressed() &&
+        pattern_select_buttons[3].wasPressed()) {
+      if (!chain_toggle_handled) {
+        chain_toggle_handled = true;
+        if (extended_step_length_mode == 1) {
+          lcdflag = 200;  next_lcdflag = 200;  // single
+          extended_step_length_mode = 0;
+        } else {
+          lcdflag = 201;  next_lcdflag = 201;  // chain 4
+          extended_step_length_mode = 1;
+          chain_start = 0;
+          chain_end   = 3;
+        }
+        go_to_pattern(0, 1);
+      }
+    } else {
+      chain_toggle_handled = false;
+    }
   }
 }
 
 void run_auto_pattern_select_routine() {
-  current_pattern = (current_pattern + 1) % 4;
+  // Advance within chain_start..chain_end range, wrapping at chain_end.
+  if (current_pattern >= chain_end || current_pattern < chain_start) {
+    current_pattern = chain_start;
+  } else {
+    current_pattern++;
+  }
   go_to_pattern(current_pattern, 1);
 }
 
@@ -52,7 +90,11 @@ void go_to_pattern(int pattern, int silent) {
   pattern_select_leds[1].off();
   pattern_select_leds[2].off();
   pattern_select_leds[3].off();
-  pattern_select_leds[pattern].on();
+  // In simple mode, light the LED for the active pattern.
+  // In advanced mode, LEDs are function-key indicators — don't light on switch.
+  if (!advanced_mode) {
+    pattern_select_leds[pattern % 4].on();
+  }
 
   // When switching to a different pattern, restore its saved pitches and arm
   // pickup so sliders don't immediately overwrite them.
@@ -98,7 +140,7 @@ void listen_for_copy_command() {
   if (told_which_pattern_to_copy_to ==
       true)  // we were told to copy the current pattern to another pattern
   {
-    for (int i = 0; i <= 3; i++) {
+    for (int i = 0; i < 4; i++) {
       if (pattern_select_button_flags[i] == true) {
         pattern_select_button_flags[i] = false;
 

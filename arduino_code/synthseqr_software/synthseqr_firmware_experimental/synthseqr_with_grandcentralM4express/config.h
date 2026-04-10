@@ -1,4 +1,5 @@
 #include <stdlib.h>  // because dtostrf()
+#include <SD.h>      // SD card storage
 
 #include "Button.h"
 #include "FifteenStep.h"
@@ -47,7 +48,19 @@ int voice_slider_midinotenum[16] = {36, 37, 38, 39, 40, 41, 42, 43,
 
 // Per-pattern saved pitches. Updated whenever a slider moves (after pickup).
 // Restored when switching patterns so each pattern remembers its own tuning.
-uint8_t pattern_step_pitches[4][16] = {
+uint8_t pattern_step_pitches[16][16] = {
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
+  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
   {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
   {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
   {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
@@ -90,8 +103,8 @@ Button step_buttons[16] = {
     Button(47, PULLUP), Button(49, PULLUP), Button(51, PULLUP),
     Button(53, PULLUP)};
 
-// step_data = 4 patterns, 1 voice, 16 steps
-int step_data[4][1][16];
+// step_data = 16 patterns, 1 voice, 16 steps
+int step_data[16][1][16];
 uint8_t pattern_value;
 uint8_t step_value;
 
@@ -145,6 +158,20 @@ uint8_t extended_step_length_mode = 0;
 uint8_t current_pattern = 0;
 uint8_t patterns_to_play_in_a_row = 1;
 
+// Chain range — used in both simple and advanced mode.
+// Simple mode: chain toggles between single pattern and 0→3 (old behaviour).
+// Advanced mode: button 2 sets arbitrary start/end within 0–15.
+uint8_t chain_start = 0;
+uint8_t chain_end   = 3;
+
+// Advanced mode pattern-select state — true while pattern button 0 is held.
+// Suppresses normal step-button toggle so step buttons select patterns instead.
+bool adv_pat_select_active = false;
+
+// Advanced mode pattern-copy state — true after double-click of pattern button 0.
+// Step button tap selects copy destination; d-pad left cancels.
+bool adv_copy_armed = false;
+
 bool told_which_pattern_to_copy_to = false;
 uint8_t copy_pattern_to;
 
@@ -169,12 +196,13 @@ char* step_padding;
 #define lcd Serial1
 
 // LCD field cursor positions — update these if the display format changes.
-// Line 1: [icon] [space] P{pattern} T{tempo}
-#define LCD_L1_X_PATTERN    3   // pattern digit in "P%u" (icon+space+P+digit)
-#define LCD_L1_X_TEMPO_10   7   // tempo hundreds/tens digit (±10 BPM)
-#define LCD_L1_X_TEMPO_1    8   // tempo units digit (±1 BPM)
-#define LCD_L1_X_TEMPO_01   10  // tempo tenths digit, after decimal at col 9 (±0.1 BPM)
-#define LCD_L1_X_TEMPO_001  11  // tempo hundredths digit (±0.01 BPM)
+// Line 1: [icon] [space] P{pattern:02u} [space] T{tempo}
+// Pattern is now 2 digits (P01–P16), so tempo columns shift right by 1 vs old format.
+#define LCD_L1_X_PATTERN    3   // first (tens) digit of pattern in "P%02u"
+#define LCD_L1_X_TEMPO_10   8   // tempo hundreds/tens digit (±10 BPM)
+#define LCD_L1_X_TEMPO_1    9   // tempo units digit (±1 BPM)
+#define LCD_L1_X_TEMPO_01   11  // tempo tenths digit, after decimal at col 10 (±0.1 BPM)
+#define LCD_L1_X_TEMPO_001  12  // tempo hundredths digit (±0.01 BPM)
 // Line 2: s{swing} clk:{int|ext} Ch{channel}
 #define LCD_L2_X_SWING      1   // swing digit in "s%d"
 #define LCD_L2_X_CLOCK      7   // first char of int/ext in "clk:%s"
@@ -302,6 +330,15 @@ bool advanced_mode = false;
 bool config_menu_active = false;
 uint8_t config_menu_item = 0;   // 0=Exit 1=ClearPat 2=ClearAll 3=ResetSliders 4=Mode
 bool config_confirm_pending = false;
+bool config_editing_value = false;  // true while adjusting a value (e.g. octave shift)
+
+/////////////////////////////////
+// octave shift
+/////////////////////////////////
+
+// Applied at MIDI send time. Each unit = 12 semitones. Range -5 to +5.
+// Stored separately from per-step pitches so tuning is not affected.
+int8_t octave_shift = 0;
 
 // Declared in transport.ino; forward-declared here so the main sketch can
 // read the flag set by the play button hardware interrupt.

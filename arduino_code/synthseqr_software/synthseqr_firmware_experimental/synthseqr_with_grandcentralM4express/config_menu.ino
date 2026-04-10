@@ -62,10 +62,17 @@ void draw_config_menu() {
   lcd.print("> ");
   print_config_label(config_menu_item);
 
-  // Line 2: confirmation prompt if pending, otherwise next item with no cursor
+  // Line 2: confirmation prompt, value editor, or next-item preview
   lcd.print("?x00?y1");
   if (config_confirm_pending) {
     lcd.print("Entr=ok  Lft=no ");
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_OCTAVE_SHIFT) {
+    // Show current octave_shift value with sign; pad to 16 chars.
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Oct: %+d", octave_shift);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
   } else {
     uint8_t next = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
     lcd.print("  ");
@@ -77,12 +84,14 @@ void enter_config_menu() {
   config_menu_active = true;
   config_menu_item = 0;
   config_confirm_pending = false;
+  config_editing_value = false;
   draw_config_menu();
 }
 
 void exit_config_menu() {
   config_menu_active = false;
   config_confirm_pending = false;
+  config_editing_value = false;
   // Force a full LCD redraw back to the main display.
   update_line1 = true;
   update_line2 = true;
@@ -94,15 +103,45 @@ void exit_config_menu() {
 void run_config_menu() {
   if (!config_menu_active) return;
 
-  // D-pad left always exits (or cancels confirmation).
+  // D-pad left: exits editing/confirmation mode first, then exits menu.
   if (dpad_left_flag) {
     dpad_left_flag = false;
-    if (config_confirm_pending) {
+    if (config_editing_value) {
+      config_editing_value = false;
+      draw_config_menu();
+    } else if (config_confirm_pending) {
       config_confirm_pending = false;
       draw_config_menu();
     } else {
       exit_config_menu();
     }
+    return;
+  }
+
+  // While editing a value (e.g. octave shift), up/down adjust the value.
+  // Enter or Left exit editing mode and return to normal menu scroll.
+  if (config_editing_value) {
+    dpad_right_flag = false;
+    if (dpad_up_flag) {
+      dpad_up_flag = false;
+      if (config_menu_item == CONFIG_ITEM_OCTAVE_SHIFT && octave_shift < 5) {
+        octave_shift++;
+        draw_config_menu();
+      }
+    }
+    if (dpad_down_flag) {
+      dpad_down_flag = false;
+      if (config_menu_item == CONFIG_ITEM_OCTAVE_SHIFT && octave_shift > -5) {
+        octave_shift--;
+        draw_config_menu();
+      }
+    }
+    if (enterbutton_flag) {
+      enterbutton_flag = false;
+      config_editing_value = false;
+      draw_config_menu();
+    }
+    // Left is handled above and already exits editing via the global left check.
     return;
   }
 
@@ -168,7 +207,7 @@ void run_config_menu() {
           lcd.print("?x00?y1");
           lcd.print("Stop first!     ");
         } else {
-          save_to_eeprom();
+          save_everywhere();  // SD primary + EEPROM backup
           lcdflag = 202;
           next_lcdflag = 202;
           exit_config_menu();
@@ -187,6 +226,9 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_OCTAVE_SHIFT:
+        config_editing_value = true;
+        draw_config_menu();
+        break;
       case CONFIG_ITEM_NOTE_SHIFT:
       case CONFIG_ITEM_NOTE_RANGE:
       case CONFIG_ITEM_NOTE_SCALES:

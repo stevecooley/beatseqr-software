@@ -51,10 +51,9 @@ void setup() {
   seq.setMidiHandler(midi);
   seq.setStepHandler(stepsend);
 
-  // Restore saved state. On first boot the magic byte won't match and
-  // globals keep their defaults. After a save the last working session
-  // is fully restored: patterns, pitches, tempo, swing, channel, clock mode.
-  load_from_eeprom();
+  // Restore saved state. SD is tried first (all 16 patterns + settings);
+  // falls back to EEPROM (4 patterns) if no card or no autosave found.
+  boot_load();
   go_to_pattern(current_pattern, 1);
   seq.setTempo(TEMPO);
   update_line2 = true;  // ensure swing/clock/channel redraw with loaded values
@@ -153,12 +152,29 @@ void loop() {
       pattern_select_button_flags[i] = true;
     }
 
-    // pattern copy
-    if (pattern_select_buttons[i].heldFor(2000)) {
+    // pattern copy — simple mode only; advanced mode uses holds for function keys
+    if (!advanced_mode && pattern_select_buttons[i].heldFor(2000)) {
       // Serial.print(last_serial);
       told_which_pattern_to_copy_to =
           true;       // this is us being told to copy the pattern
       lcdflag = 100;  next_lcdflag = 100;  // pattern copy
+    }
+  }
+
+  // Advanced mode: double-click pattern button 0 = arm pattern copy.
+  // Source is current_pattern; next step button tap selects destination.
+  if (advanced_mode && pattern_select_button_flags[0]) {
+    static unsigned long last_pat0_press_ms = 0;
+    unsigned long now_ms = millis();
+    if (last_pat0_press_ms != 0 && now_ms - last_pat0_press_ms <= 400) {
+      last_pat0_press_ms = 0;
+      pattern_select_button_flags[0] = false;
+      adv_copy_armed = true;
+      lcdflag = 100;  next_lcdflag = 100;  // "Copy P{n} ->"
+      Serial.print("copy armed from pattern ");
+      Serial.println(current_pattern + 1);
+    } else {
+      last_pat0_press_ms = now_ms;
     }
   }
 
