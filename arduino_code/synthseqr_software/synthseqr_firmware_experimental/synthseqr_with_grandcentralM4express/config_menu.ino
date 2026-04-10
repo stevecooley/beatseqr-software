@@ -22,9 +22,9 @@
 #define CONFIG_ITEM_CLEAR_ALL     3
 #define CONFIG_ITEM_RESET_SLIDERS 4
 #define CONFIG_ITEM_MODE          5
-#define CONFIG_ITEM_OCTAVE_SHIFT  6  // placeholder — not yet implemented
-#define CONFIG_ITEM_NOTE_SHIFT    7  // placeholder — not yet implemented
-#define CONFIG_ITEM_NOTE_RANGE    8  // placeholder — not yet implemented
+#define CONFIG_ITEM_OCTAVE_SHIFT  6
+#define CONFIG_ITEM_NOTE_SHIFT    7
+#define CONFIG_ITEM_NOTE_RANGE    8
 #define CONFIG_ITEM_NOTE_SCALES   9  // placeholder — not yet implemented
 #define CONFIG_MENU_ITEM_COUNT    10
 
@@ -53,6 +53,9 @@ void print_config_label(uint8_t item) {
     lcd.print(octave_shift != 0 ? "Octave shift *" : "Octave shift  ");
   } else if (item == CONFIG_ITEM_NOTE_SHIFT) {
     lcd.print(note_shift != 0  ? "Note shift   *" : "Note shift    ");
+  } else if (item == CONFIG_ITEM_NOTE_RANGE) {
+    bool non_default = (slider_map_low_value != 36 || slider_map_high_value != 52);
+    lcd.print(non_default ? "Note range   *" : "Note range    ");
   } else {
     lcd.print(config_labels[item]);
   }
@@ -83,6 +86,17 @@ void draw_config_menu() {
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_NOTE_RANGE) {
+    char line2[17];
+    int len;
+    if (config_note_range_phase == 0) {
+      len = snprintf(line2, sizeof(line2), "Edit Lo: %d", slider_map_low_value);
+    } else {
+      len = snprintf(line2, sizeof(line2), "Edit Hi: %d", slider_map_high_value);
+    }
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
   } else {
     uint8_t next = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
     lcd.print("  ");
@@ -102,6 +116,7 @@ void exit_config_menu() {
   config_menu_active = false;
   config_confirm_pending = false;
   config_editing_value = false;
+  config_note_range_phase = 0;
   // Force a full LCD redraw back to the main display.
   update_line1 = true;
   update_line2 = true;
@@ -118,6 +133,7 @@ void run_config_menu() {
     dpad_left_flag = false;
     if (config_editing_value) {
       config_editing_value = false;
+      config_note_range_phase = 0;
       draw_config_menu();
     } else if (config_confirm_pending) {
       config_confirm_pending = false;
@@ -140,6 +156,14 @@ void run_config_menu() {
       } else if (config_menu_item == CONFIG_ITEM_NOTE_SHIFT && note_shift < 12) {
         note_shift++;
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_NOTE_RANGE) {
+        if (config_note_range_phase == 0 && slider_map_low_value < slider_map_high_value - 1) {
+          slider_map_low_value++;
+          draw_config_menu();
+        } else if (config_note_range_phase == 1 && slider_map_high_value < 127) {
+          slider_map_high_value++;
+          draw_config_menu();
+        }
       }
     }
     if (dpad_down_flag) {
@@ -150,12 +174,26 @@ void run_config_menu() {
       } else if (config_menu_item == CONFIG_ITEM_NOTE_SHIFT && note_shift > -12) {
         note_shift--;
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_NOTE_RANGE) {
+        if (config_note_range_phase == 0 && slider_map_low_value > 0) {
+          slider_map_low_value--;
+          draw_config_menu();
+        } else if (config_note_range_phase == 1 && slider_map_high_value > slider_map_low_value + 1) {
+          slider_map_high_value--;
+          draw_config_menu();
+        }
       }
     }
     if (enterbutton_flag) {
       enterbutton_flag = false;
-      config_editing_value = false;
-      draw_config_menu();
+      if (config_menu_item == CONFIG_ITEM_NOTE_RANGE && config_note_range_phase == 0) {
+        config_note_range_phase = 1;
+        draw_config_menu();
+      } else {
+        config_editing_value = false;
+        config_note_range_phase = 0;
+        draw_config_menu();
+      }
     }
     // Left is handled above and already exits editing via the global left check.
     return;
@@ -250,6 +288,10 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_NOTE_RANGE:
+        config_editing_value = true;
+        config_note_range_phase = 0;
+        draw_config_menu();
+        break;
       case CONFIG_ITEM_NOTE_SCALES:
         // Placeholder — not yet implemented. Show a message on line 2.
         lcd.print("?x00?y1");

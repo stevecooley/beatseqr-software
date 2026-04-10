@@ -209,6 +209,21 @@ Open the **Config Menu** (double-tap Enter), scroll to **Note shift**, and press
 
 ---
 
+## Note Range
+
+Open the **Config Menu** (double-tap Enter), scroll to **Note range**, and press Enter.
+
+The editor has two phases:
+
+1. **Edit Low** — line 2 shows `Edit Lo: 36`. D-pad up/down adjusts the low note (0–126, must stay below high). Press Enter to move to the high editor.
+2. **Edit High** — line 2 shows `Edit Hi: 52`. D-pad up/down adjusts the high note (low+1–127). Press Enter to confirm and exit.
+
+D-pad left exits either phase immediately, keeping whatever values were set. The label shows `Note range   *` in the menu when the values differ from the defaults (36/52).
+
+The range determines how the sliders map to MIDI notes: the full travel of each slider covers the note range from low to high.
+
+---
+
 ## Clearing Patterns
 
 These combos work while the sequencer is stopped or playing.
@@ -279,7 +294,7 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Mode: Simple/Advanced | Toggle between Simple and Advanced mode |
 | Octave shift | Adjust octave offset ±5; up/down to change, Enter or Left to exit; label shows * when non-zero |
 | Note shift | Adjust semitone offset ±12; up/down to change, Enter or Left to exit; label shows * when non-zero |
-| Note range | (Coming soon) |
+| Note range | Two-phase editor: Enter to edit low note, Enter again to edit high note, Enter to exit; Left exits either phase; label shows * when non-default (36/52) |
 | Note scales | (Coming soon) |
 
 **Confirmation prompt**: for destructive actions, line 2 shows `Entr=ok  Lft=no`. Press Enter to confirm or D-pad left to cancel.
@@ -295,7 +310,7 @@ The following are saved:
 - All 16 patterns (step on/off + pitch per step)
 - Tempo, swing, MIDI channel
 - Active pattern, chain mode on/off, clock source (INT/EXT)
-- Octave shift, Note shift
+- Octave shift, Note shift, Note range (low/high)
 - Simple / Advanced mode
 
 **Primary storage**: SD card (`/synthseqr/autosave.json`). The file is human-readable JSON and can be edited or generated externally with any tool you prefer.
@@ -361,6 +376,7 @@ Connect at **57600 baud** to see:
 | Clear all patterns | Hold step 1 + step 12 |
 | Octave shift | Config menu → Octave shift, up/down |
 | Note shift | Config menu → Note shift, up/down |
+| Note range | Config menu → Note range, Enter for lo/hi phases |
 | Save | Config menu → Save (sequencer stopped) |
 | Toggle Simple/Advanced | Config menu → Mode |
 | Open config menu | Double-tap Enter |

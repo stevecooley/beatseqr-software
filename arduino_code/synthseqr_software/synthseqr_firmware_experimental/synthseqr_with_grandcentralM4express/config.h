@@ -331,6 +331,7 @@ bool config_menu_active = false;
 uint8_t config_menu_item = 0;   // 0=Exit 1=ClearPat 2=ClearAll 3=ResetSliders 4=Mode
 bool config_confirm_pending = false;
 bool config_editing_value = false;  // true while adjusting a value (e.g. octave shift)
+uint8_t config_note_range_phase = 0; // 0 = editing low, 1 = editing high (used by NOTE_RANGE item)
 
 /////////////////////////////////
 // octave shift

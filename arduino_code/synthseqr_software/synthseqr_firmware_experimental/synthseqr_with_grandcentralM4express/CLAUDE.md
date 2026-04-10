@@ -243,7 +243,7 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 6. **Mode: Simple/Advanced** — toggles immediately, value shown inline on line 1
 7. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); Enter or Left exits editing; label shows `Octave shift *` when non-zero
 8. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); Enter or Left exits editing; label shows `Note shift   *` when non-zero
-9. **Note range** — placeholder, shows `Coming soon...` (not yet implemented)
+9. **Note range** — two-phase editor: Enter starts editing low value (`Edit Lo: N`), Enter again switches to high value (`Edit Hi: N`), Enter again exits; Left exits either phase; low range 0–(high-1), high range (low+1)–127; defaults 36/52; label shows `Note range   *` when non-default
 10. **Note scales** — placeholder, shows `Coming soon...` (not yet implemented)
 
 **Double-tap detection**: implemented in the main `loop()` with a static `last_enter_ms` timestamp. Two `uniquePress()` events within 400 ms trigger `enter_config_menu()` instead of setting `enterbutton_flag`. Single tap still behaves as before (LCD refresh, enter LED toggle).
@@ -268,6 +268,8 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
   "midi_channel": 2,
   "octave_shift": 0,
   "note_shift": 0,
+  "note_range_low": 36,
+  "note_range_high": 52,
   "chain_active": 0,
   "chain_start": 0,
   "chain_end": 3,
@@ -287,11 +289,11 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 **On boot**: `load_from_eeprom()` is called only if `load_from_sd()` returns false. Checks for a magic sentinel byte at address 0. If missing (first boot or layout change), globals keep compiled-in defaults.
 
-**EEPROM layout** (525 bytes, defined as `#define` constants in `storage.ino`):
+**EEPROM layout** (527 bytes, defined as `#define` constants in `storage.ino`):
 
 | Address | Size | Content |
 |---------|------|---------|
-| 0 | 1 | Magic byte `0xC2` |
+| 0 | 1 | Magic byte `0xC3` |
 | 1 | 1 | `MIDICHANNEL` |
 | 2 | 1 | `SWING` |
 | 3 | 4 | `TEMPO` (float) |
@@ -303,11 +305,13 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 522 | 1 | `octave_shift` (int8_t as raw byte) |
 | 523 | 1 | `advanced_mode` (bool) |
 | 524 | 1 | `note_shift` (int8_t as raw byte) |
+| 525 | 1 | `slider_map_low_value` (uint8_t) |
+| 526 | 1 | `slider_map_high_value` (uint8_t) |
 
 **Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer.
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC2`.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC3`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.

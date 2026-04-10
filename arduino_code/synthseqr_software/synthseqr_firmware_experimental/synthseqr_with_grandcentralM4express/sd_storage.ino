@@ -14,6 +14,8 @@
 //     "midi_channel": 2,
 //     "octave_shift": 0,
 //     "note_shift": 0,
+//     "note_range_low": 36,
+//     "note_range_high": 52,
 //     "chain_active": 0,
 //     "chain_start": 0,
 //     "chain_end": 3,
@@ -134,7 +136,9 @@ bool save_to_sd() {
   _f.print("  \"swing\": ");         _f.print(SWING);                 _f.println(",");
   _f.print("  \"midi_channel\": ");  _f.print(MIDICHANNEL);           _f.println(",");
   _f.print("  \"octave_shift\": ");  _f.print(octave_shift);          _f.println(",");
-  _f.print("  \"note_shift\": ");    _f.print(note_shift);            _f.println(",");
+  _f.print("  \"note_shift\": ");      _f.print(note_shift);              _f.println(",");
+  _f.print("  \"note_range_low\": ");  _f.print(slider_map_low_value);    _f.println(",");
+  _f.print("  \"note_range_high\": "); _f.print(slider_map_high_value);   _f.println(",");
   _f.print("  \"chain_active\": ");  _f.print(extended_step_length_mode); _f.println(",");
   _f.print("  \"chain_start\": ");   _f.print(chain_start);           _f.println(",");
   _f.print("  \"chain_end\": ");     _f.print(chain_end);             _f.println(",");
@@ -208,6 +212,25 @@ bool load_from_sd() {
   if (sd_find("\"note_shift\":")) {
     int v = (int)sd_parse_number();
     if (v >= -12 && v <= 12) note_shift = (int8_t)v;
+  }
+
+  {
+    uint8_t lo = slider_map_low_value;
+    uint8_t hi = slider_map_high_value;
+    _f.seek(0);
+    if (sd_find("\"note_range_low\":")) {
+      int v = (int)sd_parse_number();
+      if (v >= 0 && v <= 126) lo = (uint8_t)v;
+    }
+    _f.seek(0);
+    if (sd_find("\"note_range_high\":")) {
+      int v = (int)sd_parse_number();
+      if (v >= 1 && v <= 127) hi = (uint8_t)v;
+    }
+    if (lo < hi) {
+      slider_map_low_value = lo;
+      slider_map_high_value = hi;
+    }
   }
 
   _f.seek(0);
