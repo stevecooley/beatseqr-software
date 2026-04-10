@@ -166,7 +166,7 @@ void stepsend(int current_step, int last_step) {
   }
 
   if (step_data[pattern_value][0][current_step] == 1) {
-    int16_t shifted = (int16_t)voice_slider_midinotenum[current_step] + (int16_t)(octave_shift * 12);
+    int16_t shifted = (int16_t)voice_slider_midinotenum[current_step] + (int16_t)(octave_shift * 12) + (int16_t)note_shift;
     if (shifted < 0) shifted = 0;
     if (shifted > 127) shifted = 127;
     uint8_t pitch = (uint8_t)shifted;

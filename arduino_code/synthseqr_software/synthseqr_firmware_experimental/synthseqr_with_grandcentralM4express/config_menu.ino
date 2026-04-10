@@ -49,6 +49,10 @@ void print_config_label(uint8_t item) {
   if (item == CONFIG_ITEM_MODE) {
     // "Mode: Simple  " or "Mode: Advanced" — exactly 14 chars
     lcd.print(advanced_mode ? "Mode: Advanced" : "Mode: Simple  ");
+  } else if (item == CONFIG_ITEM_OCTAVE_SHIFT) {
+    lcd.print(octave_shift != 0 ? "Octave shift *" : "Octave shift  ");
+  } else if (item == CONFIG_ITEM_NOTE_SHIFT) {
+    lcd.print(note_shift != 0  ? "Note shift   *" : "Note shift    ");
   } else {
     lcd.print(config_labels[item]);
   }
@@ -70,6 +74,12 @@ void draw_config_menu() {
     // Show current octave_shift value with sign; pad to 16 chars.
     char line2[17];
     int len = snprintf(line2, sizeof(line2), "  Oct: %+d", octave_shift);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_NOTE_SHIFT) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Note: %+d", note_shift);
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
@@ -127,12 +137,18 @@ void run_config_menu() {
       if (config_menu_item == CONFIG_ITEM_OCTAVE_SHIFT && octave_shift < 5) {
         octave_shift++;
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_NOTE_SHIFT && note_shift < 12) {
+        note_shift++;
+        draw_config_menu();
       }
     }
     if (dpad_down_flag) {
       dpad_down_flag = false;
       if (config_menu_item == CONFIG_ITEM_OCTAVE_SHIFT && octave_shift > -5) {
         octave_shift--;
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_NOTE_SHIFT && note_shift > -12) {
+        note_shift--;
         draw_config_menu();
       }
     }
@@ -230,6 +246,9 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_NOTE_SHIFT:
+        config_editing_value = true;
+        draw_config_menu();
+        break;
       case CONFIG_ITEM_NOTE_RANGE:
       case CONFIG_ITEM_NOTE_SCALES:
         // Placeholder — not yet implemented. Show a message on line 2.

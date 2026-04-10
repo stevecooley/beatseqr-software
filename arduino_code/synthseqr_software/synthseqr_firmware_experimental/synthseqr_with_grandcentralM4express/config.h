@@ -340,6 +340,10 @@ bool config_editing_value = false;  // true while adjusting a value (e.g. octave
 // Stored separately from per-step pitches so tuning is not affected.
 int8_t octave_shift = 0;
 
+// Semitone offset applied at MIDI send time on top of octave_shift.
+// Range -12 to +12. Stored separately from per-step pitches.
+int8_t note_shift = 0;
+
 // Declared in transport.ino; forward-declared here so the main sketch can
 // read the flag set by the play button hardware interrupt.
 extern volatile bool play_button_isr_fired;

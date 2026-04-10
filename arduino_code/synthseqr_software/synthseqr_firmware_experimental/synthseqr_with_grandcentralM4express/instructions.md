@@ -192,6 +192,20 @@ Open the **Config Menu** (double-tap Enter), scroll to **Octave shift**, and pre
 - The shift is applied at MIDI send time — stored pitches are not changed.
 - Press Enter or D-pad left to exit the editor and return to the menu.
 - The shift is saved along with other settings.
+- The label shows `Octave shift *` in the menu when the value is non-zero.
+
+---
+
+## Note Shift
+
+Open the **Config Menu** (double-tap Enter), scroll to **Note shift**, and press Enter.
+
+- D-pad up/down shifts all notes up or down by one semitone at a time.
+- Range: −12 to +12 semitones.
+- Applied at MIDI send time on top of Octave shift — stored pitches are not changed.
+- Press Enter or D-pad left to exit the editor and return to the menu.
+- The shift is saved along with other settings.
+- The label shows `Note shift   *` in the menu when the value is non-zero.
 
 ---
 
@@ -263,8 +277,8 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Clear all pats | Clear all 16 patterns (confirmation required) |
 | Reset sliders | Reset all pitches to defaults (confirmation required) |
 | Mode: Simple/Advanced | Toggle between Simple and Advanced mode |
-| Octave shift | Adjust octave offset ±5; up/down to change, Enter or Left to exit |
-| Note shift | (Coming soon) |
+| Octave shift | Adjust octave offset ±5; up/down to change, Enter or Left to exit; label shows * when non-zero |
+| Note shift | Adjust semitone offset ±12; up/down to change, Enter or Left to exit; label shows * when non-zero |
 | Note range | (Coming soon) |
 | Note scales | (Coming soon) |
 
@@ -281,7 +295,7 @@ The following are saved:
 - All 16 patterns (step on/off + pitch per step)
 - Tempo, swing, MIDI channel
 - Active pattern, chain mode on/off, clock source (INT/EXT)
-- Octave shift
+- Octave shift, Note shift
 - Simple / Advanced mode
 
 **Primary storage**: SD card (`/synthseqr/autosave.json`). The file is human-readable JSON and can be edited or generated externally with any tool you prefer.
@@ -346,6 +360,7 @@ Connect at **57600 baud** to see:
 | Clear current pattern | Hold step 1 + step 16 |
 | Clear all patterns | Hold step 1 + step 12 |
 | Octave shift | Config menu → Octave shift, up/down |
+| Note shift | Config menu → Note shift, up/down |
 | Save | Config menu → Save (sequencer stopped) |
 | Toggle Simple/Advanced | Config menu → Mode |
 | Open config menu | Double-tap Enter |

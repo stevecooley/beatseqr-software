@@ -1,7 +1,7 @@
 // SAMD51 has no native EEPROM; use FlashStorage_SAMD for a compatible API.
 #include <FlashAsEEPROM_SAMD.h>
 
-// EEPROM layout — 524 bytes total.
+// EEPROM layout — 525 bytes total.
 // If you change the layout, increment EEPROM_MAGIC_VALUE so old saves are
 // ignored rather than misread as valid data.
 //
@@ -17,6 +17,7 @@
 //  266   256    pattern_step_pitches[16][16]
 //  522   1      octave_shift (int8_t stored as raw byte)
 //  523   1      advanced_mode (bool)
+//  524   1      note_shift (int8_t stored as raw byte)
 
 #define EEPROM_MAGIC_ADDR         0
 #define EEPROM_MIDICHANNEL_ADDR   1
@@ -29,8 +30,9 @@
 #define EEPROM_PITCHES_ADDR       266
 #define EEPROM_OCTAVE_SHIFT_ADDR  522
 #define EEPROM_ADVANCED_MODE_ADDR 523
+#define EEPROM_NOTE_SHIFT_ADDR    524
 
-#define EEPROM_MAGIC_VALUE  0xC1  // bumped: expanded to 16 patterns
+#define EEPROM_MAGIC_VALUE  0xC2  // bumped: added note_shift
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -57,6 +59,7 @@ void save_to_eeprom() {
 
   EEPROM.write(EEPROM_OCTAVE_SHIFT_ADDR, (uint8_t)octave_shift);
   EEPROM.write(EEPROM_ADVANCED_MODE_ADDR, (uint8_t)advanced_mode);
+  EEPROM.write(EEPROM_NOTE_SHIFT_ADDR, (uint8_t)note_shift);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -108,6 +111,9 @@ bool load_from_eeprom() {
   if (octave_shift < -5 || octave_shift > 5) octave_shift = 0;
 
   advanced_mode = (bool)EEPROM.read(EEPROM_ADVANCED_MODE_ADDR);
+
+  note_shift = (int8_t)EEPROM.read(EEPROM_NOTE_SHIFT_ADDR);
+  if (note_shift < -12 || note_shift > 12) note_shift = 0;
 
   // Sync the active voice array to the loaded pattern's pitches, and arm
   // pickup so sliders don't immediately overwrite them.

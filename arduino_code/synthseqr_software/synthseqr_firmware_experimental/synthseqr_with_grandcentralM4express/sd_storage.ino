@@ -13,6 +13,7 @@
 //     "swing": 0,
 //     "midi_channel": 2,
 //     "octave_shift": 0,
+//     "note_shift": 0,
 //     "chain_active": 0,
 //     "chain_start": 0,
 //     "chain_end": 3,
@@ -133,6 +134,7 @@ bool save_to_sd() {
   _f.print("  \"swing\": ");         _f.print(SWING);                 _f.println(",");
   _f.print("  \"midi_channel\": ");  _f.print(MIDICHANNEL);           _f.println(",");
   _f.print("  \"octave_shift\": ");  _f.print(octave_shift);          _f.println(",");
+  _f.print("  \"note_shift\": ");    _f.print(note_shift);            _f.println(",");
   _f.print("  \"chain_active\": ");  _f.print(extended_step_length_mode); _f.println(",");
   _f.print("  \"chain_start\": ");   _f.print(chain_start);           _f.println(",");
   _f.print("  \"chain_end\": ");     _f.print(chain_end);             _f.println(",");
@@ -200,6 +202,12 @@ bool load_from_sd() {
   if (sd_find("\"octave_shift\":")) {
     int v = (int)sd_parse_number();
     if (v >= -5 && v <= 5) octave_shift = (int8_t)v;
+  }
+
+  _f.seek(0);
+  if (sd_find("\"note_shift\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= -12 && v <= 12) note_shift = (int8_t)v;
   }
 
   _f.seek(0);
