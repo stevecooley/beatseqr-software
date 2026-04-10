@@ -47,6 +47,8 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 
 **HAL classes** (Button, LED, Potentiometer) provide debouncing and event helpers used throughout.
 
+**Potentiometer / SAMD51 ADC resolution**: `Potentiometer.cpp` was originally written for AVR (10-bit ADC, 0–1023). The SAMD51 uses a 12-bit ADC (0–4095). `getSector()` divides `analogRead()` by `4096/sectors` — not `1024/sectors`. Using 1024 causes the sector value to wrap at ~25% of slider travel, producing a peak-then-drop artifact. Do not revert to 1024.
+
 **Button debouncing**: `Button.h`/`Button.cpp` are sketch-local copies with a 50 ms hardware debounce in `isPressed()`. A `_debounce_until` timestamp gates all state transitions — during the window `CHANGED` is suppressed and the cached state is returned. This prevents electrical bounce from firing `uniquePress()` multiple times per physical press. Call `setDebounceDelay(ms)` to override the default per-instance.
 
 **Button pull-up on SAMD51**: `Button::pullup()` uses `pinMode(pin, INPUT_PULLUP)` — NOT the legacy AVR `digitalWrite(pin, HIGH)` trick. The AVR trick does not reliably enable the internal pull-up on SAMD51 (Cortex-M4). Without a valid pull-up the input pin floats, causing random noise reads and unreliable button detection. Do not revert to `digitalWrite(HIGH)` here.

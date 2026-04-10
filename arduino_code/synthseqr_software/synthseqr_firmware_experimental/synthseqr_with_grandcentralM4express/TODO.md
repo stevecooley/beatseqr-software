@@ -9,7 +9,7 @@ Feature ideas and planned work. Not prioritized — just captured for future ses
 - [ ] Per-step note length — hold a step button and press another to set gate length; need to reassign or relocate current step 0+15 (clear pattern) and step 0+11 (clear all) combos to free up step-hold gestures for note length
 - [ ] Enter as shift key — hold Enter + other buttons for secondary functions
 - [x] Octave shifting — Config menu → Octave shift; d-pad up/down ±1 octave, range -5 to +5; applied at MIDI send time, saved to SD+EEPROM
-- [ ] Note ranges — user-adjustable slider note range (low/high bounds)
+- [x] Note ranges — Config menu → Note range; two-phase editor for low/high MIDI note bounds; defaults 36–52; saved to SD+EEPROM
 - [ ] Randomize pattern — fill current pattern with random steps and/or pitches
 - [ ] MIDI CC output — send CC messages from sliders or steps
 - [ ] Flexible pattern chaining — select any subset of patterns to chain and loop (e.g. 3+4 only, not just 1→4)
