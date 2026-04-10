@@ -37,9 +37,6 @@ long Round(T x) {
 
 void setup() {
   Serial.begin(57600);
-  // Wait up to 3s for USB-CDC serial to connect so boot messages aren't lost.
-  // The condition is false (and the wait skipped) when running without a monitor.
-  while (!Serial && millis() < 3000);
   // Initialize Serial1 (LCD TX) immediately so the TX line idles HIGH
   // during the startup delay. Without this, pin 1 floats or sits LOW,
   // which the LCD can misinterpret as a break or garbage before init.
