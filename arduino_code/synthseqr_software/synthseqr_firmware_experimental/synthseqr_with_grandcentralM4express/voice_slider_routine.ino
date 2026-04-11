@@ -60,17 +60,18 @@ void resetSliders()
   lcdflag = 93;  next_lcdflag = 93;  // reset sliders
   slider_reset_counter = 0;
 
-  int notenum_count_up_from = 36;
-
   for (int i = 0; i <= 15; i++)
   {
-    voice_slider_midinotenum[i] = notenum_count_up_from + i;
-    pattern_step_pitches[pattern_value][i] = notenum_count_up_from + i;
+    voice_slider_midinotenum[i] = slider_map_low_value;
+    pattern_step_pitches[pattern_value][i] = slider_map_low_value;
     slider_needs_pickup[i] = false;
     slider_serial_message_factory("NN", i);
     slider_serial_message_factory("CC", i);
     slider_serial_message_factory("VL", i);
   }
+  // Also seed any other blank patterns with the current low note so they're
+  // ready to use without needing to manually reset them too.
+  init_blank_patterns_to_range();
 }
 
 void slider_serial_message_factory(const char *slider_message_header, int j)

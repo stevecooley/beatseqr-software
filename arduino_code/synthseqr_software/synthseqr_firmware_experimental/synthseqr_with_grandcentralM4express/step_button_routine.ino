@@ -106,15 +106,34 @@ void copy_step_data(int pattern_value, int voice, int step, int step_value)
   
 }
 
+// For every pattern where all 16 steps are off, reset all pitches to
+// slider_map_low_value. Called after note range changes and after reset sliders
+// so blank patterns are immediately ready to use at the current low note.
+void init_blank_patterns_to_range()
+{
+  for (int p = 0; p < 16; p++)
+  {
+    bool all_off = true;
+    for (int i = 0; i < 16; i++)
+    {
+      if (step_data[p][0][i] != 0) { all_off = false; break; }
+    }
+    if (all_off)
+    {
+      for (int i = 0; i < 16; i++)
+        pattern_step_pitches[p][i] = slider_map_low_value;
+    }
+  }
+}
+
 void clear_pattern_memory_for_voice(int voice)
 {
   for (int i = 0; i <= 15; i++)
-    {
-
-      step_data[pattern_value][voice][i] = 0;
-      step_leds[i].off();
-
-    }
+  {
+    step_data[pattern_value][voice][i] = 0;
+    pattern_step_pitches[pattern_value][i] = slider_map_low_value;
+    step_leds[i].off();
+  }
   return;
 }
 
@@ -127,6 +146,7 @@ void clear_pattern_memory()
       for (int i = 0; i <= 15; i++)
       {
         step_data[p][v][i] = 0;
+        pattern_step_pitches[p][i] = slider_map_low_value;
       }
     }
   }

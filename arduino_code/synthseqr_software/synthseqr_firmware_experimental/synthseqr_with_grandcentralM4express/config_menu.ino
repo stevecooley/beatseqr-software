@@ -159,9 +159,11 @@ void run_config_menu() {
       } else if (config_menu_item == CONFIG_ITEM_NOTE_RANGE) {
         if (config_note_range_phase == 0 && slider_map_low_value < slider_map_high_value - 1) {
           slider_map_low_value++;
+          init_blank_patterns_to_range();
           draw_config_menu();
         } else if (config_note_range_phase == 1 && slider_map_high_value < 127) {
           slider_map_high_value++;
+          init_blank_patterns_to_range();
           draw_config_menu();
         }
       }
@@ -177,9 +179,11 @@ void run_config_menu() {
       } else if (config_menu_item == CONFIG_ITEM_NOTE_RANGE) {
         if (config_note_range_phase == 0 && slider_map_low_value > 0) {
           slider_map_low_value--;
+          init_blank_patterns_to_range();
           draw_config_menu();
         } else if (config_note_range_phase == 1 && slider_map_high_value > slider_map_low_value + 1) {
           slider_map_high_value--;
+          init_blank_patterns_to_range();
           draw_config_menu();
         }
       }
