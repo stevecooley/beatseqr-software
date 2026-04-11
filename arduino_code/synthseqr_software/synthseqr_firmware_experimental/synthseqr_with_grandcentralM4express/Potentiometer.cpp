@@ -22,7 +22,10 @@ uint16_t Potentiometer::getValue(){
 }
 
 uint16_t Potentiometer::getSector(){
-	return analogRead(pin)/(4096/sectors);
+	uint16_t raw = analogRead(pin);
+	uint16_t sector = raw / (4096 / sectors);
+	if (sector >= sectors) sector = sectors - 1;
+	return sector;
 }
 
 void Potentiometer::setSectors(uint16_t newSectors){

@@ -37,6 +37,7 @@ long Round(T x) {
 
 void setup() {
   Serial.begin(57600);
+  analogReadResolution(12);  // SAMD51 native 12-bit ADC (0-4095); default is 10-bit
   // Initialize Serial1 (LCD TX) immediately so the TX line idles HIGH
   // during the startup delay. Without this, pin 1 floats or sits LOW,
   // which the LCD can misinterpret as a break or garbage before init.

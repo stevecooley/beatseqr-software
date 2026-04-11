@@ -80,6 +80,7 @@ uint8_t slider_reset_counter = 0;
 const char* slider_message_header = "NN";
 uint8_t slider_map_low_value = 36;
 uint8_t slider_map_high_value = 52;
+
 uint8_t slider_step_value = 2;
 
 uint8_t midinn_sliderrangelow = -1;
