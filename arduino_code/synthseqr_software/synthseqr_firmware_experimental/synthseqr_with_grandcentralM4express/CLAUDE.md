@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Synthseqr is Arduino firmware for a hardware MIDI step sequencer running on the **Adafruit Grand Central M4 Express** (ATSAMD51J19A ARM Cortex-M4). It's a 16-step, 16-pattern sequencer with physical step buttons, voice sliders, D-pad navigation, and an LCD display. Version 2.3 is experimental/in-progress.
+Synthseqr is Arduino firmware for a hardware MIDI step sequencer running on the **Adafruit Grand Central M4 Express** (ATSAMD51J19A ARM Cortex-M4). It's a 16-step, 16-pattern sequencer with physical step buttons, voice sliders, D-pad navigation, and an LCD display. Version 2.4 is experimental/in-progress.
 
 ## Build and Upload
 

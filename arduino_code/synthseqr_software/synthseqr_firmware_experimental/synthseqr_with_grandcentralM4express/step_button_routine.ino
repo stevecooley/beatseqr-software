@@ -79,9 +79,25 @@ void detect_step_button_presses()
       } else {
         step_leds[i].off();
       }
-      // nn = String(voice_slider_midinotenum[i], HEX);
       if (step_data[pattern_value][0][i] == 1)
       {
+        // If this is a blank pattern (all other steps still off), seed the
+        // pitch from the slider's live position rather than the stored default.
+        // This makes the note land where the slider already sits, which feels
+        // more intuitive than always starting at the low-range value.
+        bool was_blank = true;
+        for (int s = 0; s < 16; s++) {
+          if (s != i && step_data[pattern_value][0][s] != 0) {
+            was_blank = false;
+            break;
+          }
+        }
+        if (was_blank) {
+          uint8_t live_pitch = (uint8_t)raw_voice_slider_values[i];
+          voice_slider_midinotenum[i] = live_pitch;
+          pattern_step_pitches[pattern_value][i] = live_pitch;
+          slider_needs_pickup[i] = false;
+        }
         // ex: void FifteenStep::setNote(byte channel, byte pitch, byte velocity, byte step)
         seq.setNote(MIDICHANNEL-1, voice_slider_midinotenum[i], 127, i);
       }

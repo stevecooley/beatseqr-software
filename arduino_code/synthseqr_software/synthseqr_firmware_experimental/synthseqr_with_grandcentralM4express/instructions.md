@@ -1,7 +1,7 @@
 # Synthseqr Firmware — User Instructions
 
 Hardware: Adafruit Grand Central M4 Express
-Firmware version: 2.3
+Firmware version: 2.4
 
 ---
 

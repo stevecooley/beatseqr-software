@@ -8,7 +8,7 @@
 #include "PString.h"
 #include "Potentiometer.h"
 
-const char* firmware_version_number = "2.3";
+const char* firmware_version_number = "2.4";
 const char* hardware_version_number = "1.0";
 
 uint8_t last_voice_selected = 0;
