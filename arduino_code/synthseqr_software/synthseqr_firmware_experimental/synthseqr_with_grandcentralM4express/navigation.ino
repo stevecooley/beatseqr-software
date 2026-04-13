@@ -26,7 +26,7 @@ void listen_for_navigation_events() {
       // mode switching
       if (dpad_right_flag == true) {
         dpad_right_flag = false;
-        if (timing_mode < 8) {
+        if (timing_mode < 5) {
           timing_mode++;
         }
         switch_timing_mode_events();
@@ -34,12 +34,11 @@ void listen_for_navigation_events() {
 
       if (enterbutton_flag == true) {
         enterbutton_flag = false;
-        clear_the_lcd = true;
+        // Cycle slider mode: 1=NN → 2=VL → 3=GT → 1=NN
+        slider_mode = (slider_mode % slider_mode_total) + 1;
+        update_line1 = true;   // refreshes mode indicator at cols 14-15
+        update_line2 = true;   // redraw line 2 with current data for new mode
         enterbutton_LED.toggle();
-        update_line1 = true;
-        update_line2 = true;
-        lcdflag = 255;
-        next_lcdflag = 255;
       }
 
       if ((dpad_up_flag == true) || (dpad_down_flag == true)) {
@@ -54,19 +53,6 @@ void listen_for_navigation_events() {
           case 5: {  // ±0.01 BPM
             switch_timing_mode_events();
             set_timing_resolution();
-            break;
-          }
-          case 6: {  // swing
-            swing_events();
-            switch_timing_mode_events();
-            break;
-          }
-          case 7: {  // clock source
-            clock_source_events();
-            break;
-          }
-          case 8: {  // MIDI channel
-            midi_channel_events();
             break;
           }
         }
@@ -154,19 +140,6 @@ void switch_timing_mode_events() {
       cursor_x = LCD_L1_X_TEMPO_001;
       cursor_y = 0;
       break;
-    case 6:  // swing — cursor on swing digit
-      cursor_x = LCD_L2_X_SWING;
-      cursor_y = 1;
-      break;
-    case 7:  // clock source — cursor on int/ext value; redraw line 2
-      cursor_x = LCD_L2_X_CLOCK;
-      cursor_y = 1;
-      update_line2 = true;
-      break;
-    case 8:  // MIDI channel — cursor on channel digits
-      cursor_x = LCD_L2_X_MIDICHAN;
-      cursor_y = 1;
-      break;
   }
   // update the cursor position
   cursor_flag = true;
@@ -196,33 +169,9 @@ void set_timing_resolution() {
   }
 }
 
-void swing_events() {
-  if (dpad_down_flag == true) {
-    dpad_down_flag = false;
-
-    cursor_x = LCD_L2_X_SWING;
-    cursor_y = 1;
-
-    if (SWING > 0) {
-      SWING--;
-      seq.setShuffle(SWING);
-      update_line2 = true;
-      Serial.println(seq.getShuffle());
-    }
-  }
-  if (dpad_up_flag == true) {
-    dpad_up_flag = false;
-
-    if (SWING < 5) {
-      SWING++;
-      seq.setShuffle(SWING);
-      update_line2 = true;
-      Serial.println(seq.getShuffle());
-    }
-  }
-  // set cursor position
-  cursor_flag = true;
-}
+// swing_events() — no longer called from D-pad path (swing moved to config menu).
+// Kept as a no-op stub to avoid breaking any lingering call sites.
+void swing_events() {}
 
 // setExternalClockMode(bool)
 //

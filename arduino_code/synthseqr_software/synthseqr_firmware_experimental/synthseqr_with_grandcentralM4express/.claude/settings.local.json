@@ -5,7 +5,9 @@
       "Bash(arduino-cli compile:*)",
       "Bash(arduino-cli upload:*)",
       "Bash(arduino-cli lib:*)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Read(//Users/stevecooley/Library/Arduino15/packages/adafruit/hardware/samd/1.7.17/libraries/**)",
+      "Read(//Users/stevecooley/Documents/Arduino/libraries/**)"
     ]
   }
 }

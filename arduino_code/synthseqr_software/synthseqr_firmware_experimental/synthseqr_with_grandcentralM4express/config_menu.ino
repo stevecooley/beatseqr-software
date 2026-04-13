@@ -22,33 +22,50 @@
 #define CONFIG_ITEM_CLEAR_ALL     3
 #define CONFIG_ITEM_RESET_SLIDERS 4
 #define CONFIG_ITEM_MODE          5
-#define CONFIG_ITEM_OCTAVE_SHIFT  6
-#define CONFIG_ITEM_NOTE_SHIFT    7
-#define CONFIG_ITEM_NOTE_RANGE    8
-#define CONFIG_ITEM_NOTE_SCALES   9  // placeholder — not yet implemented
-#define CONFIG_MENU_ITEM_COUNT    10
+#define CONFIG_ITEM_CLOCK         6
+#define CONFIG_ITEM_CHANNEL       7
+#define CONFIG_ITEM_SWING         8
+#define CONFIG_ITEM_OCTAVE_SHIFT  9
+#define CONFIG_ITEM_NOTE_SHIFT    10
+#define CONFIG_ITEM_NOTE_RANGE    11
+#define CONFIG_ITEM_NOTE_SCALES   12  // placeholder — not yet implemented
+#define CONFIG_MENU_ITEM_COUNT    13
 
 // line1_label: 14 chars printed after "> " on line 1.
-// For Mode the value is appended at draw time so it fits on one line.
+// Items with inline values are rendered dynamically in print_config_label().
 static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Exit          ",   // 14 chars
-  "Save          ",   // 14 chars
-  "Clear pattern ",   // 14 chars
-  "Clear all pats",   // 14 chars
-  "Reset sliders ",   // 14 chars
+  "Save          ",
+  "Clear pattern ",
+  "Clear all pats",
+  "Reset sliders ",
   "Mode:         ",   // value overwritten at draw time
-  "Octave shift  ",   // 14 chars — placeholder
-  "Note shift    ",   // 14 chars — placeholder
-  "Note range    ",   // 14 chars — placeholder
-  "Note scales   "    // 14 chars — placeholder
+  "Clock:        ",   // value overwritten at draw time
+  "Channel:      ",   // value overwritten at draw time
+  "Swing:        ",   // value overwritten at draw time
+  "Octave shift  ",
+  "Note shift    ",
+  "Note range    ",
+  "Note scales   "    // placeholder
 };
 
 // Build the 14-char label for a given item index.
 // For MODE, replaces trailing spaces with the current value.
 void print_config_label(uint8_t item) {
+  char _buf[15];
   if (item == CONFIG_ITEM_MODE) {
-    // "Mode: Simple  " or "Mode: Advanced" — exactly 14 chars
     lcd.print(advanced_mode ? "Mode: Advanced" : "Mode: Simple  ");
+  } else if (item == CONFIG_ITEM_CLOCK) {
+    // "Clock: int    " or "Clock: ext    " — 14 chars
+    lcd.print(external_clock_mode ? "Clock: ext    " : "Clock: int    ");
+  } else if (item == CONFIG_ITEM_CHANNEL) {
+    // "Channel:   02 " — 14 chars
+    snprintf(_buf, sizeof(_buf), "Channel:   %02d ", MIDICHANNEL);
+    lcd.print(_buf);
+  } else if (item == CONFIG_ITEM_SWING) {
+    // "Swing:        " with value inline — 14 chars
+    snprintf(_buf, sizeof(_buf), "Swing:      %d ", SWING);
+    lcd.print(_buf);
   } else if (item == CONFIG_ITEM_OCTAVE_SHIFT) {
     lcd.print(octave_shift != 0 ? "Octave shift *" : "Octave shift  ");
   } else if (item == CONFIG_ITEM_NOTE_SHIFT) {
@@ -73,8 +90,19 @@ void draw_config_menu() {
   lcd.print("?x00?y1");
   if (config_confirm_pending) {
     lcd.print("Entr=ok  Lft=no ");
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_CHANNEL) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Channel: %d", MIDICHANNEL);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_SWING) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Swing: %d", SWING);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
   } else if (config_editing_value && config_menu_item == CONFIG_ITEM_OCTAVE_SHIFT) {
-    // Show current octave_shift value with sign; pad to 16 chars.
     char line2[17];
     int len = snprintf(line2, sizeof(line2), "  Oct: %+d", octave_shift);
     while (len < 16) line2[len++] = ' ';
@@ -150,7 +178,14 @@ void run_config_menu() {
     dpad_right_flag = false;
     if (dpad_up_flag) {
       dpad_up_flag = false;
-      if (config_menu_item == CONFIG_ITEM_OCTAVE_SHIFT && octave_shift < 5) {
+      if (config_menu_item == CONFIG_ITEM_CHANNEL && MIDICHANNEL < 16) {
+        MIDICHANNEL++;
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_SWING && SWING < 5) {
+        SWING++;
+        seq.setShuffle(SWING);
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_OCTAVE_SHIFT && octave_shift < 5) {
         octave_shift++;
         draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_NOTE_SHIFT && note_shift < 12) {
@@ -170,7 +205,14 @@ void run_config_menu() {
     }
     if (dpad_down_flag) {
       dpad_down_flag = false;
-      if (config_menu_item == CONFIG_ITEM_OCTAVE_SHIFT && octave_shift > -5) {
+      if (config_menu_item == CONFIG_ITEM_CHANNEL && MIDICHANNEL > 1) {
+        MIDICHANNEL--;
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_SWING && SWING > 0) {
+        SWING--;
+        seq.setShuffle(SWING);
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_OCTAVE_SHIFT && octave_shift > -5) {
         octave_shift--;
         draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_NOTE_SHIFT && note_shift > -12) {
@@ -281,6 +323,21 @@ void run_config_menu() {
         advanced_mode = !advanced_mode;
         Serial.print("mode: ");
         Serial.println(advanced_mode ? "Advanced" : "Simple");
+        draw_config_menu();
+        break;
+      case CONFIG_ITEM_CLOCK:
+        // Toggle between internal and external clock.
+        setExternalClockMode(!external_clock_mode);
+        Serial.print("clock: ");
+        Serial.println(external_clock_mode ? "ext" : "int");
+        draw_config_menu();
+        break;
+      case CONFIG_ITEM_CHANNEL:
+        config_editing_value = true;
+        draw_config_menu();
+        break;
+      case CONFIG_ITEM_SWING:
+        config_editing_value = true;
         draw_config_menu();
         break;
       case CONFIG_ITEM_OCTAVE_SHIFT:

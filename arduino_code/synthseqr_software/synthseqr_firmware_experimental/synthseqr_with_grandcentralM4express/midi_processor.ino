@@ -36,9 +36,30 @@ void read_midi()
       {
         if (external_clock_mode)
         {
-          // Slave mode: let incoming clock drive the sequencer directly.
-          // TC4 is stopped, so this is the only clock source.
-          seq.hardwareClockPulse();
+          // Slave mode: incoming 0xF8 drives the sequencer.
+          // When SWING > 0, odd-step transitions are deferred by
+          // avg_interval * SWING µs to replicate internal-clock swing feel.
+          unsigned long now_us = micros();
+
+          // Update running average pulse interval (IIR: 7/8 old + 1/8 new).
+          if (ext_clk_last_pulse_us > 0) {
+            unsigned long interval = now_us - ext_clk_last_pulse_us;
+            ext_clk_avg_interval_us = (ext_clk_avg_interval_us * 7 + interval) >> 3;
+          }
+          ext_clk_last_pulse_us = now_us;
+
+          // Count pulses per step (0–5). The 6th pulse advances the step.
+          ext_clk_pulse_count++;
+          bool is_step_pulse = (ext_clk_pulse_count >= 6);
+          if (is_step_pulse) ext_clk_pulse_count = 0;
+
+          if (is_step_pulse && SWING > 0 && (seq.getPosition() % 2 == 0)) {
+            // Transitioning to an odd step with swing — defer this pulse.
+            ext_swing_pulse_pending = true;
+            ext_swing_pulse_fire_us = now_us + ext_clk_avg_interval_us * (unsigned long)SWING;
+          } else {
+            seq.hardwareClockPulse();
+          }
         }
         else
         {
@@ -60,13 +81,18 @@ void read_midi()
       else if (rx.byte1 == MIDISTART)
       {
         Serial.println("Midi Start!");
-        // this flag hands off to transport.ino
+        // Reset external clock swing state so the interval tracker starts fresh.
+        ext_clk_pulse_count     = 0;
+        ext_clk_last_pulse_us   = 0;
+        ext_swing_pulse_pending = false;
         midistarted = true;
       }
       else if (rx.byte1 == MIDISTOP)
       {
         Serial.println("Midi Stop!");
-        // this flag hands off to transport.ino
+        // Discard any pending deferred pulse so it doesn't fire after stop.
+        ext_clk_pulse_count     = 0;
+        ext_swing_pulse_pending = false;
         midistopped = true;
       }
     }

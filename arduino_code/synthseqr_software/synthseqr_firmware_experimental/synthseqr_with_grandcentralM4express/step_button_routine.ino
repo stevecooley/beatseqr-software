@@ -23,10 +23,12 @@ void run_step_button_routine()
   if (adv_copy_armed) {
     for (int i = 0; i < 16; i++) {
       if (step_buttons[i].uniquePress()) {
-        // Copy all step data and pitches from current_pattern → destination i.
+        // Copy all step data, pitches, velocities, and gates from current_pattern → i.
         for (int s = 0; s < 16; s++) {
           step_data[i][0][s] = step_data[current_pattern][0][s];
           pattern_step_pitches[i][s] = pattern_step_pitches[current_pattern][s];
+          pattern_step_velocities[i][s] = pattern_step_velocities[current_pattern][s];
+          step_gate[i][s] = step_gate[current_pattern][s];
         }
         copy_pattern_to = i;
         adv_copy_armed = false;
@@ -168,6 +170,8 @@ void clear_pattern_memory_for_voice(int voice)
   {
     step_data[pattern_value][voice][i] = 0;
     pattern_step_pitches[pattern_value][i] = slider_map_low_value;
+    pattern_step_velocities[pattern_value][i] = 127;
+    step_gate[pattern_value][i] = 1;
     step_leds[i].off();
   }
   return;
@@ -183,6 +187,8 @@ void clear_pattern_memory()
       {
         step_data[p][v][i] = 0;
         pattern_step_pitches[p][i] = slider_map_low_value;
+        pattern_step_velocities[p][i] = 127;
+        step_gate[p][i] = 1;
       }
     }
   }

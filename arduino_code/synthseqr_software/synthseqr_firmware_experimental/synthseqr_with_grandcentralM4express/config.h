@@ -8,7 +8,7 @@
 #include "PString.h"
 #include "Potentiometer.h"
 
-const char* firmware_version_number = "2.4";
+const char* firmware_version_number = "2.5";
 const char* hardware_version_number = "1.0";
 
 uint8_t last_voice_selected = 0;
@@ -41,7 +41,49 @@ int NN_cleared_to_update_values[16];
 int VL_cleared_to_update_values[16];
 int MC_cleared_to_update_values[16];
 
-int voice_slider_midivelocity[16];
+uint8_t voice_slider_midivelocity[16] = {127,127,127,127,127,127,127,127,
+                                         127,127,127,127,127,127,127,127};
+
+// Per-pattern saved velocities. Updated when a slider moves in VL mode.
+// Restored when switching patterns so each pattern remembers its own velocities.
+uint8_t pattern_step_velocities[16][16] = {
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
+  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127}
+};
+
+// Per-pattern gate lengths (1-8 steps). Sliders map 0-255 -> 1-8 in GT mode.
+uint8_t step_gate[16][16] = {
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+};
 int voice_slider_midicc[16];
 int voice_slider_midinotenum[16] = {36, 37, 38, 39, 40, 41, 42, 43,
                                     44, 45, 46, 47, 48, 49, 50, 51};
@@ -74,8 +116,8 @@ int voice_slider_midichannel[16] = {1, 1, 1, 1, 1, 1, 1, 1,
                                     1, 1, 1, 1, 1, 1, 1, 1};
 
 int last_voice_slider_values[16];
-uint8_t slider_mode = 1;
-uint8_t slider_mode_total = 4;
+uint8_t slider_mode = 1;        // 1=NN  2=VL  3=GT
+uint8_t slider_mode_total = 3;
 uint8_t slider_reset_counter = 0;
 const char* slider_message_header = "NN";
 uint8_t slider_map_low_value = 36;
@@ -209,17 +251,16 @@ char* step_padding;
 #define lcd Serial1
 
 // LCD field cursor positions — update these if the display format changes.
-// Line 1: [icon] [space] P{pattern:02u} [space] T{tempo}
+// Line 1: [icon] [space] P{pattern:02u} [space] T{tempo} [space] [?5][mode]
 // Pattern is now 2 digits (P01–P16), so tempo columns shift right by 1 vs old format.
 #define LCD_L1_X_PATTERN    3   // first (tens) digit of pattern in "P%02u"
 #define LCD_L1_X_TEMPO_10   8   // tempo hundreds/tens digit (±10 BPM)
 #define LCD_L1_X_TEMPO_1    9   // tempo units digit (±1 BPM)
 #define LCD_L1_X_TEMPO_01   11  // tempo tenths digit, after decimal at col 10 (±0.1 BPM)
 #define LCD_L1_X_TEMPO_001  12  // tempo hundredths digit (±0.01 BPM)
-// Line 2: s{swing} clk:{int|ext} Ch{channel}
-#define LCD_L2_X_SWING      1   // swing digit in "s%d"
-#define LCD_L2_X_CLOCK      7   // first char of int/ext in "clk:%s"
-#define LCD_L2_X_MIDICHAN   13  // first channel digit in "Ch%02d"
+#define LCD_L1_X_SLIDERMODE 14  // first char of 2-char slider-mode indicator (?5 + mode)
+// Line 2: fully used for step-trigger feedback (>step ?4note ?2vel Ggate)
+// Swing, clock, and MIDI channel are now in the config menu.
 
 uint8_t lcdflag = 255;
 uint8_t next_lcdflag = 255;
@@ -308,6 +349,14 @@ uint8_t last_step = 15;
 // -1 means the step is not currently sounding.
 int8_t sounding_notes[16] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
 
+// Which step number triggers the note-off for each sounding note.
+// (current_step + gate) % 16. -1 means not scheduled.
+int8_t sounding_note_end_step[16] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+
+// The last step that actually fired a note-on (for LCD line 2 feedback).
+// -1 = no step has fired yet this session.
+int8_t last_triggered_step = -1;
+
 //////////////////////////////////
 //
 // voice modes.. um.. not sure what we're doing here yet
@@ -357,6 +406,15 @@ int8_t octave_shift = 0;
 // Semitone offset applied at MIDI send time on top of octave_shift.
 // Range -12 to +12. Stored separately from per-step pitches.
 int8_t note_shift = 0;
+
+// External clock swing state.
+// When SWING > 0 in external clock mode, odd-step transitions are deferred
+// by avg_pulse_interval * SWING µs to replicate the internal-clock swing feel.
+uint8_t       ext_clk_pulse_count      = 0;      // 0–5 within current step
+unsigned long ext_clk_last_pulse_us    = 0;      // micros() of last 0xF8 pulse
+unsigned long ext_clk_avg_interval_us  = 20833;  // running avg (default: 120 BPM)
+bool          ext_swing_pulse_pending  = false;  // deferred 6th-pulse queued
+unsigned long ext_swing_pulse_fire_us  = 0;      // micros() value to fire it at
 
 // Declared in transport.ino; forward-declared here so the main sketch can
 // read the flag set by the play button hardware interrupt.

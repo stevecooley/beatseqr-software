@@ -175,11 +175,12 @@ void go_to_pattern(int pattern, int silent) {
     pattern_select_leds[pattern % 4].on();
   }
 
-  // When switching to a different pattern, restore its saved pitches and arm
-  // pickup so sliders don't immediately overwrite them.
+  // When switching to a different pattern, restore its saved pitches and
+  // velocities, and arm pickup so NN-mode sliders don't immediately overwrite.
   if (pattern != pattern_value) {
     for (int step = 0; step <= 15; step++) {
       voice_slider_midinotenum[step] = pattern_step_pitches[pattern][step];
+      voice_slider_midivelocity[step] = pattern_step_velocities[pattern][step];
       slider_needs_pickup[step] = true;
     }
   }
@@ -243,6 +244,10 @@ void listen_for_copy_command() {
                 step_data[current_pattern][voice][step];
             pattern_step_pitches[copy_pattern_to][step] =
                 pattern_step_pitches[current_pattern][step];
+            pattern_step_velocities[copy_pattern_to][step] =
+                pattern_step_velocities[current_pattern][step];
+            step_gate[copy_pattern_to][step] =
+                step_gate[current_pattern][step];
           }
         }
         told_which_pattern_to_copy_to = false;

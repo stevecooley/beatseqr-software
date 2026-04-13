@@ -154,6 +154,7 @@ void allNotesOff() {
       noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[i], 0);
       sounding_notes[i] = -1;
     }
+    sounding_note_end_step[i] = -1;
   }
   MidiUSB.flush();
 }
@@ -161,12 +162,15 @@ void allNotesOff() {
 void stepsend(int current_step, int last_step) {
   run_chase_lights(seq.getPosition());
 
-  // Note-off for the previous step using the pitch that was actually played.
-  // Guards against out-of-bounds on the first callback after start()
-  // where last_step arrives as 255 (byte wrap of -1 sentinel).
-  if (last_step >= 0 && last_step < 16 && sounding_notes[last_step] >= 0) {
-    noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[last_step], 0);
-    sounding_notes[last_step] = -1;
+  // Note-off scan: turn off any notes whose gate expires at this step.
+  // This replaces the old single last_step note-off — multi-step gates require
+  // scanning all slots since a note from step N-3 may still be sounding.
+  for (int i = 0; i < 16; i++) {
+    if (sounding_notes[i] >= 0 && sounding_note_end_step[i] == (int8_t)current_step) {
+      noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[i], 0);
+      sounding_notes[i] = -1;
+      sounding_note_end_step[i] = -1;
+    }
   }
 
   if (step_data[pattern_value][0][current_step] == 1) {
@@ -174,8 +178,15 @@ void stepsend(int current_step, int last_step) {
     if (shifted < 0) shifted = 0;
     if (shifted > 127) shifted = 127;
     uint8_t pitch = (uint8_t)shifted;
-    noteOn(MIDICHANNEL - 1, pitch, 127);
+    uint8_t vel = voice_slider_midivelocity[current_step];
+    noteOn(MIDICHANNEL - 1, pitch, vel);
     sounding_notes[current_step] = (int8_t)pitch;
+    // Schedule note-off: (current_step + gate) % 16
+    sounding_note_end_step[current_step] =
+        (int8_t)((current_step + step_gate[pattern_value][current_step]) % 16);
+    // Update LCD line 2 with this step's trigger info.
+    last_triggered_step = (int8_t)current_step;
+    update_line2 = true;
   }
 
   // Auto-advance to the next pattern at the end of step 15 when chain mode

@@ -12,45 +12,51 @@ void run_voice_slider_routine()
 
   for (int j = 0; j <= 15; j++)
   {
+    int sector = voice_sliders[j].getSector();
 
-    // get the raw value
-    raw_voice_slider_values[j] = map(voice_sliders[j].getSector(), 0, 255, slider_map_low_value, slider_map_high_value);
-
-    if (slider_needs_pickup[j])
+    if (slider_mode == 1)
     {
-      // After a pattern switch the slider is locked to the stored pitch.
-      // Unlock when the physical position comes within 1 note of that pitch.
-      if (abs((int)raw_voice_slider_values[j] - (int)voice_slider_midinotenum[j]) <= 1)
+      // NN mode: map to note range, pickup guard protects stored pitch.
+      raw_voice_slider_values[j] = map(sector, 0, 255, slider_map_low_value, slider_map_high_value);
+
+      if (slider_needs_pickup[j])
       {
-        slider_needs_pickup[j] = false;
+        // After a pattern switch the slider is locked to the stored pitch.
+        // Unlock when the physical position comes within 1 note of that pitch.
+        if (abs((int)raw_voice_slider_values[j] - (int)voice_slider_midinotenum[j]) <= 1)
+        {
+          slider_needs_pickup[j] = false;
+        }
+      }
+      else if (raw_voice_slider_values[j] != voice_slider_midinotenum[j])
+      {
+        voice_slider_midinotenum[j] = raw_voice_slider_values[j];
+        voice_slider_values[j] = raw_voice_slider_values[j];
+        // Persist pitch for this pattern so it survives future pattern switches.
+        pattern_step_pitches[pattern_value][j] = (uint8_t)raw_voice_slider_values[j];
       }
     }
-    else if (raw_voice_slider_values[j] != voice_slider_midinotenum[j])
+    else if (slider_mode == 2)
     {
-      voice_slider_midinotenum[j] = raw_voice_slider_values[j];
-      voice_slider_values[j] = raw_voice_slider_values[j];
-      // Persist pitch for this pattern so it survives future pattern switches.
-      pattern_step_pitches[pattern_value][j] = (uint8_t)raw_voice_slider_values[j];
+      // VL mode: map to velocity range 1-127, write directly (no pickup).
+      uint8_t vel = (uint8_t)map(sector, 0, 255, 1, 127);
+      if (vel != voice_slider_midivelocity[j]) {
+        voice_slider_midivelocity[j] = vel;
+        pattern_step_velocities[pattern_value][j] = vel;
+      }
+    }
+    else if (slider_mode == 3)
+    {
+      // GT mode: map to gate range 1-8, write directly (no pickup).
+      uint8_t gate = (uint8_t)map(sector, 0, 255, 1, 8);
+      if (gate < 1) gate = 1;
+      if (gate > 8) gate = 8;
+      if (gate != step_gate[pattern_value][j]) {
+        step_gate[pattern_value][j] = gate;
+      }
     }
 
     last_voice_slider_values[j] = voice_slider_values[j];
-
-    if (
-        (voice_slider_values[j] >= last_voice_slider_values[j] + slider_step_value) or
-        (voice_slider_values[j] <= last_voice_slider_values[j] - slider_step_value))
-    {
-
-      if (slider_message_header == "NN")
-      {
-        // parking LCD updates in lcdflag 90!
-
-        // Ok, adjust the low and high range values with these combo moves:
-        // low range is set with left d-pad and enter
-        
-
-        
-      }
-    }
   }
 }
 
@@ -64,6 +70,9 @@ void resetSliders()
   {
     voice_slider_midinotenum[i] = slider_map_low_value;
     pattern_step_pitches[pattern_value][i] = slider_map_low_value;
+    voice_slider_midivelocity[i] = 127;
+    pattern_step_velocities[pattern_value][i] = 127;
+    step_gate[pattern_value][i] = 1;
     slider_needs_pickup[i] = false;
     slider_serial_message_factory("NN", i);
     slider_serial_message_factory("CC", i);

@@ -156,6 +156,16 @@ bool save_to_sd() {
       _f.print(pattern_step_pitches[p][s]);
       if (s < 15) _f.print(",");
     }
+    _f.print("],\"velocities\":[");
+    for (int s = 0; s < 16; s++) {
+      _f.print(pattern_step_velocities[p][s]);
+      if (s < 15) _f.print(",");
+    }
+    _f.print("],\"gates\":[");
+    for (int s = 0; s < 16; s++) {
+      _f.print(step_gate[p][s]);
+      if (s < 15) _f.print(",");
+    }
     _f.print("]}");
     if (p < 15) _f.print(",");
     _f.println();
@@ -290,13 +300,39 @@ bool load_from_sd() {
         if (c == ',' || c == ']') _f.read();
       }
     }
+
+    if (sd_find("\"velocities\":")) {
+      if (!sd_read_until('[')) break;
+      for (int s = 0; s < 16; s++) {
+        sd_skip_ws();
+        int v = (int)sd_parse_number();
+        if (v >= 1 && v <= 127) pattern_step_velocities[p][s] = (uint8_t)v;
+        sd_skip_ws();
+        char c = (char)_f.peek();
+        if (c == ',' || c == ']') _f.read();
+      }
+    }
+
+    if (sd_find("\"gates\":")) {
+      if (!sd_read_until('[')) break;
+      for (int s = 0; s < 16; s++) {
+        sd_skip_ws();
+        int v = (int)sd_parse_number();
+        if (v >= 1 && v <= 8) step_gate[p][s] = (uint8_t)v;
+        sd_skip_ws();
+        char c = (char)_f.peek();
+        if (c == ',' || c == ']') _f.read();
+      }
+    }
   }
 
   _f.close();
 
-  // Sync active voice array to loaded pattern's pitches, arm slider pickup.
+  // Sync active voice arrays to loaded pattern's pitches and velocities.
+  // Arm pickup so NN-mode sliders don't immediately overwrite stored pitches.
   for (int s = 0; s < 16; s++) {
     voice_slider_midinotenum[s] = pattern_step_pitches[current_pattern][s];
+    voice_slider_midivelocity[s] = pattern_step_velocities[current_pattern][s];
     slider_needs_pickup[s] = true;
   }
 
