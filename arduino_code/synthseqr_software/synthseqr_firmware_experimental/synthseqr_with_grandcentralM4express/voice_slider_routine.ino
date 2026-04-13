@@ -1,3 +1,19 @@
+// set_slider_mode(mode)
+//
+// Central entry point for all slider mode changes. Sets slider_mode, arms
+// pickup guards for all 16 sliders so physical positions can't silently
+// overwrite pattern data mid-switch, and requests an LCD redraw.
+// Called from: Enter button (simple mode), pattern buttons 1/2/3 (advanced).
+//
+void set_slider_mode(uint8_t mode) {
+  slider_mode = mode;
+  for (int i = 0; i < 16; i++) {
+    slider_needs_pickup[i] = true;
+  }
+  update_line1 = true;
+  update_line2 = true;
+}
+
 void run_voice_slider_routine()
 {
   // Rate-limit ADC reads to every 20 ms.
@@ -38,20 +54,30 @@ void run_voice_slider_routine()
     }
     else if (slider_mode == 2)
     {
-      // VL mode: map to velocity range 1-127, write directly (no pickup).
+      // VL mode: map to velocity range 1-127, pickup guard prevents writes
+      // until the slider physically reaches the stored velocity.
       uint8_t vel = (uint8_t)map(sector, 0, 255, 1, 127);
-      if (vel != voice_slider_midivelocity[j]) {
+      if (slider_needs_pickup[j]) {
+        if (abs((int)vel - (int)voice_slider_midivelocity[j]) <= 1) {
+          slider_needs_pickup[j] = false;
+        }
+      } else if (vel != voice_slider_midivelocity[j]) {
         voice_slider_midivelocity[j] = vel;
         pattern_step_velocities[pattern_value][j] = vel;
       }
     }
     else if (slider_mode == 3)
     {
-      // GT mode: map to gate range 1-8, write directly (no pickup).
+      // GT mode: map to gate range 1-8, pickup guard prevents writes until
+      // the slider physically reaches the stored gate value.
       uint8_t gate = (uint8_t)map(sector, 0, 255, 1, 8);
       if (gate < 1) gate = 1;
       if (gate > 8) gate = 8;
-      if (gate != step_gate[pattern_value][j]) {
+      if (slider_needs_pickup[j]) {
+        if (gate == step_gate[pattern_value][j]) {
+          slider_needs_pickup[j] = false;
+        }
+      } else if (gate != step_gate[pattern_value][j]) {
         step_gate[pattern_value][j] = gate;
       }
     }

@@ -34,11 +34,11 @@ void listen_for_navigation_events() {
 
       if (enterbutton_flag == true) {
         enterbutton_flag = false;
-        // Cycle slider mode: 1=NN → 2=VL → 3=GT → 1=NN
-        slider_mode = (slider_mode % slider_mode_total) + 1;
-        update_line1 = true;   // refreshes mode indicator at cols 14-15
-        update_line2 = true;   // redraw line 2 with current data for new mode
-        enterbutton_LED.toggle();
+        // Simple mode: cycle slider mode NN → VL → GT → NN.
+        // Advanced mode uses pattern buttons 1/2/3 instead.
+        if (!advanced_mode) {
+          set_slider_mode((slider_mode % slider_mode_total) + 1);
+        }
       }
 
       if ((dpad_up_flag == true) || (dpad_down_flag == true)) {

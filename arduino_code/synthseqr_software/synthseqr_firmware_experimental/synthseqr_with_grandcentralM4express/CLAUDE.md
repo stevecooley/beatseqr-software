@@ -158,7 +158,7 @@ D-pad left/right cycles through 5 `timing_mode` values controlling what up/down 
 
 Default `timing_mode = 2` (±10 BPM). Swing, clock source, and MIDI channel have moved to the config menu (double-tap Enter).
 
-**Enter button** (single tap) cycles the slider mode: NN → VL → GT → NN. Sets `update_line1 = true` and `update_line2 = true` so the mode indicator and step display both redraw. Also toggles the enter LED.
+**Enter button** (single tap, simple mode only) cycles the slider mode: NN → VL → GT → NN via `set_slider_mode()`. In advanced mode the enter button has no slider-mode function (pattern buttons 1/2/3 handle it). The enter LED is no longer toggled by the enter button.
 
 **LCD line 1 format** (case 255): `[icon] P%02u T%6.2f [?5][mode]` — 16 chars total. `[icon]` is custom char `?0` (play) or `?7` (stop); pattern is 2 digits (P01–P16); tempo is `%6.2f`; cols 14–15 show the slider mode indicator: custom char `?5` + mode char (`?4`=NN, `?2`=VL, `G`=GT). Example: `▶ P01 T120.00 ♪N`. Do not change `%6.2f` to `%.2f` — variable width breaks cursor alignment. `go_to_pattern()` sets `update_line1 = true` so the pattern number refreshes on every pattern switch.
 
@@ -180,7 +180,7 @@ Switching clock source calls `setExternalClockMode()` which stops or starts TC4 
 
 ## Slider Modes
 
-The 16 voice sliders operate in one of three modes, cycled by single-tapping Enter:
+The 16 voice sliders operate in one of three modes:
 
 | Mode | Display | Slider controls | Storage |
 |------|---------|----------------|---------|
@@ -188,7 +188,13 @@ The 16 voice sliders operate in one of three modes, cycled by single-tapping Ent
 | 2 — VL | `?5?2` (velocity icon) | MIDI velocity (1–127) | `pattern_step_velocities[p][s]`, `voice_slider_midivelocity[s]` |
 | 3 — GT | `?5G` | Gate length (1–8 steps) | `step_gate[p][s]` |
 
-**NN mode pickup guard**: In NN mode, a `slider_needs_pickup[s]` flag prevents a slider from overwriting a stored pitch until the physical slider has first moved to within a few sectors of the stored value. This prevents jumps when switching patterns. VL and GT modes do not use pickup guards.
+**Switching modes:**
+- **Simple mode**: Enter single-tap cycles NN → VL → GT → NN
+- **Advanced mode**: Pattern button 1 = NN, button 2 = GT, button 3 = VL. Pattern LEDs 1/2/3 stay lit to indicate the active mode.
+
+**`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders, and sets `update_line1 = update_line2 = true`. Always call this function — never set `slider_mode` directly — so pickup guards are always armed on transition.
+
+**Pickup guard (all modes)**: `slider_needs_pickup[s]` prevents a slider from overwriting stored data until the physical slider crosses through the stored value for the current mode. This prevents mode switches from silently corrupting pattern data when sliders are at different physical positions for each mode. Tolerance: ±1 note (NN), ±1 velocity unit (VL), exact match (GT, range 1–8).
 
 **Always boots to NN mode** (`slider_mode = 1`). Mode is not saved to SD/EEPROM — it resets to NN on power-up.
 
@@ -263,7 +269,7 @@ When `external_clock_mode == false` (default):
 - Hold any pattern button 2s → pattern copy (press destination pattern button)
 - Pattern LEDs show the active pattern (0–3)
 - D-pad mode 1 navigates patterns 1–4
-- Enter single-tap cycles slider mode (NN/VL/GT)
+- Enter single-tap cycles slider mode: NN → VL → GT → NN
 
 **Advanced mode** (`advanced_mode == true`):
 - Pattern buttons are function keys — do NOT select patterns directly
@@ -275,10 +281,13 @@ When `external_clock_mode == false` (default):
 - Pattern button 0 **double-click** (two taps ≤400 ms) → 2-phase pattern copy
   - Phase 1: LCD `copy which pat?` → tap step = source; Phase 2: LCD `Copy N->where?` → tap step = destination
   - D-pad left cancels either phase
-- Pattern LEDs: LED 0 lit while `adv_pat_nav_active`; otherwise all off
+- **Pattern button 1** → slider mode NN (note number); LED 1 stays lit
+- **Pattern button 2** → slider mode GT (gate); LED 2 stays lit
+- **Pattern button 3** → slider mode VL (velocity); LED 3 stays lit
+- Pattern LEDs: LED 0 = nav mode active; LEDs 1/2/3 = active slider mode indicator
 - D-pad mode 1 navigates patterns 1–16
 - Hold-for-2s pattern copy is disabled in advanced mode
-- Enter single-tap cycles slider mode (NN/VL/GT)
+- Enter single-tap has no function in advanced mode (no LED toggle, no mode cycle)
 
 ## Config Menu
 

@@ -41,14 +41,29 @@ void run_pattern_select_routine() {
   // pattern selectors / chain definers instead of step editors).
   // -----------------------------------------------------------------------
   if (advanced_mode) {
-    // In advanced mode, LED 0 is lit when pattern-nav mode is active.
-    // Nav mode is toggled by single-click of button 0 (handled in main loop).
-    // Buttons 1–3 have no function in advanced mode.
+    // --- Slider mode selection: buttons 1=NN, 2=GT, 3=VL ---
+    // set_slider_mode() arms pickup guards so physical positions can't
+    // silently overwrite pattern data when switching modes.
+    if (pattern_select_button_flags[1]) {
+      pattern_select_button_flags[1] = false;
+      set_slider_mode(1);  // NN
+    }
+    if (pattern_select_button_flags[2]) {
+      pattern_select_button_flags[2] = false;
+      set_slider_mode(3);  // GT
+    }
+    if (pattern_select_button_flags[3]) {
+      pattern_select_button_flags[3] = false;
+      set_slider_mode(2);  // VL
+    }
+
+    // LED 0: nav mode active indicator.
+    // LEDs 1/2/3: show which slider mode is currently active.
     if (adv_pat_nav_active) pattern_select_leds[0].on();
     else                    pattern_select_leds[0].off();
-    pattern_select_leds[1].off();
-    pattern_select_leds[2].off();
-    pattern_select_leds[3].off();
+    if (slider_mode == 1) pattern_select_leds[1].on(); else pattern_select_leds[1].off();
+    if (slider_mode == 3) pattern_select_leds[2].on(); else pattern_select_leds[2].off();
+    if (slider_mode == 2) pattern_select_leds[3].on(); else pattern_select_leds[3].off();
 
     // --- Pattern-nav mode: step buttons select/chain patterns ---
     if (adv_pat_nav_active) {
