@@ -325,8 +325,14 @@ void run_LCD_update() {
 
         // Line 1: icon (1 char) + " P%02u T%6.2f " (13 chars) + mode indicator (2 chars)
         // Total = 16 chars.
-        sprintf(lcd_line1, " P%02u T%6.2f ", current_pattern + 1,
-                seq.getTempo());
+        // In external clock mode, show detected BPM (derived from avg 0xF8 interval)
+        // with an 'E' prefix instead of 'T' to indicate the source.
+        if (external_clock_mode && ext_clk_avg_interval_us > 0) {
+          float detected_bpm = 60000000.0f / ((float)ext_clk_avg_interval_us * 24.0f);
+          sprintf(lcd_line1, " P%02u E%6.2f ", current_pattern + 1, detected_bpm);
+        } else {
+          sprintf(lcd_line1, " P%02u T%6.2f ", current_pattern + 1, seq.getTempo());
+        }
 
         Serial.println(lcd_line1);
         lcd.print("?x00?y0");       // move cursor to beginning of line 0

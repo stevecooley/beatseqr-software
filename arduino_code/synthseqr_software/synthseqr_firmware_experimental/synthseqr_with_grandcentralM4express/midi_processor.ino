@@ -60,6 +60,8 @@ void read_midi()
           } else {
             seq.hardwareClockPulse();
           }
+          // Refresh LCD tempo field with newly-averaged BPM on each step pulse.
+          if (is_step_pulse) update_line1 = true;
         }
         else
         {
