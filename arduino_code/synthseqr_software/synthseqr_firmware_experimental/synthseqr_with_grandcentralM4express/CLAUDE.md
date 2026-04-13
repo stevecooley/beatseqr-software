@@ -72,8 +72,12 @@ uint8_t lcdflag                       // LCD display mode selector
 bool external_clock_mode              // false = internal TC4, true = follow USB-MIDI clock
 int8_t sounding_notes[16]            // pitch currently sounding per step (-1 = silent)
 bool advanced_mode                    // false = Simple (4 patterns, buttons select), true = Advanced (16 patterns, buttons are function keys)
-bool adv_pat_select_active            // true while pattern button 0 is held in advanced mode
-bool adv_copy_armed                   // true after double-click of pattern button 0 in advanced mode; step tap = copy destination
+bool adv_pat_nav_active               // true while pattern-nav mode is active; step buttons select/chain patterns instead of editing steps
+bool adv_copy_waiting_source          // true while copy phase 1: waiting for step tap to pick the source pattern
+bool adv_copy_armed                   // true while copy phase 2: source = current_pattern; waiting for step tap = destination
+int8_t adv_chain_hold_step            // step button held in nav mode for chain definition (-1 = none)
+unsigned long adv_blink_last_ms       // last blink toggle timestamp in nav mode
+bool adv_blink_state                  // current blink state for the playing pattern's LED in nav mode
 int8_t octave_shift                   // semitone offset applied at MIDI send time; range -5 to +5 octaves
 int8_t note_shift                     // additional semitone offset applied at MIDI send time; range -12 to +12
 ```
@@ -196,22 +200,24 @@ When `external_clock_mode == false` (default):
 - **Clear current pattern**: Hold step button 0 + step button 15
 - **Clear all patterns**: Hold step button 0 + step button 11
 - **Copy pattern (simple mode)**: Hold a pattern select button for 2s, then press destination pattern button
-- **Copy pattern (advanced mode)**: Double-click pattern button 0 (within 400 ms), then tap a step button as destination (0–15)
+- **Copy pattern (advanced mode)**: Double-click pattern button 0 (within 400 ms) → phase 1: tap step = source pattern → phase 2: tap step = destination pattern
 - **Cancel copy (advanced mode)**: D-pad left while copy is armed
 - **Chain 4 patterns (simple mode)**: Press pattern buttons 0 + 3 simultaneously to toggle
 - **Select pattern 0–15 (advanced mode)**: Hold pattern button 0, tap a step button
 
-**`go_to_pattern(pattern, silent)`**: Turns all 4 pattern LEDs off. In simple mode, lights the LED for `pattern % 4`. In advanced mode, no LED is lit during normal navigation — buttons are function keys. `toggle()` was previously used but is state-dependent; always use `on()`. The `silent` parameter is accepted but currently unused.
+**`go_to_pattern(pattern, silent)`**: Turns all 4 pattern LEDs off, except LED 0 stays on when `adv_pat_nav_active` is true. In simple mode, lights the LED for `pattern % 4`. In advanced mode outside nav mode, no LED is lit — buttons are function keys. `toggle()` was previously used but is state-dependent; always use `on()`. The `silent` parameter is accepted but currently unused.
 
-**Pattern LEDs in advanced mode**: LEDs only illuminate while a function button is actively held (e.g. button 0 held for pattern select lights LED 0). They go dark when the button is released. Do not call `pattern_select_leds[x].on()` from `go_to_pattern()` in advanced mode.
+**Pattern LEDs in advanced mode**: While `adv_pat_nav_active` is true, LED 0 stays lit (managed by `run_pattern_select_routine()`). Outside nav mode, no LEDs are lit — buttons are function keys. Do not call `pattern_select_leds[x].on()` from `go_to_pattern()` in advanced mode.
 
-**Advanced mode double-click copy**: `adv_copy_armed` is set in the main loop when `pattern_select_button_flags[0]` fires twice within 400 ms. While armed, `run_step_button_routine()` intercepts all step button presses as copy destinations and returns early — normal step toggle is suppressed. D-pad left in `listen_for_navigation_events()` clears `adv_copy_armed` and returns to main display.
+**Advanced mode pattern-nav mode**: Single-click of pattern button 0 (400 ms timeout with no second press) toggles `adv_pat_nav_active`. While active, step buttons select/chain patterns instead of editing steps. The nav loop in `run_pattern_select_routine()` blinking the current pattern's LED at 200 ms period; all chain patterns are solid. Tap one step = single pattern select (clears chain). Hold one step (`adv_chain_hold_step`) and tap a second = define `chain_start..chain_end` range and set `extended_step_length_mode = 1`. Wrap-around chains (start > end) are fully supported. On exit from nav mode, `read_step_memory()` restores the step LEDs.
+
+**Advanced mode 2-phase copy**: Double-click pattern button 0 (two `pattern_select_button_flags[0]` within 400 ms) enters copy mode. Phase 1 (`adv_copy_waiting_source`): LCD shows `copy which pat?` (flag 103); tap a step button to navigate to that pattern and arm phase 2. Phase 2 (`adv_copy_armed`): LCD shows `Copy N->where?` (flag 102); tap a step button to copy to that pattern; LCD shows `Copied X to Y` (flag 101) for 500 ms then returns to main display. D-pad left in `listen_for_navigation_events()` cancels both phases at any point.
 
 **Chain toggle one-shot guard**: The `isPressed()` check for pattern buttons 0+3 fires every loop iteration while both are held. A `static bool chain_toggle_handled` in `run_pattern_select_routine()` ensures the mode flip and `go_to_pattern()` call happen only once per press. It resets when the buttons are released. Do not remove this guard — without it the mode flips back and forth on every loop frame.
 
 **`clear_pattern_memory()` clears all 16 patterns**: The step 0+11 combo calls `clear_pattern_memory()`, which loops over all 16 patterns (`p = 0..15`) and zeros every step. After clearing, it calls `read_step_memory(0, pattern_value)` to refresh the LEDs for the active pattern.
 
-**Pattern chain auto-advance**: When `extended_step_length_mode == 1`, `stepsend()` calls `run_auto_pattern_select_routine()` at `current_step == 15`. This advances `current_pattern` within `chain_start..chain_end`, wrapping at `chain_end`. The advance happens at the start of step 15 so step 15 plays from the current pattern; the new pattern takes over from step 0.
+**Pattern chain auto-advance**: When `extended_step_length_mode == 1`, `stepsend()` calls `run_auto_pattern_select_routine()` at `current_step == 15`. This advances `current_pattern` within `chain_start..chain_end`. **Wrap-around chains** (where `chain_start > chain_end`, e.g. start=7, end=2 → plays 7,8,…,15,0,1,2) are fully supported. The advance happens at the start of step 15 so step 15 plays from the current pattern; the new pattern takes over from step 0.
 
 ## Simple vs Advanced Mode
 
@@ -224,11 +230,17 @@ When `external_clock_mode == false` (default):
 
 **Advanced mode** (`advanced_mode == true`):
 - Pattern buttons are function keys — do NOT select patterns directly
-- Pattern button 0 **hold** + step button tap → select pattern 0–15 (`adv_pat_select_active`)
-- Pattern button 0 **double-click** → arm pattern copy (`adv_copy_armed`), then step button tap = destination
-- Pattern LEDs only light while a function button is held; off otherwise
+- Pattern button 0 **single-click** (400 ms timeout) → toggle `adv_pat_nav_active` (pattern-nav mode)
+  - In nav mode, step buttons select/chain patterns; LED 0 stays lit; step LEDs show chain state with blink
+  - Tap one step → single pattern select (clears chain)
+  - Hold one step, tap another → define `chain_start..chain_end` (wrap-around supported)
+  - Single-click button 0 again → exit nav mode, restore step LEDs
+- Pattern button 0 **double-click** (two taps ≤400 ms) → 2-phase pattern copy
+  - Phase 1: LCD `copy which pat?` → tap step = source; Phase 2: LCD `Copy N->where?` → tap step = destination
+  - D-pad left cancels either phase
+- Pattern LEDs: LED 0 lit while `adv_pat_nav_active`; otherwise all off
 - D-pad mode 1 navigates patterns 1–16
-- Hold-for-2s pattern copy is disabled (would interfere with hold-to-select)
+- Hold-for-2s pattern copy is disabled in advanced mode
 
 ## Config Menu
 

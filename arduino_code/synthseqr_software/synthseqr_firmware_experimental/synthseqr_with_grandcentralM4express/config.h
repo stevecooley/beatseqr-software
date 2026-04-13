@@ -165,13 +165,25 @@ uint8_t patterns_to_play_in_a_row = 1;
 uint8_t chain_start = 0;
 uint8_t chain_end   = 3;
 
-// Advanced mode pattern-select state — true while pattern button 0 is held.
-// Suppresses normal step-button toggle so step buttons select patterns instead.
-bool adv_pat_select_active = false;
-
-// Advanced mode pattern-copy state — true after double-click of pattern button 0.
-// Step button tap selects copy destination; d-pad left cancels.
+// Advanced mode pattern-copy state.
+// Phase 1 (adv_copy_waiting_source): waiting for a step button tap to select
+//   the source pattern to copy FROM; d-pad left cancels.
+// Phase 2 (adv_copy_armed): source is current_pattern; waiting for a step
+//   button tap to select the destination pattern; d-pad left cancels.
+bool adv_copy_waiting_source = false;
 bool adv_copy_armed = false;
+
+// Advanced mode pattern-nav mode — toggled by a single click of pattern button 1.
+// While active, step buttons select/chain patterns instead of editing steps.
+bool adv_pat_nav_active = false;
+
+// Which step button is currently held for chain selection (-1 = none).
+// Set when a step is first pressed in nav mode; cleared on release.
+int8_t adv_chain_hold_step = -1;
+
+// Blink state for the currently-playing pattern's step LED in nav mode.
+unsigned long adv_blink_last_ms = 0;
+bool adv_blink_state = false;
 
 bool told_which_pattern_to_copy_to = false;
 uint8_t copy_pattern_to;

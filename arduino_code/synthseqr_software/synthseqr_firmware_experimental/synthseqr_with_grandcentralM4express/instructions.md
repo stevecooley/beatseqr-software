@@ -131,12 +131,19 @@ Synthseqr has two modes, switchable from the Config Menu.
 ### Advanced Mode
 
 - 16 patterns (P01–P16)
-- Pattern buttons are **function keys** — their LEDs only light while held
-- **Hold pattern button 1** + tap a step button → jump to that pattern (step 1 = P01, step 16 = P16)
-- **Double-click pattern button 1** (two taps within ~400 ms) → arm **pattern copy**
-  - LCD shows `Copy P{n} ->`
-  - Tap any step button to set the destination pattern
-  - D-pad left cancels
+- Pattern buttons are **function keys**
+- **Single-click pattern button 1** (tap, then wait ~400 ms) → toggle **pattern-nav mode**
+  - Pattern button 1 LED stays lit while nav mode is active
+  - Step LEDs show pattern selection: the currently playing pattern blinks; all chain patterns are solid
+  - **Tap a step button** → jump to that pattern (step 1 = P01 ... step 16 = P16); clears any active chain
+  - **Hold a step button, then tap a second step button** → define a chain range (first held = start, second tap = end)
+    - Wrap-around chains are supported: e.g. hold step 8, tap step 3 → plays P08, P09, ..., P16, P01, P02, P03
+  - **Single-click pattern button 1 again** → exit nav mode; step LEDs return to normal step display
+- **Double-click pattern button 1** (two taps within ~400 ms) → **pattern copy** (2 phases)
+  - Phase 1: LCD shows `copy which pat?` → tap a step button to select the **source** pattern
+  - Phase 2: LCD shows `Copy N->where?` → tap a step button to select the **destination** pattern
+  - LCD briefly shows `Copied X to Y`, then returns to main display
+  - **D-pad left** cancels at any point
 - D-pad mode 1 navigates patterns 1–16 with up/down
 
 ---
@@ -149,7 +156,7 @@ There are up to 16 patterns (P01–P16). Each pattern has its own 16 steps and i
 
 **Simple mode**: Press any of the 4 pattern select buttons to switch instantly.
 
-**Advanced mode**: Hold pattern button 1, then tap a step button (step 1 = P01 ... step 16 = P16).
+**Advanced mode**: Single-click pattern button 1 to enter nav mode, then tap a step button (step 1 = P01 ... step 16 = P16). Single-click pattern button 1 again to exit nav mode.
 
 **Either mode**: Navigate to D-pad mode 1 and use up/down to scroll through patterns.
 
@@ -169,17 +176,20 @@ Each slider is individually locked until its physical position reaches within 1 
 2. Press the **destination pattern button**. The entire pattern (steps + pitches) is copied there.
 
 **Advanced mode**:
-1. **Double-click pattern button 1** (two taps within ~400 ms). The LCD shows `Copy P{n} ->`.
-2. Tap any **step button** to select the destination (step 1 = P01 ... step 16 = P16).
-3. To cancel, press **D-pad left**.
+1. **Double-click pattern button 1** (two taps within ~400 ms). The LCD shows `copy which pat?`.
+2. Tap a **step button** to select the **source** pattern (step 1 = P01 ... step 16 = P16). The LCD shows `Copy N->where?`.
+3. Tap a **step button** to select the **destination** pattern. The LCD briefly shows `Copied X to Y`.
+4. To cancel at any point, press **D-pad left**.
 
-### Chaining Patterns (Simple Mode)
+### Chaining Patterns
 
-Press **pattern buttons 1 and 4 simultaneously** to toggle chain mode.
+**Simple mode**: Press **pattern buttons 1 and 4 simultaneously** to toggle chain mode.
 
-- **Chain on** (`chain 4` on LCD): patterns auto-advance 1 → 2 → 3 → 4 → 1 ... each time step 15 is reached.
+- **Chain on** (`chain 4` on LCD): patterns auto-advance 1 → 2 → 3 → 4 → 1 ... each time step 16 is reached.
 - **Chain off** (`single` on LCD): only the active pattern plays on loop.
 - The LCD briefly shows the new mode as confirmation.
+
+**Advanced mode (pattern-nav mode)**: Enter nav mode (single-click pattern button 1), then hold a step button and tap a second step button to define the chain range. The first button held is the chain start, the second tap is the chain end. Wrap-around is supported — e.g. hold step 8, tap step 3 → plays P08, P09, ..., P16, P01, P02, P03. Tap a single step (no hold) to return to single-pattern playback.
 
 ---
 
@@ -362,16 +372,17 @@ Connect at **57600 baud** to see:
 | Set step pitch | Voice slider |
 | Select pattern (d-pad) | D-pad left to mode 1, up/down cycles patterns |
 | Select pattern (simple) | Pattern button 1–4 |
-| Select pattern (advanced) | Hold pattern button 1 + tap step button |
+| Select pattern (advanced) | Single-click pattern button 1 (nav mode on), tap step button |
 | Adjust tempo (coarse) | D-pad right to mode 2–3, then up/down |
 | Adjust tempo (fine) | D-pad right to mode 4–5, then up/down |
 | Adjust swing | D-pad right to mode 6, then up/down |
 | Set clock source | D-pad right to mode 7, up=EXT / down=INT |
 | Set MIDI channel | D-pad right to mode 8, up/down = channel 1–16 |
 | Copy pattern (simple) | Hold pattern button 2s → press destination button |
-| Copy pattern (advanced) | Double-click pattern button 1 → tap step = destination |
-| Cancel copy (advanced) | D-pad left while copy is armed |
+| Copy pattern (advanced) | Double-click pattern button 1 → tap step = source → tap step = destination |
+| Cancel copy (advanced) | D-pad left (works at either phase) |
 | Chain 4 patterns (simple) | Pattern buttons 1 + 4 simultaneously |
+| Define chain (advanced) | Nav mode on → hold step (start) + tap step (end) |
 | Clear current pattern | Hold step 1 + step 16 |
 | Clear all patterns | Hold step 1 + step 12 |
 | Octave shift | Config menu → Octave shift, up/down |

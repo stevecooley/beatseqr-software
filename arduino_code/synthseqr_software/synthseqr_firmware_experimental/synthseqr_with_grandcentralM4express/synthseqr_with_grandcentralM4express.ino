@@ -162,20 +162,44 @@ void loop() {
     }
   }
 
-  // Advanced mode: double-click pattern button 0 = arm pattern copy.
-  // Source is current_pattern; next step button tap selects destination.
-  if (advanced_mode && pattern_select_button_flags[0]) {
+  // Advanced mode: pattern button 0 single/double-click detection.
+  //   Single click (400 ms timeout with no second press) → toggle pattern-nav mode.
+  //   Double click (second press within 400 ms) → enter pattern copy mode:
+  //     Phase 1 (adv_copy_waiting_source): tap a step to pick the source pattern.
+  //     Phase 2 (adv_copy_armed):          tap a step to pick the destination.
+  if (advanced_mode) {
     static unsigned long last_pat0_press_ms = 0;
     unsigned long now_ms = millis();
-    if (last_pat0_press_ms != 0 && now_ms - last_pat0_press_ms <= 400) {
-      last_pat0_press_ms = 0;
+
+    if (pattern_select_button_flags[0]) {
       pattern_select_button_flags[0] = false;
-      adv_copy_armed = true;
-      lcdflag = 100;  next_lcdflag = 100;  // "Copy P{n} ->"
-      Serial.print("copy armed from pattern ");
-      Serial.println(current_pattern + 1);
-    } else {
-      last_pat0_press_ms = now_ms;
+      if (last_pat0_press_ms != 0 && now_ms - last_pat0_press_ms <= 400) {
+        // Double-click confirmed — enter copy mode, pick source first.
+        last_pat0_press_ms = 0;
+        adv_copy_waiting_source = true;
+        adv_copy_armed = false;
+        lcdflag = 103;  next_lcdflag = 103;  // "copy which pat?"
+        Serial.println("copy mode: pick source pattern");
+      } else {
+        // First press — record timestamp; wait to see if second press comes.
+        last_pat0_press_ms = now_ms;
+      }
+    }
+
+    // Single-click: 400 ms elapsed without a second press → toggle nav mode.
+    if (last_pat0_press_ms != 0 && now_ms - last_pat0_press_ms > 400) {
+      last_pat0_press_ms = 0;
+      adv_pat_nav_active = !adv_pat_nav_active;
+      if (adv_pat_nav_active) {
+        adv_chain_hold_step = -1;
+        adv_blink_state = true;
+        adv_blink_last_ms = millis();
+        Serial.println("pattern nav mode ON");
+      } else {
+        adv_chain_hold_step = -1;
+        read_step_memory(0, pattern_value);
+        Serial.println("pattern nav mode OFF");
+      }
     }
   }
 

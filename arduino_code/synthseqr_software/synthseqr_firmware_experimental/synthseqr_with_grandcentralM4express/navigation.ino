@@ -1,7 +1,8 @@
 void listen_for_navigation_events() {
-  // Cancel advanced copy mode with d-pad left.
-  if (adv_copy_armed && dpad_left_flag) {
+  // Cancel advanced copy mode (either phase) with d-pad left.
+  if ((adv_copy_waiting_source || adv_copy_armed) && dpad_left_flag) {
     dpad_left_flag = false;
+    adv_copy_waiting_source = false;
     adv_copy_armed = false;
     update_line1 = true;
     update_line2 = true;

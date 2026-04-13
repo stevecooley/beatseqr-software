@@ -1,6 +1,25 @@
 void run_step_button_routine()
 {
-  // Advanced mode pattern copy: waiting for step button tap = copy destination.
+  // Advanced mode pattern copy phase 1: tap a step button to pick the source
+  // pattern to copy FROM. Navigates to that pattern, then arms phase 2.
+  if (adv_copy_waiting_source) {
+    for (int i = 0; i < 16; i++) {
+      if (step_buttons[i].uniquePress()) {
+        go_to_pattern(i, 0);
+        if (!adv_pat_nav_active) read_step_memory(0, i);
+        adv_copy_waiting_source = false;
+        adv_copy_armed = true;
+        lcdflag = 102;  next_lcdflag = 102;  // "Copy N->where?" = pick destination
+        Serial.print("copy source: pattern ");
+        Serial.println(i + 1);
+        break;
+      }
+    }
+    return;  // consume all other input while picking source
+  }
+
+  // Advanced mode pattern copy phase 2: tap a step button to pick the
+  // destination pattern to copy TO.
   if (adv_copy_armed) {
     for (int i = 0; i < 16; i++) {
       if (step_buttons[i].uniquePress()) {
@@ -11,34 +30,35 @@ void run_step_button_routine()
         }
         copy_pattern_to = i;
         adv_copy_armed = false;
-        lcdflag = 101;  next_lcdflag = 101;  // "Copy P{n}-> done" then back to main
+        lcdflag = 101;  next_lcdflag = 101;  // "Copy {n}-> done" then back to main
         Serial.print("copied to pattern ");
         Serial.println(i + 1);
+        break;
       }
     }
     return;  // consume all other input while copy is armed
   }
 
-  // In advanced mode, when pattern button 0 is held, step buttons are
-  // consumed by run_pattern_select_routine() for pattern selection.
-  // Skip normal step-toggle processing to avoid double-handling.
-  if (!adv_pat_select_active) {
+  // In pattern nav mode, step buttons are consumed by run_pattern_select_routine()
+  // for pattern selection/chaining. Skip normal step-toggle processing.
+  if (!adv_pat_nav_active) {
     detect_step_button_presses();
   }
 
-  // Use wasPressed() here (not isPressed()) — uniquePress() already called
-  // isPressed() for all step buttons in detect_step_button_presses() above.
-  // Calling isPressed() a second time on the same button in the same loop
-  // iteration can steal the CHANGED flag and cause the next uniquePress() to
-  // miss a press. wasPressed() reads the cached state with no side effects.
-  if (step_buttons[0].wasPressed() && step_buttons[15].wasPressed()) // clear the pattern for this voice
-  {
-    clear_pattern_memory_for_voice(0); //synthseqr configuration
-  }
+  // Clear combos must only fire when step buttons are toggling steps —
+  // not in nav mode where step buttons select patterns.
+  if (!adv_pat_nav_active) {
+    // Use wasPressed() here (not isPressed()) — uniquePress() already called
+    // isPressed() for all step buttons in detect_step_button_presses() above.
+    if (step_buttons[0].wasPressed() && step_buttons[15].wasPressed()) // clear the pattern for this voice
+    {
+      clear_pattern_memory_for_voice(0); //synthseqr configuration
+    }
 
-  if (step_buttons[0].wasPressed() && step_buttons[11].wasPressed()) // clear the entire pattern
-  {
-    clear_pattern_memory();
+    if (step_buttons[0].wasPressed() && step_buttons[11].wasPressed()) // clear the entire pattern
+    {
+      clear_pattern_memory();
+    }
   }
   
 }

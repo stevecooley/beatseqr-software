@@ -1,37 +1,101 @@
+// update_pat_nav_leds()
+//
+// Redraws step LEDs to reflect the current pattern-nav state.
+// Called every frame while adv_pat_nav_active is true.
+//   - Single pattern:  that pattern's LED blinks (adv_blink_state),
+//                      all others off.
+//   - Chain active:    all patterns in the chain are lit solid except the
+//                      currently playing one, which blinks.
+// Wrap-around chains (chain_start > chain_end) are handled correctly.
+//
+void update_pat_nav_leds() {
+  for (int i = 0; i < 16; i++) {
+    bool in_chain = false;
+    if (extended_step_length_mode == 0) {
+      in_chain = (i == (int)current_pattern);
+    } else if (chain_start <= chain_end) {
+      in_chain = (i >= (int)chain_start && i <= (int)chain_end);
+    } else {
+      // Wrap-around: e.g. start=7, end=2 → indices 7..15 and 0..2
+      in_chain = (i >= (int)chain_start || i <= (int)chain_end);
+    }
+
+    if (!in_chain) {
+      step_leds[i].off();
+    } else if (i == (int)current_pattern) {
+      // Blink the currently playing pattern.
+      if (adv_blink_state) step_leds[i].on();
+      else                 step_leds[i].off();
+    } else {
+      step_leds[i].on();
+    }
+  }
+}
+
 void run_pattern_select_routine() {
   listen_for_copy_command();
 
   // -----------------------------------------------------------------------
   // Advanced mode: pattern button 0 held + step tap = select pattern 0–15.
-  // While button 0 is held, step buttons are consumed here and do NOT toggle
-  // steps (run_step_button_routine() gates detect_step_button_presses() on
-  // adv_pat_select_active).
+  // Pattern button 1 click = toggle pattern-nav mode (step buttons become
+  // pattern selectors / chain definers instead of step editors).
   // -----------------------------------------------------------------------
   if (advanced_mode) {
-    adv_pat_select_active = pattern_select_buttons[0].wasPressed();
-    if (adv_pat_select_active) {
-      // Light LED 0 to indicate pattern-select mode is armed.
-      pattern_select_leds[0].on();
-      pattern_select_leds[1].off();
-      pattern_select_leds[2].off();
-      pattern_select_leds[3].off();
+    // In advanced mode, LED 0 is lit when pattern-nav mode is active.
+    // Nav mode is toggled by single-click of button 0 (handled in main loop).
+    // Buttons 1–3 have no function in advanced mode.
+    if (adv_pat_nav_active) pattern_select_leds[0].on();
+    else                    pattern_select_leds[0].off();
+    pattern_select_leds[1].off();
+    pattern_select_leds[2].off();
+    pattern_select_leds[3].off();
+
+    // --- Pattern-nav mode: step buttons select/chain patterns ---
+    if (adv_pat_nav_active) {
+      // Update blink timer (200 ms period).
+      unsigned long nav_now = millis();
+      if (nav_now - adv_blink_last_ms >= 200) {
+        adv_blink_last_ms = nav_now;
+        adv_blink_state = !adv_blink_state;
+      }
+
+      // Release tracking: clear held button once it's physically released.
+      if (adv_chain_hold_step >= 0 &&
+          !step_buttons[adv_chain_hold_step].wasPressed()) {
+        adv_chain_hold_step = -1;
+      }
+
+      // Scan for step button presses (uniquePress() not called elsewhere
+      // this frame because detect_step_button_presses() is gated off).
       for (int i = 0; i < 16; i++) {
         if (step_buttons[i].uniquePress()) {
-          go_to_pattern(i, 0);
-          read_step_memory(0, i);
+          if (adv_chain_hold_step < 0) {
+            // First press — single pattern select, cancel any active chain.
+            adv_chain_hold_step = i;
+            extended_step_length_mode = 0;
+            go_to_pattern(i, 0);
+            Serial.print("nav: single pattern ");
+            Serial.println(i + 1);
+          } else if (i != adv_chain_hold_step) {
+            // Second press while first is still held — define a chain.
+            // chain_start is the held button, chain_end is this button.
+            // Wrap-around is supported (start > end).
+            chain_start = (uint8_t)adv_chain_hold_step;
+            chain_end   = (uint8_t)i;
+            extended_step_length_mode = 1;
+            go_to_pattern(chain_start, 0);
+            Serial.print("nav: chain ");
+            Serial.print(chain_start + 1);
+            Serial.print(" -> ");
+            Serial.println(chain_end + 1);
+          }
           break;
         }
       }
-      // Consume all pattern button flags so simple-mode select doesn't fire.
-      for (int i = 0; i < 4; i++) pattern_select_button_flags[i] = false;
+
+      // Redraw step LEDs: chain patterns solid, current pattern blinks.
+      update_pat_nav_leds();
       return;
-    } else {
-      adv_pat_select_active = false;
-      // In advanced mode, no LED lit while idle — buttons are function keys.
-      pattern_select_leds[0].off();
-      pattern_select_leds[1].off();
-      pattern_select_leds[2].off();
-      pattern_select_leds[3].off();
     }
   }
 
@@ -76,17 +140,32 @@ void run_pattern_select_routine() {
 }
 
 void run_auto_pattern_select_routine() {
-  // Advance within chain_start..chain_end range, wrapping at chain_end.
-  if (current_pattern >= chain_end || current_pattern < chain_start) {
-    current_pattern = chain_start;
+  // Advance within chain_start..chain_end, supporting wrap-around ranges.
+  // A wrapping chain has chain_start > chain_end (e.g. start=7, end=2 →
+  // plays 7,8,9,10,11,12,13,14,15,0,1,2).
+  if (chain_start <= chain_end) {
+    // Normal sequential range — no wrap.
+    if (current_pattern >= chain_end || current_pattern < chain_start) {
+      current_pattern = chain_start;
+    } else {
+      current_pattern++;
+    }
   } else {
-    current_pattern++;
+    // Wrap-around range.
+    bool in_range = (current_pattern >= chain_start) ||
+                    (current_pattern <= chain_end);
+    if (!in_range || current_pattern == chain_end) {
+      current_pattern = chain_start;
+    } else {
+      current_pattern = (current_pattern + 1) % 16;
+    }
   }
   go_to_pattern(current_pattern, 1);
 }
 
 void go_to_pattern(int pattern, int silent) {
-  pattern_select_leds[0].off();
+  // LED 0 stays on while pattern-nav mode is active; don't clear it here.
+  if (!adv_pat_nav_active) pattern_select_leds[0].off();
   pattern_select_leds[1].off();
   pattern_select_leds[2].off();
   pattern_select_leds[3].off();
@@ -118,15 +197,19 @@ void go_to_pattern(int pattern, int silent) {
 */
   current_pattern = pattern_value;
 
-  for (int voice = 0; voice < 1; voice++)  // synthseqr configuration
-  {
-    for (int step = 0; step <= 15; step++) {
-      step_value = step_data[pattern][voice][step];
+  // In pattern nav mode the step LEDs display pattern/chain selection,
+  // not step on/off data. The nav routine redraws them each frame.
+  if (!adv_pat_nav_active) {
+    for (int voice = 0; voice < 1; voice++)  // synthseqr configuration
+    {
+      for (int step = 0; step <= 15; step++) {
+        step_value = step_data[pattern][voice][step];
 
-      if (step_value == 1) {
-        step_leds[step].on();
-      } else {
-        step_leds[step].off();
+        if (step_value == 1) {
+          step_leds[step].on();
+        } else {
+          step_leds[step].off();
+        }
       }
     }
   }

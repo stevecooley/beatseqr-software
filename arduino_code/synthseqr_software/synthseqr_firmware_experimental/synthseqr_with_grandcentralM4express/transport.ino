@@ -122,6 +122,10 @@ void listen_for_transport_events() {
 }
 
 void run_chase_lights(unsigned int this_step) {
+  // In pattern nav mode, step LEDs display pattern selection/chain state.
+  // The nav routine manages them; skip chase light processing entirely.
+  if (adv_pat_nav_active) return;
+
   if (chase_lights_status == 1) {
     if (last_step !=
         this_step)  // clock pulses counted so we can advance to the next step.

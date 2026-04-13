@@ -209,7 +209,7 @@ void run_LCD_update() {
       next_lcdflag = 255;
       break;
     }
-    case 100:  // pattern copy
+    case 100:  // pattern copy — simple mode: "Copy N->" waiting for destination
     {
       lcd.print("?f");            // clear the lcd
       Serial.println("?f");       // clear the lcd
@@ -224,21 +224,52 @@ void run_LCD_update() {
       next_lcdflag = 100;
       break;
     }
-    case 101:  // pattern copy to N
+    case 101:  // copy complete — "Copied X to Y" for 500 ms
     {
-      lcd.print("?f");            // clear the lcd
-      Serial.println("?f");       // clear the lcd
-      lcd.print("?x00?y0");       // move cursor to beginning of line 1
-      Serial.println("?x00?y0");  // move cursor to beginning of line 1
-      lcd.print("Copy ");
-      Serial.println("Copy ");
-      lcd.print(current_pattern + 1);
-      Serial.println(current_pattern + 1);
-      lcd.print("->       ");
-      Serial.println("->       ");
-      update_line1 = true;
-      update_line2 = true;
-      next_lcdflag = 255;
+      static unsigned long msg_until = 0;
+      if (msg_until == 0) {
+        msg_until = millis() + 500;
+        lcd.print("?f");
+        Serial.println("?f");
+        lcd.print("?x00?y0");
+        Serial.println("?x00?y0");
+        char _buf[17];
+        snprintf(_buf, sizeof(_buf), "Copied %d to %d", current_pattern + 1, copy_pattern_to + 1);
+        lcd.print(_buf);
+        Serial.println(_buf);
+      }
+      if (millis() >= msg_until) {
+        msg_until = 0;
+        update_line1 = true;
+        update_line2 = true;
+        next_lcdflag = 255;
+      } else {
+        next_lcdflag = 101;
+      }
+      break;
+    }
+    case 102:  // advanced copy phase 2 — source selected, waiting for destination
+    {
+      lcd.print("?f");
+      Serial.println("?f");
+      lcd.print("?x00?y0");
+      Serial.println("?x00?y0");
+      char _buf[17];
+      snprintf(_buf, sizeof(_buf), "Copy %d->where?", current_pattern + 1);
+      lcd.print(_buf);
+      Serial.println(_buf);
+      next_lcdflag = 102;
+      break;
+    }
+    case 103:  // advanced copy phase 1 — waiting for user to tap source pattern
+    {
+      lcd.print("?f");
+      Serial.println("?f");
+      lcd.print("?x00?y0");
+      Serial.println("?x00?y0");
+      lcd.print("copy which pat?");
+      Serial.println("copy which pat?");
+      next_lcdflag = 103;
       break;
     }
     case 202:  // EEPROM save confirmation — hold for 2 s then return to main display
