@@ -159,12 +159,91 @@ void allNotesOff() {
   MidiUSB.flush();
 }
 
+// Fill shuffle_order[0..pattern_length-1] with a random permutation using
+// Fisher-Yates, then reset shuffle_pos to 0. Called when entering Shuf mode,
+// when pattern_length changes while in Shuf mode, and at the end of each
+// completed permutation cycle so the next pass is freshly randomised.
+void init_shuffle() {
+  for (uint8_t i = 0; i < pattern_length; i++) shuffle_order[i] = i;
+  for (uint8_t i = pattern_length - 1; i > 0; i--) {
+    uint8_t j = (uint8_t)random(0, i + 1);
+    uint8_t tmp = shuffle_order[i];
+    shuffle_order[i] = shuffle_order[j];
+    shuffle_order[j] = tmp;
+  }
+  shuffle_pos = 0;
+}
+
 void stepsend(int current_step, int last_step) {
-  run_chase_lights(seq.getPosition());
+  // Compute play_step: the data index to read notes/velocities/gates from.
+  // current_step is always 0..(pattern_length-1) from FifteenStep.
+  // play_step maps that to the actual step position based on direction.
+  uint8_t play_step;
+  switch (pattern_direction) {
+    case 1: // Reverse
+      play_step = (uint8_t)((pattern_length - 1) - current_step);
+      break;
+    case 2: // Ping-pong — use the maintained virtual position
+      play_step = ping_pong_step;
+      if (pattern_length <= 1) {
+        ping_pong_step = 0;
+      } else if (ping_pong_going_forward) {
+        if (ping_pong_step >= pattern_length - 1) {
+          ping_pong_going_forward = false;
+          ping_pong_step = pattern_length - 2;
+        } else {
+          ping_pong_step++;
+        }
+      } else {
+        if (ping_pong_step == 0) {
+          ping_pong_going_forward = true;
+          ping_pong_step = 1;
+        } else {
+          ping_pong_step--;
+        }
+      }
+      break;
+    case 3: // Random — independent random step each tick
+      play_step = (uint8_t)random(0, pattern_length);
+      break;
+    case 4: // Shuffle — random permutation; each step plays once before reshuffling
+      play_step = shuffle_order[shuffle_pos];
+      shuffle_pos++;
+      if (shuffle_pos >= pattern_length) init_shuffle();
+      break;
+    case 5: { // Even/Odd — all even-indexed steps then all odd-indexed steps
+      uint8_t half = (uint8_t)((pattern_length + 1) / 2);  // ceil(N/2) even steps first
+      if ((uint8_t)current_step < half)
+        play_step = (uint8_t)(current_step * 2);
+      else
+        play_step = (uint8_t)((current_step - half) * 2 + 1);
+      break;
+    }
+    case 6: // Inward — outside-in: 0, N-1, 1, N-2, 2, N-3, ...
+      if (current_step % 2 == 0)
+        play_step = (uint8_t)(current_step / 2);
+      else
+        play_step = (uint8_t)(pattern_length - 1 - current_step / 2);
+      break;
+    case 7: { // Quad — plays Q1, Q3, Q2, Q4 (quarter-groups reordered)
+      static const uint8_t qord[4] = {0, 2, 1, 3};
+      uint8_t gsz = (pattern_length >= 4) ? pattern_length / 4 : 1;
+      uint8_t gi  = (uint8_t)(current_step / gsz);
+      if (gi > 3) gi = 3;
+      play_step = (uint8_t)(qord[gi] * gsz + current_step % gsz);
+      if (play_step >= pattern_length) play_step = (uint8_t)current_step;
+      break;
+    }
+    default: // Forward
+      play_step = (uint8_t)current_step;
+      break;
+  }
+
+  run_chase_lights(play_step);
 
   // Note-off scan: turn off any notes whose gate expires at this step.
-  // This replaces the old single last_step note-off — multi-step gates require
-  // scanning all slots since a note from step N-3 may still be sounding.
+  // Gate end steps are stored as hardware clock steps (current_step-based),
+  // so this scan always uses current_step regardless of direction.
   for (int i = 0; i < 16; i++) {
     if (sounding_notes[i] >= 0 && sounding_note_end_step[i] == (int8_t)current_step) {
       noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[i], 0);
@@ -173,29 +252,35 @@ void stepsend(int current_step, int last_step) {
     }
   }
 
-  if (step_data[pattern_value][0][current_step] == 1) {
-    int16_t shifted = (int16_t)voice_slider_midinotenum[current_step] + (int16_t)(octave_shift * 12) + (int16_t)note_shift;
+  if (step_data[pattern_value][0][play_step] == 1) {
+    // If this slot is still sounding (e.g. random mode re-triggered it),
+    // send note-off before the new note-on.
+    if (sounding_notes[play_step] >= 0) {
+      noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[play_step], 0);
+      sounding_notes[play_step] = -1;
+      sounding_note_end_step[play_step] = -1;
+    }
+    int16_t shifted = (int16_t)voice_slider_midinotenum[play_step] + (int16_t)(octave_shift * 12) + (int16_t)note_shift;
     if (shifted < 0) shifted = 0;
     if (shifted > 127) shifted = 127;
     uint8_t pitch = (uint8_t)shifted;
-    uint8_t vel = voice_slider_midivelocity[current_step];
+    uint8_t vel = voice_slider_midivelocity[play_step];
     noteOn(MIDICHANNEL - 1, pitch, vel);
-    sounding_notes[current_step] = (int8_t)pitch;
-    // Schedule note-off: (current_step + gate) % 16
-    sounding_note_end_step[current_step] =
-        (int8_t)((current_step + step_gate[pattern_value][current_step]) % 16);
+    sounding_notes[play_step] = (int8_t)pitch;
+    // Schedule note-off: gate steps later in hardware clock time
+    sounding_note_end_step[play_step] =
+        (int8_t)((current_step + step_gate[pattern_value][play_step]) % pattern_length);
     // Update LCD line 2 with this step's trigger info —
     // but only when the config menu isn't using line 2.
     if (!config_menu_active) {
-      last_triggered_step = (int8_t)current_step;
+      last_triggered_step = (int8_t)play_step;
       update_line2 = true;
     }
   }
 
-  // Auto-advance to the next pattern at the end of step 15 when chain mode
-  // is active. Fires here so step 15 plays from the current pattern first,
-  // then the new pattern takes over from step 0.
-  if (extended_step_length_mode == 1 && current_step == 15) {
+  // Auto-advance to the next pattern at the last step of the pattern when
+  // chain mode is active. Uses pattern_length instead of the hard-coded 15.
+  if (extended_step_length_mode == 1 && current_step == (int)(pattern_length - 1)) {
     run_auto_pattern_select_routine();
   }
 

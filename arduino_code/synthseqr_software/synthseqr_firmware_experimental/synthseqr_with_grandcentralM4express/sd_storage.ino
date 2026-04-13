@@ -142,7 +142,9 @@ bool save_to_sd() {
   _f.print("  \"chain_active\": ");  _f.print(extended_step_length_mode); _f.println(",");
   _f.print("  \"chain_start\": ");   _f.print(chain_start);           _f.println(",");
   _f.print("  \"chain_end\": ");     _f.print(chain_end);             _f.println(",");
-  _f.print("  \"advanced_mode\": "); _f.print(advanced_mode ? 1 : 0); _f.println(",");
+  _f.print("  \"advanced_mode\": ");    _f.print(advanced_mode ? 1 : 0); _f.println(",");
+  _f.print("  \"pattern_length\": ");   _f.print(pattern_length);        _f.println(",");
+  _f.print("  \"pattern_direction\": "); _f.print(pattern_direction);    _f.println(",");
   _f.println("  \"patterns\": [");
 
   for (int p = 0; p < 16; p++) {
@@ -265,6 +267,18 @@ bool load_from_sd() {
     advanced_mode = (bool)sd_parse_number();
   }
 
+  _f.seek(0);
+  if (sd_find("\"pattern_length\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 1 && v <= 16) pattern_length = (uint8_t)v;
+  }
+
+  _f.seek(0);
+  if (sd_find("\"pattern_direction\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v <= 3) pattern_direction = (uint8_t)v;
+  }
+
   // Parse patterns array — seek once to "patterns": then read sequentially.
   _f.seek(0);
   if (!sd_find("\"patterns\":")) {
@@ -335,6 +349,10 @@ bool load_from_sd() {
     voice_slider_midivelocity[s] = pattern_step_velocities[current_pattern][s];
     slider_needs_pickup[s] = true;
   }
+
+  // Reset ping-pong state so playback always starts from the beginning.
+  ping_pong_step = 0;
+  ping_pong_going_forward = true;
 
   Serial.println("loaded from SD");
   return true;

@@ -407,6 +407,17 @@ int8_t octave_shift = 0;
 // Range -12 to +12. Stored separately from per-step pitches.
 int8_t note_shift = 0;
 
+// Pattern playback settings — global, applies to all patterns.
+// pattern_direction: 0=Fwd 1=Rev 2=Pong 3=Rand 4=Shuf 5=E/O 6=In 7=Quad
+#define PATTERN_DIRECTION_COUNT 8
+uint8_t pattern_length    = 16;    // 1–16 steps before looping
+uint8_t pattern_direction = 0;     // see above
+bool    ping_pong_going_forward = true;  // ping-pong direction state
+uint8_t ping_pong_step          = 0;     // ping-pong virtual play position
+// Shuffle (permutation) state — init_shuffle() fills this before use.
+uint8_t shuffle_order[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+uint8_t shuffle_pos       = 0;
+
 // External clock swing state.
 // When SWING > 0 in external clock mode, odd-step transitions are deferred
 // by avg_pulse_interval * SWING µs to replicate the internal-clock swing feel.

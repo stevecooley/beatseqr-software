@@ -312,6 +312,40 @@ The range determines how the sliders map to MIDI notes in NN mode: the full trav
 
 ---
 
+## Pattern Length
+
+Open the **Config Menu** (double-tap Enter), scroll to **Pat length**, and press Enter.
+
+- D-pad up/down adjusts the length from 1 to 16 steps.
+- **Tap any step button** to set the length directly: tapping step N sets the length to N (step 1 = length 1, step 16 = length 16). Step LEDs light up to show the current length while editing.
+- Press Enter or D-pad left to exit.
+- The sequencer always loops back to step 1 after the last active step, and chains advance at the end of the active length.
+- The label shows `Pat length   *` when the value is not 16.
+- Pattern length is global — it applies to all patterns simultaneously.
+
+---
+
+## Pattern Direction
+
+Open the **Config Menu** (double-tap Enter), scroll to **Pat dir**, and press Enter.
+
+D-pad up/down cycles through 8 directions. Press Enter or D-pad left to exit.
+
+| Direction | Display | Sequence (example, length 8) |
+|---|---|---|
+| **Fwd** | `Fwd` | 0, 1, 2, 3, 4, 5, 6, 7 |
+| **Rev** | `Rev` | 7, 6, 5, 4, 3, 2, 1, 0 |
+| **Pong** | `Pong` | 0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1, … |
+| **Rand** | `Rand` | random step each tick (repeats allowed) |
+| **Shuf** | `Shuf` | random permutation — every step once before reshuffling |
+| **E/O** | `E/O` | all even-indexed steps then all odd: 0, 2, 4, 6, 1, 3, 5, 7 |
+| **In** | `In` | outside-in: 0, 7, 1, 6, 2, 5, 3, 4 |
+| **Quad** | `Quad` | Q1, Q3, Q2, Q4 — quarters reordered: 0,1, 4,5, 2,3, 6,7 |
+
+Pattern direction is global — it applies to all patterns simultaneously. Gate lengths are measured in hardware clock steps regardless of direction, so gate behavior is consistent across all modes.
+
+---
+
 ## Clearing Patterns
 
 These combos work while the sequencer is stopped or playing.
@@ -360,6 +394,8 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Note shift | Adjust semitone offset ±12; up/down to change, Enter or Left to exit; label shows * when non-zero |
 | Note range | Two-phase editor: Enter to edit low note, Enter again to edit high note, Enter to exit; Left exits either phase; label shows * when non-default (36/52) |
 | Note scales | (Coming soon) |
+| Pat length | Step count 1–16; up/down or tap a step button; step LEDs show current length; label shows * when not 16 |
+| Pat dir | Playback direction; up/down cycles Fwd/Rev/Pong/Rand/Shuf/E/O/In/Quad |
 
 **Confirmation prompt**: for destructive actions, line 2 shows `Entr=ok  Lft=no`. Press Enter to confirm or D-pad left to cancel.
 
@@ -376,6 +412,7 @@ The following are saved:
 - Active pattern, chain mode on/off, clock source (INT/EXT)
 - Octave shift, Note shift, Note range (low/high)
 - Simple / Advanced mode
+- Pattern length and Pattern direction
 
 **Primary storage**: SD card (`/synthseqr/autosave.json`). The file is human-readable JSON and can be edited or generated externally with any tool you prefer.
 
@@ -448,6 +485,8 @@ Connect at **57600 baud** to see:
 | Octave shift | Config menu → Octave shift, up/down |
 | Note shift | Config menu → Note shift, up/down |
 | Note range | Config menu → Note range, Enter for lo/hi phases |
+| Set pattern length | Config menu → Pat length, up/down or tap step button |
+| Set pattern direction | Config menu → Pat dir, up/down cycles 8 modes |
 | Save | Config menu → Save (sequencer stopped) |
 | Toggle Simple/Advanced | Config menu → Mode |
 | Open config menu | Double-tap Enter |

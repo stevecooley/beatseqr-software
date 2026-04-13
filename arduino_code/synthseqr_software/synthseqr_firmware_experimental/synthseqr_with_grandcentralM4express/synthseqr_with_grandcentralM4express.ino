@@ -55,6 +55,10 @@ void setup() {
   // Restore saved state. SD is tried first (all 16 patterns + settings);
   // falls back to EEPROM (4 patterns) if no card or no autosave found.
   boot_load();
+  // Apply loaded pattern_length to FifteenStep (default is 16; may differ after load).
+  seq.setSteps(pattern_length);
+  // If shuffle mode was saved, prime the permutation array for pattern_length.
+  if (pattern_direction == 4) init_shuffle();
   go_to_pattern(current_pattern, 1);
   seq.setTempo(TEMPO);
   update_line2 = true;  // ensure swing/clock/channel redraw with loaded values

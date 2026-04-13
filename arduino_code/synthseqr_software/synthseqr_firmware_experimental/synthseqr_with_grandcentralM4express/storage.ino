@@ -1,7 +1,7 @@
 // SAMD51 has no native EEPROM; use FlashStorage_SAMD for a compatible API.
 #include <FlashAsEEPROM_SAMD.h>
 
-// EEPROM layout — 527 bytes total.
+// EEPROM layout — 529 bytes total.
 // If you change the layout, increment EEPROM_MAGIC_VALUE so old saves are
 // ignored rather than misread as valid data.
 //
@@ -20,6 +20,8 @@
 //  524   1      note_shift (int8_t stored as raw byte)
 //  525   1      slider_map_low_value (uint8_t)
 //  526   1      slider_map_high_value (uint8_t)
+//  527   1      pattern_length (uint8_t, 1–16)
+//  528   1      pattern_direction (uint8_t, 0–3)
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -35,8 +37,10 @@
 #define EEPROM_NOTE_SHIFT_ADDR        524
 #define EEPROM_NOTE_RANGE_LOW_ADDR    525
 #define EEPROM_NOTE_RANGE_HIGH_ADDR   526
+#define EEPROM_PAT_LENGTH_ADDR        527
+#define EEPROM_PAT_DIR_ADDR           528
 
-#define EEPROM_MAGIC_VALUE  0xC3  // bumped: added note range low/high
+#define EEPROM_MAGIC_VALUE  0xC4  // bumped: added pattern_length/direction
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -66,6 +70,8 @@ void save_to_eeprom() {
   EEPROM.write(EEPROM_NOTE_SHIFT_ADDR, (uint8_t)note_shift);
   EEPROM.write(EEPROM_NOTE_RANGE_LOW_ADDR, slider_map_low_value);
   EEPROM.write(EEPROM_NOTE_RANGE_HIGH_ADDR, slider_map_high_value);
+  EEPROM.write(EEPROM_PAT_LENGTH_ADDR, pattern_length);
+  EEPROM.write(EEPROM_PAT_DIR_ADDR, pattern_direction);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -128,6 +134,15 @@ bool load_from_eeprom() {
       slider_map_low_value = lo;
       slider_map_high_value = hi;
     }
+  }
+
+  {
+    uint8_t pl = EEPROM.read(EEPROM_PAT_LENGTH_ADDR);
+    if (pl >= 1 && pl <= 16) pattern_length = pl;
+  }
+  {
+    uint8_t pd = EEPROM.read(EEPROM_PAT_DIR_ADDR);
+    if (pd <= 3) pattern_direction = pd;
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm

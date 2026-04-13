@@ -318,6 +318,14 @@ void run_LCD_update() {
     default: {
       bool did_redraw = false;
 
+      // Config menu draws directly via draw_config_menu() — suppress live
+      // line updates so step triggers and transport events don't overwrite it.
+      if (config_menu_active) {
+        update_line1 = false;
+        update_line2 = false;
+        break;
+      }
+
       if (update_line1 == true) {
         // stand down the update line 1 flag
         update_line1 = false;

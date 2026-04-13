@@ -29,7 +29,9 @@
 #define CONFIG_ITEM_NOTE_SHIFT    10
 #define CONFIG_ITEM_NOTE_RANGE    11
 #define CONFIG_ITEM_NOTE_SCALES   12  // placeholder — not yet implemented
-#define CONFIG_MENU_ITEM_COUNT    13
+#define CONFIG_ITEM_PAT_LENGTH    13
+#define CONFIG_ITEM_PAT_DIR       14
+#define CONFIG_MENU_ITEM_COUNT    15
 
 // line1_label: 14 chars printed after "> " on line 1.
 // Items with inline values are rendered dynamically in print_config_label().
@@ -46,7 +48,9 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Octave shift  ",
   "Note shift    ",
   "Note range    ",
-  "Note scales   "    // placeholder
+  "Note scales   ",   // placeholder
+  "Pat length    ",
+  "Pat dir:      "    // value overwritten at draw time
 };
 
 // Build the 14-char label for a given item index.
@@ -73,6 +77,23 @@ void print_config_label(uint8_t item) {
   } else if (item == CONFIG_ITEM_NOTE_RANGE) {
     bool non_default = (slider_map_low_value != 36 || slider_map_high_value != 52);
     lcd.print(non_default ? "Note range   *" : "Note range    ");
+  } else if (item == CONFIG_ITEM_PAT_LENGTH) {
+    lcd.print(pattern_length != 16 ? "Pat length   *" : "Pat length    ");
+  } else if (item == CONFIG_ITEM_PAT_DIR) {
+    const char* dname;
+    switch (pattern_direction) {
+      case 1: dname = "Rev "; break;
+      case 2: dname = "Pong"; break;
+      case 3: dname = "Rand"; break;
+      case 4: dname = "Shuf"; break;
+      case 5: dname = "E/O "; break;
+      case 6: dname = "In  "; break;
+      case 7: dname = "Quad"; break;
+      default: dname = "Fwd "; break;
+    }
+    // 14 chars: "Pat dir:Fwd   " etc.
+    snprintf(_buf, sizeof(_buf), "Pat dir:%-6s", dname);
+    lcd.print(_buf);
   } else {
     lcd.print(config_labels[item]);
   }
@@ -125,6 +146,34 @@ void draw_config_menu() {
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_PAT_LENGTH) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Length: %d", pattern_length);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+    // Light step LEDs to visualise the current pattern length.
+    for (int i = 0; i < 16; i++) {
+      if (i < pattern_length) step_leds[i].on();
+      else                     step_leds[i].off();
+    }
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_PAT_DIR) {
+    const char* dname;
+    switch (pattern_direction) {
+      case 1: dname = "Rev";  break;
+      case 2: dname = "Pong"; break;
+      case 3: dname = "Rand"; break;
+      case 4: dname = "Shuf"; break;
+      case 5: dname = "E/O";  break;
+      case 6: dname = "In";   break;
+      case 7: dname = "Quad"; break;
+      default: dname = "Fwd"; break;
+    }
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Dir: %s", dname);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
   } else {
     uint8_t next = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
     lcd.print("  ");
@@ -145,6 +194,8 @@ void exit_config_menu() {
   config_confirm_pending = false;
   config_editing_value = false;
   config_note_range_phase = 0;
+  // Restore step LEDs to pattern data state (in case PAT_LENGTH was editing).
+  read_step_memory(0, pattern_value);
   // Force a full LCD redraw back to the main display.
   update_line1 = true;
   update_line2 = true;
@@ -160,6 +211,7 @@ void run_config_menu() {
   if (dpad_left_flag) {
     dpad_left_flag = false;
     if (config_editing_value) {
+      if (config_menu_item == CONFIG_ITEM_PAT_LENGTH) read_step_memory(0, pattern_value);
       config_editing_value = false;
       config_note_range_phase = 0;
       draw_config_menu();
@@ -201,6 +253,16 @@ void run_config_menu() {
           init_blank_patterns_to_range();
           draw_config_menu();
         }
+      } else if (config_menu_item == CONFIG_ITEM_PAT_LENGTH && pattern_length < 16) {
+        pattern_length++;
+        seq.setSteps(pattern_length);
+        if (pattern_direction == 4) init_shuffle();
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_PAT_DIR) {
+        pattern_direction = (pattern_direction + PATTERN_DIRECTION_COUNT - 1) % PATTERN_DIRECTION_COUNT;
+        if (pattern_direction == 2) { ping_pong_going_forward = true; ping_pong_step = 0; }
+        if (pattern_direction == 4) init_shuffle();
+        draw_config_menu();
       }
     }
     if (dpad_down_flag) {
@@ -228,6 +290,31 @@ void run_config_menu() {
           init_blank_patterns_to_range();
           draw_config_menu();
         }
+      } else if (config_menu_item == CONFIG_ITEM_PAT_LENGTH && pattern_length > 1) {
+        pattern_length--;
+        seq.setSteps(pattern_length);
+        if (ping_pong_step >= pattern_length) ping_pong_step = (uint8_t)(pattern_length - 1);
+        if (pattern_direction == 4) init_shuffle();
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_PAT_DIR) {
+        pattern_direction = (pattern_direction + 1) % PATTERN_DIRECTION_COUNT;
+        if (pattern_direction == 2) { ping_pong_going_forward = true; ping_pong_step = 0; }
+        if (pattern_direction == 4) init_shuffle();
+        draw_config_menu();
+      }
+    }
+    // Step button shortcut: tap step N while editing PAT_LENGTH → length = N+1.
+    // uniquePress() here consumes the event before run_step_button_routine() sees it.
+    if (config_menu_item == CONFIG_ITEM_PAT_LENGTH) {
+      for (int i = 0; i < 16; i++) {
+        if (step_buttons[i].uniquePress()) {
+          pattern_length = (uint8_t)(i + 1);
+          seq.setSteps(pattern_length);
+          if (ping_pong_step >= pattern_length) ping_pong_step = (uint8_t)(pattern_length - 1);
+          if (pattern_direction == 4) init_shuffle();
+          draw_config_menu();
+          break;
+        }
       }
     }
     if (enterbutton_flag) {
@@ -236,6 +323,7 @@ void run_config_menu() {
         config_note_range_phase = 1;
         draw_config_menu();
       } else {
+        if (config_menu_item == CONFIG_ITEM_PAT_LENGTH) read_step_memory(0, pattern_value);
         config_editing_value = false;
         config_note_range_phase = 0;
         draw_config_menu();
@@ -357,6 +445,14 @@ void run_config_menu() {
         // Placeholder — not yet implemented. Show a message on line 2.
         lcd.print("?x00?y1");
         lcd.print("Coming soon...  ");
+        break;
+      case CONFIG_ITEM_PAT_LENGTH:
+        config_editing_value = true;
+        draw_config_menu();
+        break;
+      case CONFIG_ITEM_PAT_DIR:
+        config_editing_value = true;
+        draw_config_menu();
         break;
     }
   }
