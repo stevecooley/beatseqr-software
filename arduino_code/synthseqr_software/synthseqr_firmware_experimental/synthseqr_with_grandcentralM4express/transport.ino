@@ -184,9 +184,12 @@ void stepsend(int current_step, int last_step) {
     // Schedule note-off: (current_step + gate) % 16
     sounding_note_end_step[current_step] =
         (int8_t)((current_step + step_gate[pattern_value][current_step]) % 16);
-    // Update LCD line 2 with this step's trigger info.
-    last_triggered_step = (int8_t)current_step;
-    update_line2 = true;
+    // Update LCD line 2 with this step's trigger info —
+    // but only when the config menu isn't using line 2.
+    if (!config_menu_active) {
+      last_triggered_step = (int8_t)current_step;
+      update_line2 = true;
+    }
   }
 
   // Auto-advance to the next pattern at the end of step 15 when chain mode
