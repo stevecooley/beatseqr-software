@@ -1,13 +1,13 @@
 # Synthseqr Firmware — User Instructions
 
 Hardware: Adafruit Grand Central M4 Express
-Firmware version: 2.4
+Firmware version: 2.5
 
 ---
 
 ## Overview
 
-Synthseqr is a 16-step MIDI sequencer with 16 patterns, 16 voice sliders, a D-pad for navigation, and an LCD display. It outputs MIDI notes over USB and can follow an external MIDI clock.
+Synthseqr is a 16-step MIDI sequencer with 16 patterns, 16 voice sliders, a D-pad for navigation, and an LCD display. It outputs MIDI notes over USB and can follow an external MIDI clock. Each step has its own pitch, velocity, and gate length — all editable with the voice sliders.
 
 ---
 
@@ -17,10 +17,10 @@ Synthseqr is a 16-step MIDI sequencer with 16 patterns, 16 voice sliders, a D-pa
 |---|---|
 | Step buttons (16) | Main row — toggle steps on/off |
 | Step LEDs (16) | Above each step button |
-| Voice sliders (16) | One per step — set MIDI note pitch |
+| Voice sliders (16) | One per step — set pitch, velocity, or gate depending on mode |
 | Play button | Transport — start/stop |
 | D-pad (up/down/left/right) | Navigation |
-| Enter button | Confirm / toggle LCD mode |
+| Enter button | Cycle slider mode (simple mode) / open config menu (double-tap) |
 | Pattern select buttons (4) | Function keys (behavior depends on mode) |
 | Pattern select LEDs (4) | Mode indicator |
 
@@ -42,21 +42,66 @@ Press any **step button** to toggle that step on or off.
 
 - LED on = step is active (note will play)
 - LED off = step is silent
-- The sequencer fires a MIDI note-on when it arrives at an active step and a note-off when it moves away.
+- The sequencer fires a MIDI note-on when it arrives at an active step. The note rings for the number of steps set by that step's **gate length**, then a note-off is sent.
 
 ### Voice Sliders
 
-Each of the 16 sliders sets the **MIDI pitch** for the corresponding step.
-
-- Default range is MIDI notes 36–51 (C2–D#3).
-- Moving a slider immediately updates the pitch for that step in the current pattern.
-- Pitches are saved per-pattern — see **Pattern Memory** below.
+The 16 sliders control different data depending on the active **slider mode**. See the **Slider Modes** section below.
 
 ---
 
-## Tempo and Swing
+## Slider Modes
 
-The D-pad navigates through 8 timing modes in visual left-to-right order. Press **D-pad left/right** to move between them. Press **D-pad up/down** to adjust the selected value.
+Each step has three editable values: **pitch**, **velocity**, and **gate length**. The voice sliders edit one type at a time.
+
+| Mode | LCD indicator | What sliders control |
+|------|--------------|----------------------|
+| **NN** (note number) | `♪N` at top-right of line 1 | MIDI pitch for each step |
+| **VL** (velocity) | `♪V` at top-right of line 1 | MIDI velocity (1–127) for each step |
+| **GT** (gate) | `♪G` at top-right of line 1 | Gate length (1–8 steps) for each step |
+
+The current mode is always shown in the top-right corner of LCD line 1.
+
+### Switching Modes
+
+**Simple mode:** Single-tap the **Enter button** to cycle NN → VL → GT → NN.
+
+**Advanced mode:** Use the **pattern select buttons**:
+- **Pattern button 1** → NN mode (LED 1 lights up)
+- **Pattern button 2** → GT mode (LED 2 lights up)
+- **Pattern button 3** → VL mode (LED 3 lights up)
+
+The lit LED tells you which slider mode is currently active.
+
+### Slider Pickup Guard
+
+When you **switch slider modes**, all 16 sliders are temporarily locked — they won't write any data until each physical slider moves to the position matching what's already stored for that step in the new mode. This prevents accidental overwrites when sliders are at different physical positions for each mode.
+
+The same lock also applies when **switching patterns**: sliders in NN mode won't overwrite the new pattern's stored pitches until the physical position meets the stored value.
+
+### Note Number (NN) Mode
+
+- Each slider maps to a MIDI note within the configured note range (default: notes 36–51).
+- Pitches are saved per step, per pattern. Moving a slider immediately updates the pitch for that step.
+
+### Velocity (VL) Mode
+
+- Each slider maps to a MIDI velocity: 1 (softest) to 127 (loudest).
+- Velocity is saved per step, per pattern. Default is 127 for all steps.
+
+### Gate (GT) Mode
+
+- Each slider maps to a gate length: 1 to 8 steps.
+- **Gate 1** = note off at the very next step (classic one-step behavior).
+- **Gate 4** = note rings through 4 steps before note-off fires.
+- **Gate 8** = note rings for a full half-bar (8 steps).
+- Gates longer than 16 steps wrap around.
+
+---
+
+## Tempo
+
+The D-pad navigates through 5 timing modes in visual left-to-right order. Press **D-pad left/right** to move between them. Press **D-pad up/down** to adjust the selected value.
 
 The cursor on the LCD blinks on the field that up/down currently controls.
 
@@ -67,42 +112,53 @@ The cursor on the LCD blinks on the field that up/down currently controls.
 | 3 | Tempo ±1 BPM | Line 1 — tempo units |
 | 4 | Tempo ±0.1 BPM | Line 1 — tempo tenths |
 | 5 | Tempo ±0.01 BPM | Line 1 — tempo hundredths |
-| 6 | Swing (0–5) | Line 2 — swing digit |
-| 7 | Clock source (INT / EXT) | Line 2 — int/ext value |
-| 8 | MIDI channel (1–16) | Line 2 — channel digits |
 
 **Tempo range:** 10–250 BPM
-**MIDI channel range:** 1–16
-**Swing:** 0 = straight, 1–2 = mild, 3 = heavy (classic triplet feel), 5 = maximum shuffle
+
+Swing, MIDI channel, and clock source are all in the **Config Menu** — double-tap Enter to open it.
 
 > **Note:** When swing is active, the MIDI clock output (0xF8) also swings. If you are syncing an external device to the sequencer's MIDI clock, set swing to 0.
 
-### LCD Line 1
+---
+
+## LCD Display
+
+### Line 1
 
 ```
-[play/stop] P{pattern} T{tempo}
+[play/stop] P[pattern] T[tempo]  [mode]
 ```
 
-Example: `▶ P01 T120.00  `
+Example: `▶ P01 T120.00 ♪N`
 
-### LCD Line 2
+- The cursor blinks on the field that D-pad up/down currently adjusts.
+- The two-character indicator at the far right shows the active slider mode.
+
+### Line 2 — Step Trigger Display
+
+Line 2 updates live each time a step fires, showing the data for the most recently triggered step:
 
 ```
-s{swing} clk:{int|ext} Ch{channel}
+>[step]  ♪[pitch]  ♩[velocity]  G[gate]
 ```
 
-Example: `s0 clk:int Ch02 `
+Example: `>03 ♪045 ♩127 G4`
 
-Line 2 shows swing, clock source, and MIDI channel together. The cursor sits on the active value as you navigate modes 6, 7, and 8.
+- `>03` — step 3 just fired
+- `♪045` — MIDI note 45
+- `♩127` — velocity 127
+- `G4` — gate length 4 steps
+
+This display makes it easy to see exactly what each step is playing in real time, regardless of which slider mode is active.
 
 ---
 
-## Clock Source (INT / EXT)
+## Clock Source
 
-Navigate to **timing mode 7** (D-pad right six times from default).
+Open the **Config Menu** (double-tap Enter) and scroll to **Clock: int/ext**. Press Enter to toggle between INT and EXT.
 
-- **D-pad up** — switch to **EXT**: the sequencer follows incoming USB-MIDI clock (0xF8 / 0xFA / 0xFC from an external device such as a DAW or drum machine).
-- **D-pad down** — switch to **INT**: the sequencer uses its own internal hardware timer at the current BPM.
+- **INT**: the sequencer uses its own internal hardware timer at the current BPM.
+- **EXT**: the sequencer follows incoming USB-MIDI clock (0xF8 / 0xFA / 0xFC from an external device such as a DAW or drum machine).
 
 ### External Clock Mode
 
@@ -114,6 +170,26 @@ When EXT is active:
 - The sequencer does **not** send its own MIDI clock, start, or stop messages — it is purely a follower.
 - The local Play button still works to arm or start the sequencer before the host sends start.
 - MIDI notes are still output normally.
+- **Swing works in EXT mode**: odd-step transitions are deferred by the swing amount relative to the measured clock interval. The effect is slightly milder than internal swing at the same setting.
+
+---
+
+## Swing
+
+Open the **Config Menu** (double-tap Enter) and scroll to **Swing**. Press Enter to enter editing, then use D-pad up/down to adjust. Press Enter or D-pad left to exit.
+
+- **0** = straight timing
+- **1–2** = mild swing
+- **3** = classic triplet feel (2:1 ratio)
+- **5** = maximum shuffle
+
+Swing is applied in both internal and external clock modes.
+
+---
+
+## MIDI Channel
+
+Open the **Config Menu** (double-tap Enter) and scroll to **Channel**. Press Enter to enter editing, then use D-pad up/down to select channel 1–16. Press Enter or D-pad left to exit.
 
 ---
 
@@ -127,11 +203,16 @@ Synthseqr has two modes, switchable from the Config Menu.
 - Pattern buttons 1–4 directly select patterns 1–4
 - Pattern button 1 + 4 simultaneously toggle **chain mode** (4 patterns looping)
 - Hold any pattern button 2 seconds to begin **pattern copy**; press destination button to complete
+- **Enter button** single-tap cycles slider mode: NN → VL → GT → NN
 
 ### Advanced Mode
 
 - 16 patterns (P01–P16)
-- Pattern buttons are **function keys**
+- Pattern buttons are **function keys**:
+  - **Pattern button 1**: single-click → toggle pattern-nav mode; double-click → 2-phase pattern copy
+  - **Pattern button 2**: slider mode → **NN** (LED 1 lights up)
+  - **Pattern button 3**: slider mode → **GT** (LED 2 lights up)
+  - **Pattern button 4**: slider mode → **VL** (LED 3 lights up)
 - **Single-click pattern button 1** (tap, then wait ~400 ms) → toggle **pattern-nav mode**
   - Pattern button 1 LED stays lit while nav mode is active
   - Step LEDs show pattern selection: the currently playing pattern blinks; all chain patterns are solid
@@ -145,12 +226,13 @@ Synthseqr has two modes, switchable from the Config Menu.
   - LCD briefly shows `Copied X to Y`, then returns to main display
   - **D-pad left** cancels at any point
 - D-pad mode 1 navigates patterns 1–16 with up/down
+- Enter button has no slider mode function in advanced mode — use pattern buttons 2/3/4 instead
 
 ---
 
 ## Patterns
 
-There are up to 16 patterns (P01–P16). Each pattern has its own 16 steps and its own set of 16 pitches.
+There are up to 16 patterns (P01–P16). Each pattern has its own 16 steps with individual pitch, velocity, and gate length per step.
 
 ### Selecting a Pattern
 
@@ -161,19 +243,15 @@ There are up to 16 patterns (P01–P16). Each pattern has its own 16 steps and i
 **Either mode**: Navigate to D-pad mode 1 and use up/down to scroll through patterns.
 
 - Step LEDs update to show the new pattern's data.
-- Slider pitches are restored from the pattern's saved values (see below).
-
-### Pattern Memory — Slider Pickup
-
-When you switch patterns, the stored pitches for the new pattern are restored. Sliders do **not** immediately override them.
-
-Each slider is individually locked until its physical position reaches within 1 note of the stored pitch for that step — at that point it "picks up" and tracks normally. This prevents unwanted pitch jumps when switching patterns with sliders in different positions.
+- Slider values are restored from the pattern's saved values; all sliders are locked until each physical position crosses its stored value (see **Slider Pickup Guard** above).
 
 ### Copying a Pattern
 
+Copies include steps, pitches, velocities, and gate lengths.
+
 **Simple mode**:
 1. Hold a **pattern select button for 2 seconds**. The LCD shows `Copy N ->`.
-2. Press the **destination pattern button**. The entire pattern (steps + pitches) is copied there.
+2. Press the **destination pattern button**. The entire pattern is copied there.
 
 **Advanced mode**:
 1. **Double-click pattern button 1** (two taps within ~400 ms). The LCD shows `copy which pat?`.
@@ -230,7 +308,7 @@ The editor has two phases:
 
 D-pad left exits either phase immediately, keeping whatever values were set. The label shows `Note range   *` in the menu when the values differ from the defaults (36/52).
 
-The range determines how the sliders map to MIDI notes: the full travel of each slider covers the note range from low to high.
+The range determines how the sliders map to MIDI notes in NN mode: the full travel of each slider covers the note range from low to high.
 
 ---
 
@@ -243,44 +321,17 @@ These combos work while the sequencer is stopped or playing.
 | Clear current pattern | Hold **step button 1** + **step button 16** |
 | Clear all patterns | Hold **step button 1** + **step button 12** |
 
-Clearing turns off all step LEDs and silences all steps. Slider pitches are not affected.
+Clearing turns off all step LEDs, silences all steps, resets velocities to 127, and resets gate lengths to 1.
 
 ---
 
 ## MIDI Output
 
-- **Channel:** selectable 1–16 (default: channel 2)
-- **Note-on velocity:** 127 (fixed)
-- **Note-off:** sent automatically when the sequencer leaves a step, and for all open notes on stop
+- **Channel:** selectable 1–16 via Config Menu (default: channel 2)
+- **Note-on velocity:** per-step, set in VL slider mode (default: 127 for all steps)
+- **Note-off:** sent after the gate length expires (1–8 steps after note-on), and for all open notes on stop
 - **MIDI clock (0xF8):** output continuously while playing (internal mode only)
 - **MIDI Start (0xFA) / Stop (0xFC):** output on play/stop (internal mode only)
-
----
-
-## LCD Display
-
-### Line 1
-
-```
-[play/stop] P[pattern] T[tempo]
-```
-
-Example: `▶ P01 T120.00  `
-
-### Line 2
-
-```
-s[swing] clk:[int|ext] Ch[channel]
-```
-
-Example: `s0 clk:int Ch02 `
-
-The cursor blinks on the field that D-pad up/down currently adjusts.
-
-### Enter Button
-
-- **Single tap** — return to the main display from any temporary LCD screen, toggle the Enter LED indicator.
-- **Double-tap** (two taps within ~400 ms) — open the **Config Menu**.
 
 ---
 
@@ -300,7 +351,10 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Save | Save to SD card (primary) + EEPROM (backup); sequencer must be stopped |
 | Clear pattern | Clear current pattern (confirmation required) |
 | Clear all pats | Clear all 16 patterns (confirmation required) |
-| Reset sliders | Reset all pitches to defaults (confirmation required) |
+| Reset sliders | Reset all pitches, velocities, and gates to defaults (confirmation required) |
+| Clock: int/ext | Toggle internal clock / external USB-MIDI clock |
+| Channel | MIDI output channel 1–16; up/down to change, Enter or Left to exit |
+| Swing | Swing amount 0–5; up/down to change, Enter or Left to exit |
 | Mode: Simple/Advanced | Toggle between Simple and Advanced mode |
 | Octave shift | Adjust octave offset ±5; up/down to change, Enter or Left to exit; label shows * when non-zero |
 | Note shift | Adjust semitone offset ±12; up/down to change, Enter or Left to exit; label shows * when non-zero |
@@ -317,7 +371,7 @@ Open the config menu (double-tap Enter), scroll to **Save**, and press Enter. Th
 
 The following are saved:
 
-- All 16 patterns (step on/off + pitch per step)
+- All 16 patterns (step on/off, pitch, velocity, and gate length per step)
 - Tempo, swing, MIDI channel
 - Active pattern, chain mode on/off, clock source (INT/EXT)
 - Octave shift, Note shift, Note range (low/high)
@@ -325,7 +379,7 @@ The following are saved:
 
 **Primary storage**: SD card (`/synthseqr/autosave.json`). The file is human-readable JSON and can be edited or generated externally with any tool you prefer.
 
-**Fallback**: EEPROM (flash storage on the microcontroller). Used automatically on boot if no SD card or save file is found.
+**Fallback**: EEPROM (flash storage on the microcontroller). Used automatically on boot if no SD card or save file is found. Note: velocity and gate data are only saved to SD — on an EEPROM-only boot they reset to defaults (127 / 1).
 
 On the next power-up, everything is automatically restored exactly as you left it. On first boot (no save yet), the sequencer starts with factory defaults.
 
@@ -369,15 +423,21 @@ Connect at **57600 baud** to see:
 |---|---|
 | Start / stop | Play button |
 | Toggle a step | Step button |
-| Set step pitch | Voice slider |
+| Set step pitch | Voice slider (NN mode) |
+| Set step velocity | Voice slider (VL mode) |
+| Set step gate length | Voice slider (GT mode) |
+| Cycle slider mode (simple) | Enter button |
+| Slider mode → NN (advanced) | Pattern button 2 |
+| Slider mode → GT (advanced) | Pattern button 3 |
+| Slider mode → VL (advanced) | Pattern button 4 |
 | Select pattern (d-pad) | D-pad left to mode 1, up/down cycles patterns |
 | Select pattern (simple) | Pattern button 1–4 |
 | Select pattern (advanced) | Single-click pattern button 1 (nav mode on), tap step button |
 | Adjust tempo (coarse) | D-pad right to mode 2–3, then up/down |
 | Adjust tempo (fine) | D-pad right to mode 4–5, then up/down |
-| Adjust swing | D-pad right to mode 6, then up/down |
-| Set clock source | D-pad right to mode 7, up=EXT / down=INT |
-| Set MIDI channel | D-pad right to mode 8, up/down = channel 1–16 |
+| Adjust swing | Config menu → Swing |
+| Set clock source | Config menu → Clock |
+| Set MIDI channel | Config menu → Channel |
 | Copy pattern (simple) | Hold pattern button 2s → press destination button |
 | Copy pattern (advanced) | Double-click pattern button 1 → tap step = source → tap step = destination |
 | Cancel copy (advanced) | D-pad left (works at either phase) |
