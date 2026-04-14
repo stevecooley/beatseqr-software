@@ -29,13 +29,7 @@ void listen_for_transport_events() {
 
       // start playing stuff
       playstatus = true;
-
-      // update the play/stop character on the LCD
-      // one time for yo mind
-      lcd.print("?x00?y0");       // move cursor to beginning of line 0
-      Serial.println("?x00?y0");  // move cursor to beginning of line 0
-      lcd.print("?0");            // play
-      Serial.println("?0");       // play
+      update_line1 = true;
 
       // In external clock mode the host is the master; don't send transport.
       if (!external_clock_mode) clockStart();
@@ -66,13 +60,7 @@ void listen_for_transport_events() {
 
       // stop playing
       playstatus = false;
-
-      // update the play/stop character on the LCD
-      // one time for yo mind
-      lcd.print("?x00?y0");       // move cursor to beginning of line 0
-      Serial.println("?x00?y0");  // move cursor to beginning of line 0
-      lcd.print("?7");            // stop
-      Serial.println("?7");       // stop
+      update_line1 = true;
 
       if (!external_clock_mode) clockStop();
       seq.stop();
@@ -87,13 +75,7 @@ void listen_for_transport_events() {
 
       // start playing
       playstatus = true;
-
-      // update the play/stop character on the LCD
-      // one time for yo mind
-      lcd.print("?x00?y0");       // move cursor to beginning of line 0
-      Serial.println("?x00?y0");  // move cursor to beginning of line 0
-      lcd.print("?0");            // play
-      Serial.println("?0");       // play
+      update_line1 = true;
 
       if (!external_clock_mode) clockStart();
       // start the sequencer
@@ -112,13 +94,7 @@ void listen_for_transport_events() {
 
       // stop playing
       playstatus = false;
-
-      // update the play/stop character on the LCD
-      // one time for yo mind
-      lcd.print("?x00?y0");       // move cursor to beginning of line 0
-      Serial.println("?x00?y0");  // move cursor to beginning of line 0
-      lcd.print("?7");            // stop
-      Serial.println("?7");       // stop
+      update_line1 = true;
 
       if (!external_clock_mode) clockStop();
       seq.stop();
@@ -140,15 +116,15 @@ void run_chase_lights(unsigned int this_step) {
     if (last_step !=
         this_step)  // clock pulses counted so we can advance to the next step.
     {
-      // clear the LEDs back to their data
-      read_step_memory(0, pattern_value);
-      // if (step_leds[this_step].getState() == 0) {
+      // clear the LEDs back to their data (mode-aware)
+      if (slider_mode == 4) read_cc_step_memory();
+      else                  read_step_memory(0, pattern_value);
       step_leds[this_step].toggle();  // chase lights!
-      // }
       last_step = this_step;
     }
   } else {
-    read_step_memory(0, pattern_value);
+    if (slider_mode == 4) read_cc_step_memory();
+    else                  read_step_memory(0, pattern_value);
   }
 }
 
@@ -280,10 +256,21 @@ void stepsend(int current_step, int last_step) {
     // Schedule note-off: gate steps later in hardware clock time
     sounding_note_end_step[play_step] =
         (int8_t)((current_step + step_gate[pattern_value][play_step]) % pattern_length);
-    // Update LCD line 2 with this step's trigger info —
+    // Update LCD lines with this step's trigger info —
     // but only when the config menu isn't using line 2.
     if (!config_menu_active) {
       last_triggered_step = (int8_t)play_step;
+      update_line1 = true;  // step counter on line 1
+      update_line2 = true;
+    }
+  }
+
+  // CC send: fire CC on this step if enabled (independent from notes).
+  if (cc_step_enabled[pattern_value][play_step]) {
+    controlChange(MIDICHANNEL - 1, cc_number[pattern_value], cc_step_values[pattern_value][play_step]);
+    if (!config_menu_active) {
+      last_triggered_step = (int8_t)play_step;
+      update_line1 = true;
       update_line2 = true;
     }
   }

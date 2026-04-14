@@ -148,6 +148,12 @@ void clockStart() {
     MidiUSB.flush();
 }
 
+void controlChange(byte channel, byte controller, byte value) {
+    midiEventPacket_t msg = {0x0B, (uint8_t)(0xB0 | channel), controller, value};
+    MidiUSB.sendMIDI(msg);
+    MidiUSB.flush();
+}
+
 void clockPulse() {
     midiEventPacket_t pulseMsg = {0x0, 0xF8, 0x0, 0x0}; // Clock byte
     MidiUSB.sendMIDI(pulseMsg);

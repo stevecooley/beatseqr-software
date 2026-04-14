@@ -6,12 +6,19 @@
 // Called from: Enter button (simple mode), pattern buttons 1/2/3 (advanced).
 //
 void set_slider_mode(uint8_t mode) {
+  uint8_t old_mode = slider_mode;
   slider_mode = mode;
   for (int i = 0; i < 16; i++) {
     slider_needs_pickup[i] = true;
   }
   update_line1 = true;
   update_line2 = true;
+  // Update step LEDs to reflect the data type for the new mode.
+  if (mode == 4) {
+    read_cc_step_memory();
+  } else if (old_mode == 4) {
+    read_step_memory(0, pattern_value);
+  }
 }
 
 void run_voice_slider_routine()
@@ -85,6 +92,19 @@ void run_voice_slider_routine()
         }
       } else if (gate != step_gate[pattern_value][j]) {
         step_gate[pattern_value][j] = gate;
+      }
+    }
+    else if (slider_mode == 4)
+    {
+      // CC mode: map to CC value range 0-127, pickup guard prevents writes
+      // until the slider physically reaches the stored CC value.
+      uint8_t ccval = (uint8_t)map(sector, 0, 255, 0, 127);
+      if (slider_needs_pickup[j]) {
+        if (abs((int)ccval - (int)cc_step_values[pattern_value][j]) <= 1) {
+          slider_needs_pickup[j] = false;
+        }
+      } else if (ccval != cc_step_values[pattern_value][j]) {
+        cc_step_values[pattern_value][j] = ccval;
       }
     }
 

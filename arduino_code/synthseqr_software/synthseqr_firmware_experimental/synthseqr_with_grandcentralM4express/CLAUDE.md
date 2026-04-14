@@ -75,8 +75,11 @@ uint8_t current_pattern               // Active pattern 0–15
 bool playstatus                       // Is sequencer playing?
 float TEMPO                           // BPM (10–250)
 uint8_t SWING                         // 0–5
-uint8_t slider_mode                   // 1=NN (note number), 2=VL (velocity), 3=GT (gate)
-uint8_t slider_mode_total             // 3 (NN, VL, GT)
+uint8_t cc_step_values[16][16]        // CC value per pattern per step (0–127); default 0
+uint8_t cc_step_enabled[16][16]       // CC step on/off per pattern per step; default 0 (off)
+uint8_t cc_number[16]                 // CC controller number per pattern (1–119, skipping 32 and 96–101); default 1 (Mod Wheel)
+uint8_t slider_mode                   // 1=NN (note number), 2=VL (velocity), 3=GT (gate), 4=CC (control change)
+uint8_t slider_mode_total             // 4 (NN, VL, GT, CC)
 uint8_t lcdflag                       // LCD display mode selector
 bool external_clock_mode              // false = internal TC4, true = follow USB-MIDI clock
 bool advanced_mode                    // false = Simple (4 patterns, buttons select), true = Advanced (16 patterns, buttons are function keys)
@@ -113,7 +116,7 @@ bool          ext_clock_start_pending  // play pressed while ext clock running; 
 1. `seq.run()` (FifteenStep) ticks the sequencer on each `loop()` call
 2. Timing is driven by the **TC4 hardware timer** (internal mode) or **incoming USB-MIDI 0xF8** (external mode) — both call `seq.hardwareClockPulse()` which sets volatile flags; `seq.run()` processes those flags in main-loop context
 3. On each step change, `stepsend(current_step, last_step)` fires as the step callback
-4. `stepsend()` first computes `play_step` from `current_step` via the `pattern_direction` switch (Fwd=identity; Rev=mirror; Pong=ping_pong_step counter; Rand=random(); Shuf=shuffle_order[shuffle_pos]; E/O=even-then-odd interleave; In=outside-in; Quad=Q1,Q3,Q2,Q4 reordering). Then it scans all 16 `sounding_note_end_step[]` entries — any slot whose end-step equals `current_step` gets a note-off (gate timing is always in hardware clock steps). If `step_data[pattern][0][play_step]` is on, note-on is sent using `pattern_step_pitches[pattern][play_step]` and `voice_slider_midivelocity[play_step]`; `sounding_note_end_step[play_step]` is set to `(current_step + step_gate[pattern][play_step]) % pattern_length`. `last_triggered_step` is updated to `play_step` and `update_line2` is set for the LCD.
+4. `stepsend()` first computes `play_step` from `current_step` via the `pattern_direction` switch (Fwd=identity; Rev=mirror; Pong=ping_pong_step counter; Rand=random(); Shuf=shuffle_order[shuffle_pos]; E/O=even-then-odd interleave; In=outside-in; Quad=Q1,Q3,Q2,Q4 reordering). Then it scans all 16 `sounding_note_end_step[]` entries — any slot whose end-step equals `current_step` gets a note-off (gate timing is always in hardware clock steps). If `step_data[pattern][0][play_step]` is on, note-on is sent using `pattern_step_pitches[pattern][play_step]` and `voice_slider_midivelocity[play_step]`; `sounding_note_end_step[play_step]` is set to `(current_step + step_gate[pattern][play_step]) % pattern_length`. `last_triggered_step` is updated to `play_step` and `update_line2` is set for the LCD. If `cc_step_enabled[pattern][play_step]` is set, a CC message is also sent using `cc_number[pattern]` and `cc_step_values[pattern][play_step]`; CC steps fire independently of note steps.
 5. On stop (play button or MIDI stop), `allNotesOff()` sends note-off for every entry in `sounding_notes[]` and clears both `sounding_notes[]` and `sounding_note_end_step[]`
 
 ## Hardware Timer (TC4)
@@ -158,31 +161,31 @@ The play button (pin 21) is attached to a SAMD51 EIC external interrupt (FALLING
 
 ## Navigation / Timing Modes
 
-D-pad left/right cycles through 5 `timing_mode` values controlling what up/down adjusts, in visual left-to-right order matching the LCD layout:
+D-pad left/right cycles through 4 `timing_mode` values controlling what up/down adjusts, in visual left-to-right order matching the LCD layout:
 
 | Mode | Up/Down adjusts | LCD location |
 |------|----------------|--------------|
-| 1 | Pattern (1–4 simple / 1–16 advanced, wraps) | Line 1, column 2 |
-| 2 | Tempo ±10 BPM | Line 1, column 6 |
-| 3 | Tempo ±1 BPM | Line 1, column 7 |
-| 4 | Tempo ±0.1 BPM | Line 1, column 9 |
-| 5 | Tempo ±0.01 BPM | Line 1, column 10 |
+| 1 | Pattern (1–4 simple / 1–16 advanced, wraps) | Line 1, column 1 |
+| 2 | Tempo ±10 BPM | Line 1, column 9 |
+| 3 | Tempo ±1 BPM | Line 1, column 10 |
+| 4 | Tempo ±0.1 BPM | Line 1, column 12 |
 
-Default `timing_mode = 2` (±10 BPM). Swing, clock source, and MIDI channel have moved to the config menu (double-tap Enter).
+Default `timing_mode = 2` (±10 BPM). Timing mode 5 (±0.01 BPM) was removed. Swing, clock source, and MIDI channel have moved to the config menu (double-tap Enter).
 
-**Enter button** (single tap, simple mode only) cycles the slider mode: NN → VL → GT → NN via `set_slider_mode()`. In advanced mode the enter button has no slider-mode function (pattern buttons 1/2/3 handle it). The enter LED is no longer toggled by the enter button.
+**Enter button** (single tap, simple mode only) cycles the slider mode: NN → VL → GT → CC → NN via `set_slider_mode()`. In advanced mode the enter button has no slider-mode function (pattern buttons 1/2/3 handle it). The enter LED is no longer toggled by the enter button.
 
-**LCD line 1 format** (case 255): `[icon] P%02u T%6.2f [?5][mode]` — 16 chars total. `[icon]` is custom char `?0` (play) or `?7` (stop); pattern is 2 digits (P01–P16); tempo is `%6.2f`; cols 14–15 show the slider mode indicator: custom char `?5` + mode char (`?4`=NN, `?2`=VL, `G`=GT). Example: `▶ P01 T120.00 ♪N`. Do not change `%6.2f` to `%.2f` — variable width breaks cursor alignment. `go_to_pattern()` sets `update_line1 = true` so the pattern number refreshes on every pattern switch.
+**LCD line 1 format** (case 255): `P{pat:02u} >{step:02d} {tempo:05.1f} [?5][mode]` — 16 chars total. No play/stop icon. Pattern is 2 digits `P01`–`P16` (cols 0–2); step counter `>{01–16}` at cols 4–6, or `>--` when stopped/no step fired; tempo is `%05.1f` (zero-padded, 1 decimal) at cols 8–12; cols 14–15 show slider mode indicator: custom char `?5` + mode char (`?4`=NN, `?2`=VL, `G`=GT, `?3`=CC). Example: `P01 >03 120.0 ♪N`. `go_to_pattern()` sets `update_line1 = true` so the pattern number refreshes on every pattern switch.
 
-**LCD line 2 format** (case 255): Real-time step-trigger feedback. Format: `>NN [note_icon]PPP [vel_icon]VVV GX` (16 chars). Fields: `>NN` = 1-indexed step number (4 chars), note icon (`?4`) + 3-digit pitch + space (5 chars), velocity icon (`?2`) + 3-digit velocity + space (5 chars), `G` + gate digit (2 chars). Example: `>03 ♪045 ♩127 G4`. Updates on every step trigger (`last_triggered_step` changes) or slider mode cycle. When no step has fired yet (`last_triggered_step == -1`), line 2 shows blanks or a default state.
+**LCD line 2 format** (case 255): Real-time step-trigger feedback. Format: `[note_icon]PPP [vel_icon]VVV G{gate}[cc_icon]{ccc}` (16 chars). Fields: note icon (`?4`) + 3-digit pitch + space (5 chars), velocity icon (`?2`) + 3-digit velocity + space (5 chars), `G` + gate digit (2 chars), CC icon (`?3`) + 3-digit CC value or `---` if cc_step_enabled is 0 (4 chars). Example: `♪045 ♩127 G4♩064`. Updates on every step trigger (`last_triggered_step` changes) or slider mode cycle. When no step has fired yet (`last_triggered_step == -1`), line 2 shows blanks or a default state.
 
 **LCD cursor positions** are defined as named constants in config.h — use these instead of hardcoded numbers:
-- `LCD_L1_X_PATTERN = 3` — first digit of pattern in "P%02u" (after icon+space+'P')
-- `LCD_L1_X_TEMPO_10 = 8` — hundreds/tens digit of tempo (shifted right 1 vs old format due to 2-digit pattern)
-- `LCD_L1_X_TEMPO_1 = 9` — units digit
-- `LCD_L1_X_TEMPO_01 = 11` — tenths digit (after decimal at col 10)
-- `LCD_L1_X_TEMPO_001 = 12` — hundredths digit
+- `LCD_L1_X_PATTERN = 1` — first digit of pattern in "P%02u"
+- `LCD_L1_X_STEP = 5` — first digit of step counter in ">%02d"
+- `LCD_L1_X_TEMPO_10 = 9` — hundreds/tens digit of tempo
+- `LCD_L1_X_TEMPO_1 = 10` — units digit
+- `LCD_L1_X_TEMPO_01 = 12` — tenths digit (after decimal at col 11)
 - `LCD_L1_X_SLIDERMODE = 14` — slider mode indicator (cols 14–15)
+- `LCD_L1_X_TEMPO_001` was removed (timing mode 5 removed)
 
 Switching clock source calls `setExternalClockMode()` which stops or starts TC4 as needed.
 
@@ -192,21 +195,24 @@ Switching clock source calls `setExternalClockMode()` which stops or starts TC4 
 
 ## Slider Modes
 
-The 16 voice sliders operate in one of three modes:
+The 16 voice sliders operate in one of four modes:
 
 | Mode | Display | Slider controls | Storage |
 |------|---------|----------------|---------|
 | 1 — NN | `?5?4` (note icon) | MIDI note number (mapped to `slider_map_low_value`–`slider_map_high_value`) | `pattern_step_pitches[p][s]`, `voice_slider_midinotenum[s]` |
 | 2 — VL | `?5?2` (velocity icon) | MIDI velocity (1–127) | `pattern_step_velocities[p][s]`, `voice_slider_midivelocity[s]` |
 | 3 — GT | `?5G` | Gate length (1–8 steps) | `step_gate[p][s]` |
+| 4 — CC | `?5?3` (CC icon) | CC value (0–127) per step; step buttons toggle `cc_step_enabled` on/off | `cc_step_values[p][s]`, `cc_step_enabled[p][s]` |
 
 **Switching modes:**
-- **Simple mode**: Enter single-tap cycles NN → VL → GT → NN
-- **Advanced mode**: Pattern button 1 = NN, button 2 = GT, button 3 = VL. Pattern LEDs 1/2/3 stay lit to indicate the active mode.
+- **Simple mode**: Enter single-tap cycles NN → VL → GT → CC → NN
+- **Advanced mode**: Pattern button 1 = NN, button 2 = GT, button 3 = VL. CC mode not directly mapped to a button in advanced mode; use Enter to reach it.
 
-**`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders, and sets `update_line1 = update_line2 = true`. Always call this function — never set `slider_mode` directly — so pickup guards are always armed on transition.
+**`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders, sets `update_line1 = update_line2 = true`, and switches step LED display: entering CC mode calls `read_cc_step_memory()` (LEDs show `cc_step_enabled`); leaving CC mode calls `read_step_memory()` (LEDs show `step_data`). Always call this function — never set `slider_mode` directly — so pickup guards and LED display are always updated on transition.
 
-**Pickup guard (all modes)**: `slider_needs_pickup[s]` prevents a slider from overwriting stored data until the physical slider crosses through the stored value for the current mode. This prevents mode switches from silently corrupting pattern data when sliders are at different physical positions for each mode. Tolerance: ±1 note (NN), ±1 velocity unit (VL), exact match (GT, range 1–8).
+**Pickup guard (all modes)**: `slider_needs_pickup[s]` prevents a slider from overwriting stored data until the physical slider crosses through the stored value for the current mode. This prevents mode switches from silently corrupting pattern data when sliders are at different physical positions for each mode. Tolerance: ±1 note (NN), ±1 velocity unit (VL), exact match (GT, range 1–8), ±1 CC unit (CC).
+
+**CC mode step buttons**: In CC mode, step buttons toggle `cc_step_enabled[p][s]` on/off (independent of `step_data`). A step can have CC enabled without having a note, and vice versa. The step LED reflects `cc_step_enabled` state while in CC mode.
 
 **Always boots to NN mode** (`slider_mode = 1`). Mode is not saved to SD/EEPROM — it resets to NN on power-up.
 
@@ -257,7 +263,7 @@ When `external_clock_mode == false` (default):
 - **Chain 4 patterns (simple mode)**: Press pattern buttons 0 + 3 simultaneously to toggle
 - **Select pattern 0–15 (advanced mode)**: Hold pattern button 0, tap a step button
 
-**Pattern copy includes velocities and gates**: Both `listen_for_copy_command()` (simple mode) and the advanced mode 2-phase copy loop copy `pattern_step_velocities` and `step_gate` along with `step_data` and `pattern_step_pitches`.
+**Pattern copy includes velocities, gates, and CC data**: Both `listen_for_copy_command()` (simple mode) and the advanced mode 2-phase copy loop copy `pattern_step_velocities`, `step_gate`, `cc_step_enabled`, `cc_step_values`, and `cc_number` along with `step_data` and `pattern_step_pitches`.
 
 **`go_to_pattern(pattern, silent)`**: Turns all 4 pattern LEDs off, except LED 0 stays on when `adv_pat_nav_active` is true. In simple mode, lights the LED for `pattern % 4`. In advanced mode outside nav mode, no LED is lit — buttons are function keys. `toggle()` was previously used but is state-dependent; always use `on()`. The `silent` parameter is accepted but currently unused.
 
@@ -323,6 +329,7 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 13. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; Left exits either phase; changing scale type or root immediately calls `apply_scale_to_all_patterns()` which retroactively quantizes all stored pitches across all 16 patterns to the nearest in-scale note and re-arms all pickup guards; scale pool is also rebuilt on note range changes; label shows `Note scales  *` when scale is non-default (not Chromatic/C). Scales: 0=Chromatic 1=Major 2=NatMinor 3=PentMaj 4=PentMin 5=Dorian 6=Mixolydian 7=HarmMinor 8=Blues. Scale tables and helpers live in `scales.ino`; `SCALE_COUNT` and `extern` declarations for `SCALE_NAMES`/`ROOT_NAMES` are in `config.h` so `config_menu.ino` (compiled before `scales.ino` alphabetically) can see them.
 14. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button to set length to N+1 (step buttons are consumed before `detect_step_button_presses()` runs); step LEDs 0..length-1 light up while editing, restored via `read_step_memory()` on exit; `seq.setSteps(pattern_length)` called on every change; `init_shuffle()` called if direction is Shuf; label shows `Pat length   *` when not 16
 15. **Pat dir** — enter editing sub-state; up/down cycles 0–7 (`PATTERN_DIRECTION_COUNT`); entering Pong resets `ping_pong_step=0`/`ping_pong_going_forward=true`; entering Shuf calls `init_shuffle()`; direction names: `Fwd`/`Rev`/`Pong`/`Rand`/`Shuf`/`E/O`/`In`/`Quad`
+16. **CC number** — enter editing sub-state; up/down cycles through valid CC numbers (1–119, skipping 32 and 96–101) via `next_valid_cc(current, dir)`; Enter or Left exits editing; label shows `CC:{number} {name}` (7-char LCD name for well-known CCs); line 2 shows `CC: {number} {name}` while editing. One CC number per pattern, shared across all 16 steps of that pattern. Safe CC range: 1–119, forbidden: 32 (Bank LSB), 96–101 (RPN/NRPN data), 120–127 (Channel Mode Messages, not in menu range)
 
 **Double-tap detection**: implemented in the main `loop()` with `last_enter_ms` and `enter_tap_pending` statics. The first tap starts a 400 ms window without immediately setting `enterbutton_flag` — this prevents the first press of a double-tap from accidentally triggering a slider mode change. If a second `uniquePress()` arrives within the window, `enter_config_menu()` fires. If the window expires without a second tap, `enterbutton_flag` is set as a normal single-tap. Single-tap actions are therefore delayed by up to 400 ms, which is imperceptible for mode-cycling use.
 
@@ -357,7 +364,15 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
   "pattern_length": 16,
   "pattern_direction": 0,
   "patterns": [
-    {"steps":[1,0,...16 values],"pitches":[36,37,...16 values],"velocities":[127,127,...16 values],"gates":[1,1,...16 values]},
+    {
+      "steps":[1,0,...16 values],
+      "pitches":[36,37,...16 values],
+      "velocities":[127,127,...16 values],
+      "gates":[1,1,...16 values],
+      "cc_number": 1,
+      "cc_enabled":[0,0,...16 values],
+      "cc_values":[0,0,...16 values]
+    },
     ...16 patterns
   ]
 }
@@ -367,15 +382,15 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 
 ## EEPROM Save / Load
 
-EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Save still writes to both (`save_everywhere()`). Velocities and gates are **not stored in EEPROM** (SD only) — on EEPROM-only boot they default to 127 and 1 respectively.
+EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Save still writes to both (`save_everywhere()`). Velocities and gates are **not stored in EEPROM** (SD only) — on EEPROM-only boot they default to 127 and 1 respectively. CC data (cc_number, cc_step_enabled, cc_step_values) **is** stored in EEPROM.
 
 **On boot**: `load_from_eeprom()` is called only if `load_from_sd()` returns false. Checks for a magic sentinel byte at address 0. If missing (first boot or layout change), globals keep compiled-in defaults.
 
-**EEPROM layout** (529 bytes, defined as `#define` constants in `storage.ino`):
+**EEPROM layout** (1059 bytes, defined as `#define` constants in `storage.ino`):
 
 | Address | Size | Content |
 |---------|------|---------|
-| 0 | 1 | Magic byte `0xC5` |
+| 0 | 1 | Magic byte `0xC6` |
 | 1 | 1 | `MIDICHANNEL` |
 | 2 | 1 | `SWING` |
 | 3 | 4 | `TEMPO` (float) |
@@ -393,11 +408,14 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 528 | 1 | `pattern_direction` (uint8_t, 0–7) |
 | 529 | 1 | `scale_root` (uint8_t, 0–11) |
 | 530 | 1 | `scale_type` (uint8_t, 0–8) |
+| 531 | 16 | `cc_number[16]` (one byte per pattern) |
+| 547 | 256 | `cc_step_enabled[16][16]` (one byte per step) |
+| 803 | 256 | `cc_step_values[16][16]` (one byte per step) |
 
-**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer.
+**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101).
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC5`.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC6`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.

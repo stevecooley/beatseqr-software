@@ -23,13 +23,16 @@ void run_step_button_routine()
   if (adv_copy_armed) {
     for (int i = 0; i < 16; i++) {
       if (step_buttons[i].uniquePress()) {
-        // Copy all step data, pitches, velocities, and gates from current_pattern → i.
+        // Copy all step data, pitches, velocities, gates, and CC from current_pattern → i.
         for (int s = 0; s < 16; s++) {
           step_data[i][0][s] = step_data[current_pattern][0][s];
           pattern_step_pitches[i][s] = pattern_step_pitches[current_pattern][s];
           pattern_step_velocities[i][s] = pattern_step_velocities[current_pattern][s];
           step_gate[i][s] = step_gate[current_pattern][s];
+          cc_step_enabled[i][s] = cc_step_enabled[current_pattern][s];
+          cc_step_values[i][s] = cc_step_values[current_pattern][s];
         }
+        cc_number[i] = cc_number[current_pattern];
         copy_pattern_to = i;
         adv_copy_armed = false;
         lcdflag = 101;  next_lcdflag = 101;  // "Copy {n}-> done" then back to main
@@ -72,8 +75,16 @@ void detect_step_button_presses()
   {
     if (step_buttons[i].uniquePress())
     {
-      // Toggle step_data directly — do not rely on LED state, which the
-      // chase light may have inverted for the currently-playing step.
+      if (slider_mode == 4) {
+        // CC mode: toggle CC enable for this step independently from notes.
+        cc_step_enabled[pattern_value][i] = cc_step_enabled[pattern_value][i] ? 0 : 1;
+        if (cc_step_enabled[pattern_value][i]) step_leds[i].on();
+        else                                   step_leds[i].off();
+        continue;
+      }
+
+      // Normal mode: toggle note step_data directly — do not rely on LED
+      // state, which the chase light may have inverted for the playing step.
       step_data[pattern_value][0][i] = step_data[pattern_value][0][i] ? 0 : 1;
 
       if (step_data[pattern_value][0][i]) {
@@ -110,6 +121,18 @@ void detect_step_button_presses()
     }
   }
   return;
+}
+
+// read_cc_step_memory()
+//
+// Sets step LEDs to reflect cc_step_enabled[] for the current pattern.
+// Called when in CC slider mode (mode 4) instead of read_step_memory().
+//
+void read_cc_step_memory() {
+  for (int i = 0; i < 16; i++) {
+    if (cc_step_enabled[pattern_value][i]) step_leds[i].on();
+    else                                   step_leds[i].off();
+  }
 }
 
 void read_step_memory(int voice, int pattern)
@@ -172,6 +195,8 @@ void clear_pattern_memory_for_voice(int voice)
     pattern_step_pitches[pattern_value][i] = slider_map_low_value;
     pattern_step_velocities[pattern_value][i] = 127;
     step_gate[pattern_value][i] = 1;
+    cc_step_enabled[pattern_value][i] = 0;
+    cc_step_values[pattern_value][i] = 0;
     step_leds[i].off();
   }
   return;
@@ -189,6 +214,8 @@ void clear_pattern_memory()
         pattern_step_pitches[p][i] = slider_map_low_value;
         pattern_step_velocities[p][i] = 127;
         step_gate[p][i] = 1;
+        cc_step_enabled[p][i] = 0;
+        cc_step_values[p][i] = 0;
       }
     }
   }

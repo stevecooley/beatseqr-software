@@ -331,41 +331,35 @@ void run_LCD_update() {
         update_line1 = false;
         did_redraw = true;
 
-        // Line 1: icon (1 char) + " P%02u T%6.2f " (13 chars) + mode indicator (2 chars)
-        // Total = 16 chars.
-        // In external clock mode, show detected BPM (derived from avg 0xF8 interval)
-        // with an 'E' prefix instead of 'T' to indicate the source.
-        if (external_clock_mode && ext_clk_avg_interval_us > 0) {
-          float detected_bpm = 60000000.0f / ((float)ext_clk_avg_interval_us * 24.0f);
-          sprintf(lcd_line1, " P%02u E%6.2f ", current_pattern + 1, detected_bpm);
+        // Line 1: "P01 >03 120.0 ♪N" — 16 chars total.
+        // Format: P{pat:02u} >{step:02d_or_--} {tempo:05.1f} [?5][mode]
+        // In external clock mode, show detected BPM from avg 0xF8 interval.
+        float bpm = (external_clock_mode && ext_clk_avg_interval_us > 0)
+          ? 60000000.0f / ((float)ext_clk_avg_interval_us * 24.0f)
+          : seq.getTempo();
+        char step_str[4];
+        if (last_triggered_step >= 0) {
+          sprintf(step_str, ">%02d", (int)last_triggered_step + 1);
         } else {
-          sprintf(lcd_line1, " P%02u T%6.2f ", current_pattern + 1, seq.getTempo());
+          strcpy(step_str, ">--");
         }
-
+        // "P01 >03 120.0 " = 14 chars + 2-char mode indicator = 16
+        sprintf(lcd_line1, "P%02u %s %05.1f ", current_pattern + 1, step_str, bpm);
         Serial.println(lcd_line1);
         lcd.print("?x00?y0");       // move cursor to beginning of line 0
         Serial.println("?x00?y0");
-
-        // play or stop icon
-        if (playstatus == true) {
-          lcd.print("?0");
-          Serial.println("?0");
-        } else {
-          lcd.print("?7");
-          Serial.println("?7");
-        }
-
         lcd.print(lcd_line1);
         Serial.println(lcd_line1);
 
         // Slider mode indicator at cols 14-15: ?5 (slider-mode icon) + mode char.
-        // ?4=NN  ?2=VL  G=gate (literal)
+        // ?4=NN  ?2=VL  G=gate  ?3=CC
         lcd.print("?5");
         Serial.print("?5");
         switch (slider_mode) {
           case 1: lcd.print("?4"); Serial.println("?4"); break;
           case 2: lcd.print("?2"); Serial.println("?2"); break;
           case 3: lcd.print("G");  Serial.println("G");  break;
+          case 4: lcd.print("?3"); Serial.println("?3"); break;
           default: lcd.print("?4"); Serial.println("?4"); break;
         }
       }
@@ -373,29 +367,33 @@ void run_LCD_update() {
       if (update_line2 == true) {
         update_line2 = false;
         did_redraw = true;
-        // Line 2: full 16-char step-trigger feedback.
-        // Format: >%02d [?4]%03d [?2]%03d G%d
-        // Custom chars (?4, ?2) are printed separately; plain chars via sprintf.
+        // Line 2: "♪PPP ♩VVV G#♫CCC" — 16 chars.
+        // ?4=NN icon, ?2=VL icon, ?3=CC icon; plain chars via sprintf.
+        // Fields: note(5) + vel(5) + gate(2) + cc(4) = 16 chars exactly.
         lcd.print("?x00?y1");
         Serial.print("?x00?y1");
         if (last_triggered_step >= 0) {
           char _s[8];
-          // ">03 " — step number (4 chars: > + 2 digits + space)
-          sprintf(_s, ">%02d ", (int)last_triggered_step + 1);
-          lcd.print(_s);  Serial.print(_s);
-          // NN icon + note value (1+3+1 = 5 chars)
+          // NN icon + note value + space (1+3+1 = 5 chars)
           lcd.print("?4");  Serial.print("?4");
           sprintf(_s, "%03d ", voice_slider_midinotenum[last_triggered_step]);
           lcd.print(_s);  Serial.print(_s);
-          // VL icon + velocity (1+3+1 = 5 chars)
+          // VL icon + velocity + space (1+3+1 = 5 chars)
           lcd.print("?2");  Serial.print("?2");
           sprintf(_s, "%03d ", voice_slider_midivelocity[last_triggered_step]);
           lcd.print(_s);  Serial.print(_s);
-          // Gate label + value (1+1 = 2 chars — gate is 1-8, single digit)
+          // Gate label + value (G + 1 digit = 2 chars)
           lcd.print("G");  Serial.print("G");
           sprintf(_s, "%d", step_gate[pattern_value][last_triggered_step]);
+          lcd.print(_s);  Serial.print(_s);
+          // CC icon + value or "---" (1+3 = 4 chars)
+          lcd.print("?3");  Serial.print("?3");
+          if (cc_step_enabled[pattern_value][last_triggered_step]) {
+            sprintf(_s, "%03d", cc_step_values[pattern_value][last_triggered_step]);
+          } else {
+            strcpy(_s, "---");
+          }
           lcd.print(_s);  Serial.println(_s);
-          // Total: 4+1+4+1+4+1+1 = 16 chars exactly
         } else {
           lcd.print("                ");   // 16 spaces until first step fires
           Serial.println("                ");

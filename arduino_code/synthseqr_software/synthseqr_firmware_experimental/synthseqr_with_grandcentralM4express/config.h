@@ -1,5 +1,5 @@
-#include <stdlib.h>  // because dtostrf()
 #include <SD.h>      // SD card storage
+#include <stdlib.h>  // because dtostrf()
 
 #include "Button.h"
 #include "FifteenStep.h"
@@ -8,7 +8,7 @@
 #include "PString.h"
 #include "Potentiometer.h"
 
-const char* firmware_version_number = "2.5";
+const char* firmware_version_number = "3.0";
 const char* hardware_version_number = "1.0";
 
 uint8_t last_voice_selected = 0;
@@ -36,78 +36,97 @@ int voice_slider_values[16];
 
 int raw_voice_slider_values[16];
 
-int CC_cleared_to_update_values[16];
-int NN_cleared_to_update_values[16];
-int VL_cleared_to_update_values[16];
-int MC_cleared_to_update_values[16];
-
-uint8_t voice_slider_midivelocity[16] = {127,127,127,127,127,127,127,127,
-                                         127,127,127,127,127,127,127,127};
+uint8_t voice_slider_midivelocity[16] = {127, 127, 127, 127, 127, 127,
+                                         127, 127, 127, 127, 127, 127,
+                                         127, 127, 127, 127};
 
 // Per-pattern saved velocities. Updated when a slider moves in VL mode.
-// Restored when switching patterns so each pattern remembers its own velocities.
+// Restored when switching patterns so each pattern remembers its own
+// velocities.
 uint8_t pattern_step_velocities[16][16] = {
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127},
-  {127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127}
-};
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127},
+    {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+     127}};
 
 // Per-pattern gate lengths (1-8 steps). Sliders map 0-255 -> 1-8 in GT mode.
-uint8_t step_gate[16][16] = {
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
-};
-int voice_slider_midicc[16];
+uint8_t step_gate[16][16] = {{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
+// CC sequencing data — per-pattern, per-step
+uint8_t cc_step_values[16][16];   // CC value (0–127) per pattern per step;
+                                  // defaults to 0
+uint8_t cc_step_enabled[16][16];  // 1=fire CC on this step, 0=skip; independent
+                                  // from notes
+uint8_t cc_number[16] =
+    {  // CC controller number per pattern (1–119, safe range)
+        1, 1, 1, 1,
+        1, 1, 1, 1,  // default: CC 1 (Mod Wheel) for all 16 patterns
+        1, 1, 1, 1,
+        1, 1, 1, 1};
 int voice_slider_midinotenum[16] = {36, 37, 38, 39, 40, 41, 42, 43,
                                     44, 45, 46, 47, 48, 49, 50, 51};
 
 // Per-pattern saved pitches. Updated whenever a slider moves (after pickup).
 // Restored when switching patterns so each pattern remembers its own tuning.
 uint8_t pattern_step_pitches[16][16] = {
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51},
-  {36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51}
-};
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
+    {36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51}};
 
 // When true for a step, that slider must physically reach the stored pitch
 // before it takes control. Set on pattern switch; cleared per-slider on pickup.
@@ -116,8 +135,8 @@ int voice_slider_midichannel[16] = {1, 1, 1, 1, 1, 1, 1, 1,
                                     1, 1, 1, 1, 1, 1, 1, 1};
 
 int last_voice_slider_values[16];
-uint8_t slider_mode = 1;        // 1=NN  2=VL  3=GT
-uint8_t slider_mode_total = 3;
+uint8_t slider_mode = 1;  // 1=NN  2=VL  3=GT  4=CC
+uint8_t slider_mode_total = 4;
 uint8_t slider_reset_counter = 0;
 const char* slider_message_header = "NN";
 uint8_t slider_map_low_value = 36;
@@ -195,7 +214,7 @@ uint8_t pattern_select_button_pressing_counter = 0;
 Button pattern_select_buttons[4] = {Button(15, PULLUP), Button(14, PULLUP),
                                     Button(6, PULLUP), Button(8, PULLUP)};
 
-bool pattern_select_button_flags[4] = {false,false,false,false};
+bool pattern_select_button_flags[4] = {false, false, false, false};
 
 uint8_t extended_step_length_mode = 0;
 uint8_t current_pattern = 0;
@@ -205,7 +224,7 @@ uint8_t patterns_to_play_in_a_row = 1;
 // Simple mode: chain toggles between single pattern and 0→3 (old behaviour).
 // Advanced mode: button 2 sets arbitrary start/end within 0–15.
 uint8_t chain_start = 0;
-uint8_t chain_end   = 3;
+uint8_t chain_end = 3;
 
 // Advanced mode pattern-copy state.
 // Phase 1 (adv_copy_waiting_source): waiting for a step button tap to select
@@ -215,8 +234,9 @@ uint8_t chain_end   = 3;
 bool adv_copy_waiting_source = false;
 bool adv_copy_armed = false;
 
-// Advanced mode pattern-nav mode — toggled by a single click of pattern button 1.
-// While active, step buttons select/chain patterns instead of editing steps.
+// Advanced mode pattern-nav mode — toggled by a single click of pattern
+// button 1. While active, step buttons select/chain patterns instead of editing
+// steps.
 bool adv_pat_nav_active = false;
 
 // Which step button is currently held for chain selection (-1 = none).
@@ -251,16 +271,18 @@ char* step_padding;
 #define lcd Serial1
 
 // LCD field cursor positions — update these if the display format changes.
-// Line 1: [icon] [space] P{pattern:02u} [space] T{tempo} [space] [?5][mode]
-// Pattern is now 2 digits (P01–P16), so tempo columns shift right by 1 vs old format.
-#define LCD_L1_X_PATTERN    3   // first (tens) digit of pattern in "P%02u"
-#define LCD_L1_X_TEMPO_10   8   // tempo hundreds/tens digit (±10 BPM)
-#define LCD_L1_X_TEMPO_1    9   // tempo units digit (±1 BPM)
-#define LCD_L1_X_TEMPO_01   11  // tempo tenths digit, after decimal at col 10 (±0.1 BPM)
-#define LCD_L1_X_TEMPO_001  12  // tempo hundredths digit (±0.01 BPM)
-#define LCD_L1_X_SLIDERMODE 14  // first char of 2-char slider-mode indicator (?5 + mode)
-// Line 2: fully used for step-trigger feedback (>step ?4note ?2vel Ggate)
-// Swing, clock, and MIDI channel are now in the config menu.
+// Line 1: P{pat:02u} >{step:02d} {tempo:05.1f} [?5][mode]  (16 chars total)
+//   col:  0         4           8              14
+#define LCD_L1_X_PATTERN 1   // first (tens) digit of pattern in "P%02u" (col 1)
+#define LCD_L1_X_STEP 5      // first (tens) digit of step in ">%02d" (col 5)
+#define LCD_L1_X_TEMPO_10 9  // tempo tens digit (±10 BPM, col 9)
+#define LCD_L1_X_TEMPO_1 10  // tempo units digit (±1 BPM, col 10)
+#define LCD_L1_X_TEMPO_01 \
+  12  // tempo tenths digit, after decimal at col 11 (±0.1 BPM)
+#define LCD_L1_X_SLIDERMODE \
+  14  // first char of 2-char slider-mode indicator (?5 + mode)
+// Line 2: ?4PPP ?2VVV G#?3CCC  — note, velocity, gate, CC value (16 chars
+// total) Swing, clock, and MIDI channel are now in the config menu.
 
 uint8_t lcdflag = 255;
 uint8_t next_lcdflag = 255;
@@ -347,11 +369,13 @@ uint8_t last_step = 15;
 // Tracks the MIDI pitch actually sent for each step so note-off always
 // uses the exact pitch from the note-on, regardless of slider changes.
 // -1 means the step is not currently sounding.
-int8_t sounding_notes[16] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+int8_t sounding_notes[16] = {-1, -1, -1, -1, -1, -1, -1, -1,
+                             -1, -1, -1, -1, -1, -1, -1, -1};
 
 // Which step number triggers the note-off for each sounding note.
 // (current_step + gate) % 16. -1 means not scheduled.
-int8_t sounding_note_end_step[16] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+int8_t sounding_note_end_step[16] = {-1, -1, -1, -1, -1, -1, -1, -1,
+                                     -1, -1, -1, -1, -1, -1, -1, -1};
 
 // The last step that actually fired a note-on (for LCD line 2 feedback).
 // -1 = no step has fired yet this session.
@@ -390,11 +414,15 @@ bool advanced_mode = false;
 /////////////////////////////////
 
 bool config_menu_active = false;
-uint8_t config_menu_item = 0;   // 0=Exit 1=ClearPat 2=ClearAll 3=ResetSliders 4=Mode
+uint8_t config_menu_item =
+    0;  // 0=Exit 1=ClearPat 2=ClearAll 3=ResetSliders 4=Mode
 bool config_confirm_pending = false;
-bool config_editing_value = false;  // true while adjusting a value (e.g. octave shift)
-uint8_t config_note_range_phase = 0; // 0 = editing low, 1 = editing high (used by NOTE_RANGE item)
-uint8_t config_scale_phase = 0;      // 0 = editing scale type, 1 = editing root (used by NOTE_SCALES item)
+bool config_editing_value =
+    false;  // true while adjusting a value (e.g. octave shift)
+uint8_t config_note_range_phase =
+    0;  // 0 = editing low, 1 = editing high (used by NOTE_RANGE item)
+uint8_t config_scale_phase =
+    0;  // 0 = editing scale type, 1 = editing root (used by NOTE_SCALES item)
 
 /////////////////////////////////
 // octave shift
@@ -420,35 +448,40 @@ uint8_t scale_type = 0;
 // 0=C 1=C# 2=D 3=D# 4=E 5=F 6=F# 7=G 8=G# 9=A 10=A# 11=B
 uint8_t scale_root = 0;
 
-// In-scale MIDI notes within the current note range; populated by build_scale_notes().
+// In-scale MIDI notes within the current note range; populated by
+// build_scale_notes().
 uint8_t scale_note_pool[128];
 uint8_t scale_note_count = 0;
 
-// Declared in scales.ino; forward-declared here so config_menu.ino can use them.
-// (Arduino merges .ino files alphabetically; config_menu.ino precedes scales.ino.)
+// Declared in scales.ino; forward-declared here so config_menu.ino can use
+// them. (Arduino merges .ino files alphabetically; config_menu.ino precedes
+// scales.ino.)
 extern const char* SCALE_NAMES[SCALE_COUNT];
 extern const char* ROOT_NAMES[12];
 
 // Pattern playback settings — global, applies to all patterns.
 // pattern_direction: 0=Fwd 1=Rev 2=Pong 3=Rand 4=Shuf 5=E/O 6=In 7=Quad
 #define PATTERN_DIRECTION_COUNT 8
-uint8_t pattern_length    = 16;    // 1–16 steps before looping
-uint8_t pattern_direction = 0;     // see above
-bool    ping_pong_going_forward = true;  // ping-pong direction state
-uint8_t ping_pong_step          = 0;     // ping-pong virtual play position
+uint8_t pattern_length = 16;          // 1–16 steps before looping
+uint8_t pattern_direction = 0;        // see above
+bool ping_pong_going_forward = true;  // ping-pong direction state
+uint8_t ping_pong_step = 0;           // ping-pong virtual play position
 // Shuffle (permutation) state — init_shuffle() fills this before use.
-uint8_t shuffle_order[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-uint8_t shuffle_pos       = 0;
+uint8_t shuffle_order[16] = {0, 1, 2,  3,  4,  5,  6,  7,
+                             8, 9, 10, 11, 12, 13, 14, 15};
+uint8_t shuffle_pos = 0;
 
 // External clock swing state.
 // When SWING > 0 in external clock mode, odd-step transitions are deferred
 // by avg_pulse_interval * SWING µs to replicate the internal-clock swing feel.
-uint8_t       ext_clk_pulse_count      = 0;      // 0–5 within current step
-unsigned long ext_clk_last_pulse_us    = 0;      // micros() of last 0xF8 pulse
-unsigned long ext_clk_avg_interval_us  = 20833;  // running avg (default: 120 BPM)
-bool          ext_swing_pulse_pending  = false;  // deferred 6th-pulse queued
-unsigned long ext_swing_pulse_fire_us  = 0;      // micros() value to fire it at
-bool          ext_clock_start_pending  = false;  // play pressed; waiting for next beat boundary to start
+uint8_t ext_clk_pulse_count = 0;          // 0–5 within current step
+unsigned long ext_clk_last_pulse_us = 0;  // micros() of last 0xF8 pulse
+unsigned long ext_clk_avg_interval_us =
+    20833;                                  // running avg (default: 120 BPM)
+bool ext_swing_pulse_pending = false;       // deferred 6th-pulse queued
+unsigned long ext_swing_pulse_fire_us = 0;  // micros() value to fire it at
+bool ext_clock_start_pending =
+    false;  // play pressed; waiting for next beat boundary to start
 
 // Declared in transport.ino; forward-declared here so the main sketch can
 // read the flag set by the play button hardware interrupt.

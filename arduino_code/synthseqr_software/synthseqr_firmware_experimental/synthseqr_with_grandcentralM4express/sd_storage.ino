@@ -119,6 +119,25 @@ static bool sd_find(const char *needle) {
   return false;
 }
 
+// Scan forward at most max_bytes for needle. Used for optional per-pattern keys
+// so a missing key doesn't consume the rest of the file.
+static bool sd_find_bounded(const char *needle, int max_bytes) {
+  int len = strlen(needle);
+  int matched = 0;
+  int read_bytes = 0;
+  while (_f.available() && read_bytes < max_bytes) {
+    char c = (char)_f.read();
+    read_bytes++;
+    if (c == needle[matched]) {
+      matched++;
+      if (matched == len) return true;
+    } else {
+      matched = (c == needle[0]) ? 1 : 0;
+    }
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Save to SD
 // ---------------------------------------------------------------------------
@@ -168,6 +187,18 @@ bool save_to_sd() {
     _f.print("],\"gates\":[");
     for (int s = 0; s < 16; s++) {
       _f.print(step_gate[p][s]);
+      if (s < 15) _f.print(",");
+    }
+    _f.print("],\"cc_number\":");
+    _f.print(cc_number[p]);
+    _f.print(",\"cc_enabled\":[");
+    for (int s = 0; s < 16; s++) {
+      _f.print(cc_step_enabled[p][s]);
+      if (s < 15) _f.print(",");
+    }
+    _f.print("],\"cc_values\":[");
+    for (int s = 0; s < 16; s++) {
+      _f.print(cc_step_values[p][s]);
       if (s < 15) _f.print(",");
     }
     _f.print("]}");
@@ -351,6 +382,47 @@ bool load_from_sd() {
         char c = (char)_f.peek();
         if (c == ',' || c == ']') _f.read();
       }
+    }
+
+    // CC fields — optional (new files only). Use bounded search so missing
+    // keys in old files don't consume content from subsequent patterns.
+    {
+      uint32_t pos = _f.position();
+      if (sd_find_bounded("\"cc_number\":", 400)) {
+        int v = (int)sd_parse_number();
+        if (v >= 1 && v <= 119 && v != 32 && !(v >= 96 && v <= 101))
+          cc_number[p] = (uint8_t)v;
+      } else { _f.seek(pos); }
+    }
+    {
+      uint32_t pos = _f.position();
+      if (sd_find_bounded("\"cc_enabled\":", 400)) {
+        if (sd_read_until('[')) {
+          for (int s = 0; s < 16; s++) {
+            sd_skip_ws();
+            int v = (int)sd_parse_number();
+            cc_step_enabled[p][s] = (v != 0) ? 1 : 0;
+            sd_skip_ws();
+            char c = (char)_f.peek();
+            if (c == ',' || c == ']') _f.read();
+          }
+        }
+      } else { _f.seek(pos); }
+    }
+    {
+      uint32_t pos = _f.position();
+      if (sd_find_bounded("\"cc_values\":", 400)) {
+        if (sd_read_until('[')) {
+          for (int s = 0; s < 16; s++) {
+            sd_skip_ws();
+            int v = (int)sd_parse_number();
+            if (v >= 0 && v <= 127) cc_step_values[p][s] = (uint8_t)v;
+            sd_skip_ws();
+            char c = (char)_f.peek();
+            if (c == ',' || c == ']') _f.read();
+          }
+        }
+      } else { _f.seek(pos); }
     }
   }
 

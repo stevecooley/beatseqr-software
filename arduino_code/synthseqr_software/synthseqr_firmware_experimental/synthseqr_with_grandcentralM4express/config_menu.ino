@@ -1,3 +1,76 @@
+// cc_name()
+//
+// Returns a 7-char (max) display name for a MIDI CC number.
+// Used in config menu label (14 chars) and editing line 2 (16 chars).
+// Safe CC range: 1–119, skipping 32 (Bank LSB) and 96–101 (RPN/NRPN).
+//
+static const char* cc_name(uint8_t n) {
+  switch (n) {
+    case 1:  return "Mod Whl";
+    case 2:  return "Breath ";
+    case 4:  return "Foot Ct";
+    case 5:  return "Port Tm";
+    case 6:  return "DataMSB";
+    case 7:  return "Volume ";
+    case 8:  return "Balance";
+    case 10: return "Pan    ";
+    case 11: return "Express";
+    case 12: return "FX Ctl1";
+    case 13: return "FX Ctl2";
+    case 16: return "GenPrp1";
+    case 17: return "GenPrp2";
+    case 18: return "GenPrp3";
+    case 19: return "GenPrp4";
+    case 64: return "Sustain";
+    case 65: return "Port On";
+    case 66: return "Sosten ";
+    case 67: return "Soft Pd";
+    case 68: return "Legato ";
+    case 69: return "Hold 2 ";
+    case 70: return "Snd Var";
+    case 71: return "Resn   ";
+    case 72: return "Rel Tim";
+    case 73: return "Atk Tim";
+    case 74: return "Cutoff ";
+    case 75: return "Dcy Tim";
+    case 76: return "Vib Rte";
+    case 77: return "Vib Dpt";
+    case 78: return "Vib Dly";
+    case 88: return "HiResVl";
+    case 91: return "Reverb ";
+    case 92: return "Tremolo";
+    case 93: return "Chorus ";
+    case 94: return "Detune ";
+    case 95: return "Phaser ";
+    default: {
+      static char _buf[8];
+      if (n >= 33 && n <= 63) {
+        snprintf(_buf, sizeof(_buf), "LSB %02d ", n - 32);
+      } else if (n >= 102 && n <= 119) {
+        snprintf(_buf, sizeof(_buf), "Usr%03d ", n);
+      } else {
+        snprintf(_buf, sizeof(_buf), "       ");
+      }
+      return _buf;
+    }
+  }
+}
+
+// next_valid_cc()
+//
+// Advance CC number by dir (+1 or -1), wrapping within 1–119 and skipping
+// forbidden values: 32 (Bank LSB) and 96–101 (RPN/NRPN data entry).
+//
+static uint8_t next_valid_cc(uint8_t current, int dir) {
+  int n = (int)current + dir;
+  for (;;) {
+    if (n < 1)   n = 119;
+    if (n > 119) n = 1;
+    if (n == 32 || (n >= 96 && n <= 101)) { n += dir; continue; }
+    return (uint8_t)n;
+  }
+}
+
 // config_menu.ino
 //
 // Modal config menu entered by double-tapping the Enter button.
@@ -28,10 +101,11 @@
 #define CONFIG_ITEM_OCTAVE_SHIFT  9
 #define CONFIG_ITEM_NOTE_SHIFT    10
 #define CONFIG_ITEM_NOTE_RANGE    11
-#define CONFIG_ITEM_NOTE_SCALES   12  // placeholder — not yet implemented
+#define CONFIG_ITEM_NOTE_SCALES   12
 #define CONFIG_ITEM_PAT_LENGTH    13
 #define CONFIG_ITEM_PAT_DIR       14
-#define CONFIG_MENU_ITEM_COUNT    15
+#define CONFIG_ITEM_CC_NUMBER     15
+#define CONFIG_MENU_ITEM_COUNT    16
 
 // line1_label: 14 chars printed after "> " on line 1.
 // Items with inline values are rendered dynamically in print_config_label().
@@ -50,7 +124,8 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Note range    ",
   "Note scales   ",   // placeholder
   "Pat length    ",
-  "Pat dir:      "    // value overwritten at draw time
+  "Pat dir:      ",   // value overwritten at draw time
+  "CC num:       "    // value overwritten at draw time
 };
 
 // Build the 14-char label for a given item index.
@@ -96,6 +171,10 @@ void print_config_label(uint8_t item) {
     }
     // 14 chars: "Pat dir:Fwd   " etc.
     snprintf(_buf, sizeof(_buf), "Pat dir:%-6s", dname);
+    lcd.print(_buf);
+  } else if (item == CONFIG_ITEM_CC_NUMBER) {
+    // "CC:%03d %-7s" = 3+3+1+7 = 14 chars
+    snprintf(_buf, sizeof(_buf), "CC:%03d %-7s", cc_number[pattern_value], cc_name(cc_number[pattern_value]));
     lcd.print(_buf);
   } else {
     lcd.print(config_labels[item]);
@@ -174,6 +253,13 @@ void draw_config_menu() {
     }
     char line2[17];
     int len = snprintf(line2, sizeof(line2), "  Dir: %s", dname);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_CC_NUMBER) {
+    char line2[17];
+    // "CC: 001 Mod Whl " — 4+3+1+7+1 = 16 chars
+    int len = snprintf(line2, sizeof(line2), "CC: %03d %s", cc_number[pattern_value], cc_name(cc_number[pattern_value]));
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
@@ -291,6 +377,9 @@ void run_config_menu() {
         }
         apply_scale_to_all_patterns();
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_CC_NUMBER) {
+        cc_number[pattern_value] = next_valid_cc(cc_number[pattern_value], +1);
+        draw_config_menu();
       }
     }
     if (dpad_down_flag) {
@@ -338,6 +427,9 @@ void run_config_menu() {
           scale_root = (scale_root + 1) % 12;
         }
         apply_scale_to_all_patterns();
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_CC_NUMBER) {
+        cc_number[pattern_value] = next_valid_cc(cc_number[pattern_value], -1);
         draw_config_menu();
       }
     }
@@ -494,6 +586,10 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_PAT_DIR:
+        config_editing_value = true;
+        draw_config_menu();
+        break;
+      case CONFIG_ITEM_CC_NUMBER:
         config_editing_value = true;
         draw_config_menu();
         break;

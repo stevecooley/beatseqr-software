@@ -21,7 +21,12 @@
 //  525   1      slider_map_low_value (uint8_t)
 //  526   1      slider_map_high_value (uint8_t)
 //  527   1      pattern_length (uint8_t, 1–16)
-//  528   1      pattern_direction (uint8_t, 0–3)
+//  528   1      pattern_direction (uint8_t, 0–7)
+//  529   1      scale_root (uint8_t, 0–11)
+//  530   1      scale_type (uint8_t, 0–8)
+//  531   16     cc_number[16]
+//  547   256    cc_step_enabled[16][16]
+//  803   256    cc_step_values[16][16]
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -41,8 +46,11 @@
 #define EEPROM_PAT_DIR_ADDR           528
 #define EEPROM_SCALE_ROOT_ADDR        529
 #define EEPROM_SCALE_TYPE_ADDR        530
+#define EEPROM_CC_NUMBERS_ADDR        531   // 16 bytes: cc_number[16]
+#define EEPROM_CC_ENABLED_ADDR        547   // 256 bytes: cc_step_enabled[16][16]
+#define EEPROM_CC_VALUES_ADDR         803   // 256 bytes: cc_step_values[16][16]
 
-#define EEPROM_MAGIC_VALUE  0xC5  // bumped: added scale_root/scale_type
+#define EEPROM_MAGIC_VALUE  0xC6  // bumped: added CC sequencing data
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -76,6 +84,19 @@ void save_to_eeprom() {
   EEPROM.write(EEPROM_PAT_DIR_ADDR, pattern_direction);
   EEPROM.write(EEPROM_SCALE_ROOT_ADDR, scale_root);
   EEPROM.write(EEPROM_SCALE_TYPE_ADDR, scale_type);
+
+  int cc_addr = EEPROM_CC_NUMBERS_ADDR;
+  for (int p = 0; p < 16; p++) EEPROM.write(cc_addr++, cc_number[p]);
+
+  cc_addr = EEPROM_CC_ENABLED_ADDR;
+  for (int p = 0; p < 16; p++)
+    for (int s = 0; s < 16; s++)
+      EEPROM.write(cc_addr++, cc_step_enabled[p][s]);
+
+  cc_addr = EEPROM_CC_VALUES_ADDR;
+  for (int p = 0; p < 16; p++)
+    for (int s = 0; s < 16; s++)
+      EEPROM.write(cc_addr++, cc_step_values[p][s]);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -156,6 +177,29 @@ bool load_from_eeprom() {
   {
     uint8_t st = EEPROM.read(EEPROM_SCALE_TYPE_ADDR);
     if (st < SCALE_COUNT) scale_type = st;
+  }
+
+  {
+    int cc_addr = EEPROM_CC_NUMBERS_ADDR;
+    for (int p = 0; p < 16; p++) {
+      uint8_t v = EEPROM.read(cc_addr++);
+      if (v >= 1 && v <= 119 && v != 32 && !(v >= 96 && v <= 101))
+        cc_number[p] = v;
+    }
+  }
+  {
+    int cc_addr = EEPROM_CC_ENABLED_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int s = 0; s < 16; s++)
+        cc_step_enabled[p][s] = EEPROM.read(cc_addr++) ? 1 : 0;
+  }
+  {
+    int cc_addr = EEPROM_CC_VALUES_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int s = 0; s < 16; s++) {
+        uint8_t v = EEPROM.read(cc_addr++);
+        if (v <= 127) cc_step_values[p][s] = v;
+      }
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm

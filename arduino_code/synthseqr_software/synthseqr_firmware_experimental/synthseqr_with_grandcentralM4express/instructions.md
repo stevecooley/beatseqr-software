@@ -7,7 +7,7 @@ Firmware version: 2.5
 
 ## Overview
 
-Synthseqr is a 16-step MIDI sequencer with 16 patterns, 16 voice sliders, a D-pad for navigation, and an LCD display. It outputs MIDI notes over USB and can follow an external MIDI clock. Each step has its own pitch, velocity, and gate length — all editable with the voice sliders.
+Synthseqr is a 16-step MIDI sequencer with 16 patterns, 16 voice sliders, a D-pad for navigation, and an LCD display. It outputs MIDI notes and MIDI CC messages over USB and can follow an external MIDI clock. Each step has its own pitch, velocity, gate length, and CC value — all editable with the voice sliders.
 
 ---
 
@@ -32,8 +32,8 @@ Synthseqr is a 16-step MIDI sequencer with 16 patterns, 16 voice sliders, a D-pa
 
 Press the **Play button** to start. Press it again to stop.
 
-- The play/stop icon on the top-left of the LCD updates with each press.
 - Chase lights on the step LEDs follow the current playing position.
+- The active step counter on line 1 of the LCD shows the most recently fired step; it shows `>--` when stopped.
 - Any note held open when you stop is automatically silenced.
 
 ### Step Buttons
@@ -52,24 +52,26 @@ The 16 sliders control different data depending on the active **slider mode**. S
 
 ## Slider Modes
 
-Each step has three editable values: **pitch**, **velocity**, and **gate length**. The voice sliders edit one type at a time.
+Each step has four editable values: **pitch**, **velocity**, **gate length**, and **CC value**. The voice sliders edit one type at a time.
 
 | Mode | LCD indicator | What sliders control |
 |------|--------------|----------------------|
 | **NN** (note number) | `♪N` at top-right of line 1 | MIDI pitch for each step |
 | **VL** (velocity) | `♪V` at top-right of line 1 | MIDI velocity (1–127) for each step |
 | **GT** (gate) | `♪G` at top-right of line 1 | Gate length (1–8 steps) for each step |
+| **CC** (control change) | `♪♩` at top-right of line 1 | MIDI CC value (0–127) per step; step buttons toggle CC steps on/off |
 
 The current mode is always shown in the top-right corner of LCD line 1.
 
 ### Switching Modes
 
-**Simple mode:** Single-tap the **Enter button** to cycle NN → VL → GT → NN. The mode change fires ~400 ms after the tap so the sequencer can confirm it isn't the start of a double-tap.
+**Simple mode:** Single-tap the **Enter button** to cycle NN → VL → GT → CC → NN. The mode change fires ~400 ms after the tap so the sequencer can confirm it isn't the start of a double-tap.
 
 **Advanced mode:** Use the **pattern select buttons**:
 - **Pattern button 1** → NN mode (LED 1 lights up)
 - **Pattern button 2** → GT mode (LED 2 lights up)
 - **Pattern button 3** → VL mode (LED 3 lights up)
+- For CC mode in advanced mode: use Enter single-tap to continue cycling to CC after GT.
 
 The lit LED tells you which slider mode is currently active.
 
@@ -97,11 +99,22 @@ The same lock also applies when **switching patterns**: sliders in NN mode won't
 - **Gate 8** = note rings for a full half-bar (8 steps).
 - Gates longer than 16 steps wrap around.
 
+### CC (Control Change) Mode
+
+In CC mode, the step LEDs and buttons switch to show and control the **CC automation lane** — independent of whether notes are on or off.
+
+- **Step buttons** toggle CC steps on/off (LED on = CC fires at this step; LED off = no CC).
+- **Voice sliders** set the **CC value** for each step (0–127). Values are saved per step, per pattern.
+- CC steps fire at the same time as note steps — a step can have a CC without a note, or both.
+- The CC **controller number** is set per-pattern in the Config Menu (see **CC Number** below). Default is CC 1 (Modulation Wheel).
+
+When you exit CC mode, step LEDs return to showing note step on/off state.
+
 ---
 
 ## Tempo
 
-The D-pad navigates through 5 timing modes in visual left-to-right order. Press **D-pad left/right** to move between them. Press **D-pad up/down** to adjust the selected value.
+The D-pad navigates through 4 timing modes in visual left-to-right order. Press **D-pad left/right** to move between them. Press **D-pad up/down** to adjust the selected value.
 
 The cursor on the LCD blinks on the field that up/down currently controls.
 
@@ -111,7 +124,6 @@ The cursor on the LCD blinks on the field that up/down currently controls.
 | 2 | Tempo ±10 BPM | Line 1 — tempo hundreds/tens |
 | 3 | Tempo ±1 BPM | Line 1 — tempo units |
 | 4 | Tempo ±0.1 BPM | Line 1 — tempo tenths |
-| 5 | Tempo ±0.01 BPM | Line 1 — tempo hundredths |
 
 **Tempo range:** 10–250 BPM
 
@@ -126,11 +138,15 @@ Swing, MIDI channel, and clock source are all in the **Config Menu** — double-
 ### Line 1
 
 ```
-[play/stop] P[pattern] T[tempo]  [mode]
+P[pattern] >[step] [tempo] [mode]
 ```
 
-Example: `▶ P01 T120.00 ♪N`
+Example: `P01 >03 120.0 ♪N`
 
+- No play/stop icon — space freed for step counter.
+- Pattern is zero-padded to 2 digits (P01–P16).
+- `>[step]` shows the most-recently-fired step (01–16). Shows `>--` when stopped or before the first step fires.
+- Tempo is zero-padded, 1 decimal place (e.g. `120.0`, `090.5`).
 - The cursor blinks on the field that D-pad up/down currently adjusts.
 - The two-character indicator at the far right shows the active slider mode.
 
@@ -139,15 +155,15 @@ Example: `▶ P01 T120.00 ♪N`
 Line 2 updates live each time a step fires, showing the data for the most recently triggered step:
 
 ```
->[step]  ♪[pitch]  ♩[velocity]  G[gate]
+♪[pitch]  ♩[velocity]  G[gate]  ♩[cc]
 ```
 
-Example: `>03 ♪045 ♩127 G4`
+Example: `♪045 ♩127 G4♩064`
 
-- `>03` — step 3 just fired
 - `♪045` — MIDI note 45
 - `♩127` — velocity 127
 - `G4` — gate length 4 steps
+- `♩064` — CC value 64 (shows `---` if no CC is enabled for this step)
 
 This display makes it easy to see exactly what each step is playing in real time, regardless of which slider mode is active.
 
@@ -244,12 +260,12 @@ There are up to 16 patterns (P01–P16). Each pattern has its own 16 steps with 
 
 **Either mode**: Navigate to D-pad mode 1 and use up/down to scroll through patterns.
 
-- Step LEDs update to show the new pattern's data.
+- Step LEDs update to show the new pattern's data (note steps in normal mode, CC steps in CC mode).
 - Slider values are restored from the pattern's saved values; all sliders are locked until each physical position crosses its stored value (see **Slider Pickup Guard** above).
 
 ### Copying a Pattern
 
-Copies include steps, pitches, velocities, and gate lengths.
+Copies include steps, pitches, velocities, gate lengths, CC on/off, CC values, and CC controller number.
 
 **Simple mode**:
 1. Hold a **pattern select button for 2 seconds**. The LCD shows `Copy N ->`.
@@ -392,7 +408,7 @@ These combos work while the sequencer is stopped or playing.
 | Clear current pattern | Hold **step button 1** + **step button 16** |
 | Clear all patterns | Hold **step button 1** + **step button 12** |
 
-Clearing turns off all step LEDs, silences all steps, resets velocities to 127, and resets gate lengths to 1.
+Clearing turns off all step LEDs, silences all steps, resets velocities to 127, resets gate lengths to 1, and clears CC step data (all CC steps disabled, CC values set to 0).
 
 ---
 
@@ -401,6 +417,7 @@ Clearing turns off all step LEDs, silences all steps, resets velocities to 127, 
 - **Channel:** selectable 1–16 via Config Menu (default: channel 2)
 - **Note-on velocity:** per-step, set in VL slider mode (default: 127 for all steps)
 - **Note-off:** sent after the gate length expires (1–8 steps after note-on), and for all open notes on stop
+- **MIDI CC:** sent on each CC-enabled step, using the per-pattern controller number and per-step value
 - **MIDI clock (0xF8):** output continuously while playing (internal mode only)
 - **MIDI Start (0xFA) / Stop (0xFC):** output on play/stop (internal mode only)
 
@@ -433,8 +450,26 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Note scales | Two-phase editor: Enter to choose scale type, Enter again to choose root note, Enter to exit; changing either value immediately quantizes all stored pitches to the nearest in-scale note; label shows * when non-default |
 | Pat length | Step count 1–16; up/down or tap a step button; step LEDs show current length; label shows * when not 16 |
 | Pat dir | Playback direction; up/down cycles Fwd/Rev/Pong/Rand/Shuf/E/O/In/Quad |
+| CC number | CC controller number for the current pattern (1–119, skipping reserved CCs); up/down cycles; Enter or Left exits; line 2 shows name of selected CC |
 
 **Confirmation prompt**: for destructive actions, line 2 shows `Entr=ok  Lft=no`. Press Enter to confirm or D-pad left to cancel.
+
+---
+
+## CC Number
+
+Open the **Config Menu** (double-tap Enter) and scroll to **CC number**. Press Enter to enter editing.
+
+- D-pad up/down cycles through valid CC controller numbers (1–119).
+- Reserved CC numbers are skipped automatically: CC 32 (Bank LSB) and CC 96–101 (RPN/NRPN data entry).
+- Line 2 shows the full LCD name of the selected CC while editing.
+- Press Enter or D-pad left to exit.
+- **CC number is per-pattern** — each of the 16 patterns can output a different CC.
+- Default: CC 1 (Modulation Wheel) for all patterns.
+
+The CC controller number determines what parameter the CC automation lane controls on your synth or DAW. For example: CC 1 = Mod Wheel, CC 7 = Volume, CC 10 = Pan, CC 74 = Filter Cutoff (on many synths).
+
+See the **MIDI CC Number Reference** table at the end of this document for a full list.
 
 ---
 
@@ -444,7 +479,7 @@ Open the config menu (double-tap Enter), scroll to **Save**, and press Enter. Th
 
 The following are saved:
 
-- All 16 patterns (step on/off, pitch, velocity, and gate length per step)
+- All 16 patterns (step on/off, pitch, velocity, gate length, CC on/off, CC value, and CC controller number per pattern)
 - Tempo, swing, MIDI channel
 - Active pattern, chain mode on/off, clock source (INT/EXT)
 - Octave shift, Note shift, Note range (low/high)
@@ -501,15 +536,18 @@ Connect at **57600 baud** to see:
 | Set step pitch | Voice slider (NN mode) |
 | Set step velocity | Voice slider (VL mode) |
 | Set step gate length | Voice slider (GT mode) |
+| Set step CC value | Voice slider (CC mode) |
+| Toggle CC step on/off | Step button (CC mode) |
 | Cycle slider mode (simple) | Enter button |
 | Slider mode → NN (advanced) | Pattern button 2 |
 | Slider mode → GT (advanced) | Pattern button 3 |
 | Slider mode → VL (advanced) | Pattern button 4 |
+| Set CC controller number | Config menu → CC number |
 | Select pattern (d-pad) | D-pad left to mode 1, up/down cycles patterns |
 | Select pattern (simple) | Pattern button 1–4 |
 | Select pattern (advanced) | Single-click pattern button 1 (nav mode on), tap step button |
 | Adjust tempo (coarse) | D-pad right to mode 2–3, then up/down |
-| Adjust tempo (fine) | D-pad right to mode 4–5, then up/down |
+| Adjust tempo (fine) | D-pad right to mode 4, then up/down |
 | Adjust swing | Config menu → Swing |
 | Set clock source | Config menu → Clock |
 | Set MIDI channel | Config menu → Channel |
@@ -530,3 +568,126 @@ Connect at **57600 baud** to see:
 | Toggle Simple/Advanced | Config menu → Mode |
 | Open config menu | Double-tap Enter |
 | Enter / exit diagnostics | Hold D-pad left + right 1s |
+
+---
+
+## MIDI CC Number Reference
+
+The CC Number config menu item selects which MIDI CC controller the current pattern outputs. The sequencer skips reserved CC numbers automatically. The LCD shows a 7-character abbreviated name; the full name is listed below.
+
+Forbidden/skipped: CC 32 (Bank LSB), CC 96–101 (RPN/NRPN data entry), CC 120–127 (Channel Mode Messages — not accessible).
+
+| CC | LCD Name | Full Name |
+|---|---|---|
+| 1 | ModWhl | Modulation Wheel |
+| 2 | BrethC | Breath Controller |
+| 3 | Ctrl 3 | Controller 3 (undefined) |
+| 4 | FootC | Foot Controller |
+| 5 | PortTm | Portamento Time |
+| 6 | DataEn | Data Entry MSB |
+| 7 | Volume | Channel Volume |
+| 8 | Balance | Balance |
+| 9 | Ctrl 9 | Controller 9 (undefined) |
+| 10 | Pan | Pan |
+| 11 | ExprC | Expression Controller |
+| 12 | FxCtl1 | Effect Control 1 |
+| 13 | FxCtl2 | Effect Control 2 |
+| 14 | Ctl 14 | Controller 14 (undefined) |
+| 15 | Ctl 15 | Controller 15 (undefined) |
+| 16 | GPC 1 | General Purpose Controller 1 |
+| 17 | GPC 2 | General Purpose Controller 2 |
+| 18 | GPC 3 | General Purpose Controller 3 |
+| 19 | GPC 4 | General Purpose Controller 4 |
+| 20 | Ctl 20 | Controller 20 (undefined) |
+| 21 | Ctl 21 | Controller 21 (undefined) |
+| 22 | Ctl 22 | Controller 22 (undefined) |
+| 23 | Ctl 23 | Controller 23 (undefined) |
+| 24 | Ctl 24 | Controller 24 (undefined) |
+| 25 | Ctl 25 | Controller 25 (undefined) |
+| 26 | Ctl 26 | Controller 26 (undefined) |
+| 27 | Ctl 27 | Controller 27 (undefined) |
+| 28 | Ctl 28 | Controller 28 (undefined) |
+| 29 | Ctl 29 | Controller 29 (undefined) |
+| 30 | Ctl 30 | Controller 30 (undefined) |
+| 31 | Ctl 31 | Controller 31 (undefined) |
+| 33 | ModLSB | Modulation Wheel LSB |
+| 34 | BrhLSB | Breath Controller LSB |
+| 35 | C3 LSB | Controller 3 LSB |
+| 36 | FotLSB | Foot Controller LSB |
+| 37 | PrtLSB | Portamento Time LSB |
+| 38 | DatLSB | Data Entry LSB |
+| 39 | VolLSB | Channel Volume LSB |
+| 40 | BalLSB | Balance LSB |
+| 41 | C9 LSB | Controller 9 LSB |
+| 42 | PanLSB | Pan LSB |
+| 43 | ExpLSB | Expression Controller LSB |
+| 44 | Fx1LSB | Effect Control 1 LSB |
+| 45 | Fx2LSB | Effect Control 2 LSB |
+| 46 | C14LSB | Controller 14 LSB |
+| 47 | C15LSB | Controller 15 LSB |
+| 48 | G1 LSB | General Purpose Controller 1 LSB |
+| 49 | G2 LSB | General Purpose Controller 2 LSB |
+| 50 | G3 LSB | General Purpose Controller 3 LSB |
+| 51 | G4 LSB | General Purpose Controller 4 LSB |
+| 52 | C20LSB | Controller 20 LSB |
+| 53 | C21LSB | Controller 21 LSB |
+| 54 | C22LSB | Controller 22 LSB |
+| 55 | C23LSB | Controller 23 LSB |
+| 56 | C24LSB | Controller 24 LSB |
+| 57 | C25LSB | Controller 25 LSB |
+| 58 | C26LSB | Controller 26 LSB |
+| 59 | C27LSB | Controller 27 LSB |
+| 60 | C28LSB | Controller 28 LSB |
+| 61 | C29LSB | Controller 29 LSB |
+| 62 | C30LSB | Controller 30 LSB |
+| 63 | C31LSB | Controller 31 LSB |
+| 64 | Sustain | Sustain Pedal (Damper) |
+| 65 | Portan | Portamento On/Off |
+| 66 | Sost | Sostenuto Pedal |
+| 67 | SoftP | Soft Pedal |
+| 68 | LegatoF | Legato Footswitch |
+| 69 | Hold2 | Hold 2 |
+| 70 | SndCtl1 | Sound Controller 1 (Sound Variation) |
+| 71 | SndCtl2 | Sound Controller 2 (Timbre/Harmonic) |
+| 72 | SndCtl3 | Sound Controller 3 (Release Time) |
+| 73 | SndCtl4 | Sound Controller 4 (Attack Time) |
+| 74 | SndCtl5 | Sound Controller 5 (Brightness/Cutoff) |
+| 75 | SndCtl6 | Sound Controller 6 (Decay Time) |
+| 76 | SndCtl7 | Sound Controller 7 (Vibrato Rate) |
+| 77 | SndCtl8 | Sound Controller 8 (Vibrato Depth) |
+| 78 | SndCtl9 | Sound Controller 9 (Vibrato Delay) |
+| 79 | SndC10 | Sound Controller 10 |
+| 80 | GPC 5 | General Purpose Controller 5 |
+| 81 | GPC 6 | General Purpose Controller 6 |
+| 82 | GPC 7 | General Purpose Controller 7 |
+| 83 | GPC 8 | General Purpose Controller 8 |
+| 84 | PrtCtl | Portamento Control |
+| 85 | Ctl 85 | Controller 85 (undefined) |
+| 86 | Ctl 86 | Controller 86 (undefined) |
+| 87 | Ctl 87 | Controller 87 (undefined) |
+| 88 | HiResV | High-Resolution Velocity Prefix |
+| 89 | Ctl 89 | Controller 89 (undefined) |
+| 90 | Ctl 90 | Controller 90 (undefined) |
+| 91 | FxDpth | Effects 1 Depth (Reverb Send) |
+| 92 | TrmDpth | Effects 2 Depth (Tremolo Depth) |
+| 93 | ChoDepth | Effects 3 Depth (Chorus Send) |
+| 94 | CelDpth | Effects 4 Depth (Celeste/Detune Depth) |
+| 95 | PhaDepth | Effects 5 Depth (Phaser Depth) |
+| 102 | Ctl102 | Controller 102 (undefined) |
+| 103 | Ctl103 | Controller 103 (undefined) |
+| 104 | Ctl104 | Controller 104 (undefined) |
+| 105 | Ctl105 | Controller 105 (undefined) |
+| 106 | Ctl106 | Controller 106 (undefined) |
+| 107 | Ctl107 | Controller 107 (undefined) |
+| 108 | Ctl108 | Controller 108 (undefined) |
+| 109 | Ctl109 | Controller 109 (undefined) |
+| 110 | Ctl110 | Controller 110 (undefined) |
+| 111 | Ctl111 | Controller 111 (undefined) |
+| 112 | Ctl112 | Controller 112 (undefined) |
+| 113 | Ctl113 | Controller 113 (undefined) |
+| 114 | Ctl114 | Controller 114 (undefined) |
+| 115 | Ctl115 | Controller 115 (undefined) |
+| 116 | Ctl116 | Controller 116 (undefined) |
+| 117 | Ctl117 | Controller 117 (undefined) |
+| 118 | Ctl118 | Controller 118 (undefined) |
+| 119 | Ctl119 | Controller 119 (undefined) |

@@ -26,7 +26,7 @@ void listen_for_navigation_events() {
       // mode switching
       if (dpad_right_flag == true) {
         dpad_right_flag = false;
-        if (timing_mode < 5) {
+        if (timing_mode < 4) {
           timing_mode++;
         }
         switch_timing_mode_events();
@@ -49,8 +49,7 @@ void listen_for_navigation_events() {
           }
           case 2:  // ±10 BPM
           case 3:  // ±1 BPM
-          case 4:  // ±0.1 BPM
-          case 5: {  // ±0.01 BPM
+          case 4: {  // ±0.1 BPM
             switch_timing_mode_events();
             set_timing_resolution();
             break;
@@ -133,11 +132,6 @@ void switch_timing_mode_events() {
     case 4:  // ±0.1 BPM
       timing_resolution = 0.1;
       cursor_x = LCD_L1_X_TEMPO_01;
-      cursor_y = 0;
-      break;
-    case 5:  // ±0.01 BPM
-      timing_resolution = 0.01;
-      cursor_x = LCD_L1_X_TEMPO_001;
       cursor_y = 0;
       break;
   }

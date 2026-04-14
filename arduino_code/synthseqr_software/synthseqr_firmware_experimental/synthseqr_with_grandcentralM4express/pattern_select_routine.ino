@@ -133,6 +133,41 @@ void run_pattern_select_routine() {
   // -----------------------------------------------------------------------
   if (!advanced_mode) {
     static bool chain_toggle_handled = false;
+    // Non-blocking LED cascade state.
+    // chain_anim_dir=1: forward (0→1→2→3→settle) for chain-on.
+    // chain_anim_dir=-1: reverse (3→2→1→settle) for chain-off.
+    static int  chain_anim_step    = -1;  // -1 = inactive
+    static int  chain_anim_dir     =  1;
+    static unsigned long chain_anim_last_ms = 0;
+
+    // Advance cascade animation each frame.
+    if (chain_anim_step >= 0) {
+      unsigned long now = millis();
+      if (now - chain_anim_last_ms >= 60) {
+        chain_anim_last_ms = now;
+        if (chain_anim_dir == 1) {
+          // Forward: light LEDs 1→2→3, then settle (turn 1-3 off).
+          if (chain_anim_step <= 3) {
+            pattern_select_leds[chain_anim_step].on();
+            chain_anim_step++;
+          } else {
+            pattern_select_leds[1].off();
+            pattern_select_leds[2].off();
+            pattern_select_leds[3].off();
+            chain_anim_step = -1;
+          }
+        } else {
+          // Reverse: turn off LEDs 3→2→1, then settle (LED 0 stays on).
+          if (chain_anim_step >= 1) {
+            pattern_select_leds[chain_anim_step].off();
+            chain_anim_step--;
+          } else {
+            chain_anim_step = -1;
+          }
+        }
+      }
+    }
+
     if (pattern_select_buttons[0].wasPressed() &&
         pattern_select_buttons[3].wasPressed()) {
       if (!chain_toggle_handled) {
@@ -140,13 +175,26 @@ void run_pattern_select_routine() {
         if (extended_step_length_mode == 1) {
           lcdflag = 200;  next_lcdflag = 200;  // single
           extended_step_length_mode = 0;
+          // go_to_pattern first: lights LED 0, clears LEDs 1-3.
+          go_to_pattern(0, 1);
+          // Reverse cascade: re-light LEDs 1-3, then turn them off 3→2→1.
+          pattern_select_leds[1].on();
+          pattern_select_leds[2].on();
+          pattern_select_leds[3].on();
+          chain_anim_dir     = -1;
+          chain_anim_step    = 3;
+          chain_anim_last_ms = millis();
         } else {
           lcdflag = 201;  next_lcdflag = 201;  // chain 4
           extended_step_length_mode = 1;
           chain_start = 0;
           chain_end   = 3;
+          // Forward cascade: go_to_pattern sets LED 0 on; cascade adds 1-3.
+          chain_anim_dir     = 1;
+          chain_anim_step    = 1;
+          chain_anim_last_ms = millis();
+          go_to_pattern(0, 1);
         }
-        go_to_pattern(0, 1);
       }
     } else {
       chain_toggle_handled = false;
@@ -216,15 +264,19 @@ void go_to_pattern(int pattern, int silent) {
   // In pattern nav mode the step LEDs display pattern/chain selection,
   // not step on/off data. The nav routine redraws them each frame.
   if (!adv_pat_nav_active) {
-    for (int voice = 0; voice < 1; voice++)  // synthseqr configuration
-    {
-      for (int step = 0; step <= 15; step++) {
-        step_value = step_data[pattern][voice][step];
+    if (slider_mode == 4) {
+      read_cc_step_memory();
+    } else {
+      for (int voice = 0; voice < 1; voice++)  // synthseqr configuration
+      {
+        for (int step = 0; step <= 15; step++) {
+          step_value = step_data[pattern][voice][step];
 
-        if (step_value == 1) {
-          step_leds[step].on();
-        } else {
-          step_leds[step].off();
+          if (step_value == 1) {
+            step_leds[step].on();
+          } else {
+            step_leds[step].off();
+          }
         }
       }
     }
@@ -263,8 +315,13 @@ void listen_for_copy_command() {
                 pattern_step_velocities[current_pattern][step];
             step_gate[copy_pattern_to][step] =
                 step_gate[current_pattern][step];
+            cc_step_enabled[copy_pattern_to][step] =
+                cc_step_enabled[current_pattern][step];
+            cc_step_values[copy_pattern_to][step] =
+                cc_step_values[current_pattern][step];
           }
         }
+        cc_number[copy_pattern_to] = cc_number[current_pattern];
         told_which_pattern_to_copy_to = false;
         ended_on = copy_pattern_to;
 
