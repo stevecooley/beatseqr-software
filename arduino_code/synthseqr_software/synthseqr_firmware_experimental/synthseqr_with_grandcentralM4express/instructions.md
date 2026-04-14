@@ -64,7 +64,7 @@ The current mode is always shown in the top-right corner of LCD line 1.
 
 ### Switching Modes
 
-**Simple mode:** Single-tap the **Enter button** to cycle NN → VL → GT → NN.
+**Simple mode:** Single-tap the **Enter button** to cycle NN → VL → GT → NN. The mode change fires ~400 ms after the tap so the sequencer can confirm it isn't the start of a double-tap.
 
 **Advanced mode:** Use the **pattern select buttons**:
 - **Pattern button 1** → NN mode (LED 1 lights up)

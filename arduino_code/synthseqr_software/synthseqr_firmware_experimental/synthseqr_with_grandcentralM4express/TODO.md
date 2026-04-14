@@ -4,10 +4,9 @@ Feature ideas and planned work. Not prioritized — just captured for future ses
 
 ---
 
-- [ ] Pattern length — configurable steps per pattern (e.g. 8, 16)
-- [ ] Pattern direction — forward, reverse, ping-pong, random
+- [x] Pattern length — configurable steps per pattern (e.g. 8, 16)
+- [x] Pattern direction — forward, reverse, ping-pong, random
 - [x] Per-step note length — implemented via GT slider mode; sliders set gate length 1–8 per step per pattern; stored in step_gate[pattern][step]
-- [ ] Enter as shift key — hold Enter + other buttons for secondary functions
 - [x] Octave shifting — Config menu → Octave shift; d-pad up/down ±1 octave, range -5 to +5; applied at MIDI send time, saved to SD+EEPROM
 - [x] Note ranges — Config menu → Note range; two-phase editor for low/high MIDI note bounds; defaults 36–52; saved to SD+EEPROM
 - [ ] Randomize pattern — fill current pattern with random steps and/or pitches

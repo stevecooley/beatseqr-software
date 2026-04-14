@@ -113,20 +113,32 @@ void loop() {
   }
 
   // Double-tap Enter (two presses within 400 ms) enters the config menu.
-  // Single tap sets enterbutton_flag for normal navigation handling.
+  // The single-tap action is deferred until the 400 ms window expires so the
+  // first tap of a double-tap never accidentally triggers a slider mode change.
   {
     static unsigned long last_enter_ms = 0;
+    static bool enter_tap_pending = false;
+    unsigned long now_ms = millis();
+
     if (enterbutton.uniquePress()) {
-      unsigned long now_ms = millis();
-      if (now_ms - last_enter_ms <= 400 && last_enter_ms != 0) {
-        // Double-tap detected — enter config menu, suppress the flag.
+      if (enter_tap_pending && now_ms - last_enter_ms <= 400) {
+        // Second tap within window — confirmed double-tap.
+        enter_tap_pending = false;
         last_enter_ms = 0;
         enter_config_menu();
       } else {
+        // First tap — start the window; don't fire single-tap yet.
+        enter_tap_pending = true;
         last_enter_ms = now_ms;
-        enterbutton_flag = true;
-        Serial.println("enter button pressed");
       }
+    }
+
+    // Window expired without a second tap — fire as single tap now.
+    if (enter_tap_pending && now_ms - last_enter_ms > 400) {
+      enter_tap_pending = false;
+      last_enter_ms = 0;
+      enterbutton_flag = true;
+      Serial.println("enter button pressed");
     }
   }
 
