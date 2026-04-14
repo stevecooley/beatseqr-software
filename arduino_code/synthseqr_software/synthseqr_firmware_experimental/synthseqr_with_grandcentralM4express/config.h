@@ -426,6 +426,7 @@ unsigned long ext_clk_last_pulse_us    = 0;      // micros() of last 0xF8 pulse
 unsigned long ext_clk_avg_interval_us  = 20833;  // running avg (default: 120 BPM)
 bool          ext_swing_pulse_pending  = false;  // deferred 6th-pulse queued
 unsigned long ext_swing_pulse_fire_us  = 0;      // micros() value to fire it at
+bool          ext_clock_start_pending  = false;  // play pressed; waiting for next beat boundary to start
 
 // Declared in transport.ino; forward-declared here so the main sketch can
 // read the flag set by the play button hardware interrupt.

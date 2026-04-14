@@ -168,7 +168,9 @@ When EXT is active:
 - 0xFA (MIDI Start) from the host starts the sequencer.
 - 0xFC (MIDI Stop) from the host stops it.
 - The sequencer does **not** send its own MIDI clock, start, or stop messages — it is purely a follower.
-- The local Play button still works to arm or start the sequencer before the host sends start.
+- The local Play button still works to arm or start the sequencer.
+  - **If the external clock is already running when you press Play**, the sequencer waits for the next beat boundary (the next 6th 0xF8 pulse) before starting, so it locks in phase with the incoming clock automatically.
+  - **If the external clock is not running**, pressing Play arms the sequencer; it starts as soon as the first clock pulse arrives (or when the host sends 0xFA).
 - MIDI notes are still output normally.
 - **Swing works in EXT mode**: odd-step transitions are deferred by the swing amount relative to the measured clock interval. The effect is slightly milder than internal swing at the same setting.
 

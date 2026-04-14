@@ -53,6 +53,15 @@ void read_midi()
           bool is_step_pulse = (ext_clk_pulse_count >= 6);
           if (is_step_pulse) ext_clk_pulse_count = 0;
 
+          if (is_step_pulse) {
+            // If play was pressed while clock was running, arm the sequencer
+            // now on this beat boundary so we start in phase.
+            if (ext_clock_start_pending) {
+              seq.start();
+              ext_clock_start_pending = false;
+            }
+          }
+
           if (is_step_pulse && SWING > 0 && (seq.getPosition() % 2 == 0)) {
             // Transitioning to an odd step with swing — defer this pulse.
             ext_swing_pulse_pending = true;
@@ -93,8 +102,9 @@ void read_midi()
       {
         Serial.println("Midi Stop!");
         // Discard any pending deferred pulse so it doesn't fire after stop.
-        ext_clk_pulse_count     = 0;
-        ext_swing_pulse_pending = false;
+        ext_clk_pulse_count      = 0;
+        ext_swing_pulse_pending  = false;
+        ext_clock_start_pending  = false;
         midistopped = true;
       }
     }

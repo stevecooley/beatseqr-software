@@ -39,10 +39,20 @@ void listen_for_transport_events() {
 
       // In external clock mode the host is the master; don't send transport.
       if (!external_clock_mode) clockStart();
-      // start the sequencer
-      seq.start();
-      // Synchronise TC4 counter (internal mode only; TC4 is stopped in ext mode).
-      if (!external_clock_mode) resetSequencerTimerSync();
+      if (external_clock_mode) {
+        // Clock is still running — wait for the next beat boundary so we
+        // start in phase. Reset pulse count so we get a clean 6-pulse window,
+        // then arm the pending flag; read_midi() will call seq.start() on the
+        // next step pulse.
+        ext_clk_pulse_count = 0;
+        ext_swing_pulse_pending = false;
+        ext_clock_start_pending = true;
+      } else {
+        // start the sequencer
+        seq.start();
+        // Synchronise TC4 counter (internal mode only; TC4 is stopped in ext mode).
+        resetSequencerTimerSync();
+      }
 
       // turn on the chase lights, I guess? I mean there might be times you
       // wouldn't want this to always happen. *sigh*

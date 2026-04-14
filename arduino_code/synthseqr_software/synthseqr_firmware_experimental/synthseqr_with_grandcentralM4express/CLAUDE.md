@@ -100,7 +100,8 @@ uint8_t ext_clk_pulse_count           // 0xF8 pulses accumulated since last step
 unsigned long ext_clk_last_pulse_us   // timestamp of previous 0xF8 pulse
 unsigned long ext_clk_avg_interval_us // IIR-averaged 0xF8 pulse interval (~20833 µs at 120 BPM)
 bool ext_swing_pulse_pending          // true when a deferred external-clock step pulse is waiting
-unsigned long ext_swing_pulse_fire_us // micros() time when the deferred pulse fires
+unsigned long ext_swing_pulse_fire_us  // micros() value to fire it at
+bool          ext_clock_start_pending  // play pressed while ext clock running; waiting for next beat boundary to call seq.start()
 ```
 
 ## Sequencer Flow
@@ -235,7 +236,7 @@ When `external_clock_mode == true`:
 - Incoming USB-MIDI 0xF8 bytes in `read_midi()` call `seq.hardwareClockPulse()` directly
 - Transport messages (0xFA start, 0xFC stop) still start/stop the sequencer
 - The sequencer does NOT output MIDI clock or transport messages (it is a follower)
-- The play button still works as a local arm/start
+- The play button works as a local arm/start. **Beat-sync start**: if the external clock is already running when play is pressed, `ext_clk_pulse_count` is reset to 0 and `ext_clock_start_pending` is set instead of calling `seq.start()` immediately. `read_midi()` calls `seq.start()` on the very next step-boundary pulse (6th 0xF8), so the sequencer starts in phase with the incoming clock. If a MIDI Stop arrives while the start is pending, the flag is cleared.
 - **Swing is supported**: 0xF8 pulses are counted per step (0–5; 6th pulse = step advance). An IIR-averaged interval (`ext_clk_avg_interval_us`, 7/8 old + 1/8 new) estimates pulse spacing. When transitioning to an odd step with SWING > 0, the step pulse is deferred by `avg_interval × SWING` µs using `ext_swing_pulse_pending` / `ext_swing_pulse_fire_us`. The main loop checks `(long)(micros() - ext_swing_pulse_fire_us) >= 0` and fires the deferred `hardwareClockPulse()` before `seq.run()`. Only the "late odd step" side is implemented (no compensating early even step), making external swing slightly milder than internal at the same SWING value.
 
 When `external_clock_mode == false` (default):
