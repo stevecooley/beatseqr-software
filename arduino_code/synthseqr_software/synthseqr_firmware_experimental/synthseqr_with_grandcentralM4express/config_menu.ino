@@ -77,6 +77,9 @@ void print_config_label(uint8_t item) {
   } else if (item == CONFIG_ITEM_NOTE_RANGE) {
     bool non_default = (slider_map_low_value != 36 || slider_map_high_value != 52);
     lcd.print(non_default ? "Note range   *" : "Note range    ");
+  } else if (item == CONFIG_ITEM_NOTE_SCALES) {
+    bool non_default = (scale_type != 0 || scale_root != 0);
+    lcd.print(non_default ? "Note scales  *" : "Note scales   ");
   } else if (item == CONFIG_ITEM_PAT_LENGTH) {
     lcd.print(pattern_length != 16 ? "Pat length   *" : "Pat length    ");
   } else if (item == CONFIG_ITEM_PAT_DIR) {
@@ -174,6 +177,19 @@ void draw_config_menu() {
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_NOTE_SCALES) {
+    char line2[17];
+    int len;
+    if (config_scale_phase == 0) {
+      // Sub-state 0: choose scale type. "  Sc: %-10s" = 16 chars.
+      len = snprintf(line2, sizeof(line2), "  Sc: %-10s", SCALE_NAMES[scale_type]);
+    } else {
+      // Sub-state 1: choose root note. "  Root: %-8s" = 16 chars.
+      len = snprintf(line2, sizeof(line2), "  Root: %-8s", ROOT_NAMES[scale_root]);
+    }
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
   } else {
     uint8_t next = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
     lcd.print("  ");
@@ -194,6 +210,7 @@ void exit_config_menu() {
   config_confirm_pending = false;
   config_editing_value = false;
   config_note_range_phase = 0;
+  config_scale_phase = 0;
   // Restore step LEDs to pattern data state (in case PAT_LENGTH was editing).
   read_step_memory(0, pattern_value);
   // Force a full LCD redraw back to the main display.
@@ -214,6 +231,7 @@ void run_config_menu() {
       if (config_menu_item == CONFIG_ITEM_PAT_LENGTH) read_step_memory(0, pattern_value);
       config_editing_value = false;
       config_note_range_phase = 0;
+      config_scale_phase = 0;
       draw_config_menu();
     } else if (config_confirm_pending) {
       config_confirm_pending = false;
@@ -247,10 +265,12 @@ void run_config_menu() {
         if (config_note_range_phase == 0 && slider_map_low_value < slider_map_high_value - 1) {
           slider_map_low_value++;
           init_blank_patterns_to_range();
+          build_scale_notes();
           draw_config_menu();
         } else if (config_note_range_phase == 1 && slider_map_high_value < 127) {
           slider_map_high_value++;
           init_blank_patterns_to_range();
+          build_scale_notes();
           draw_config_menu();
         }
       } else if (config_menu_item == CONFIG_ITEM_PAT_LENGTH && pattern_length < 16) {
@@ -262,6 +282,14 @@ void run_config_menu() {
         pattern_direction = (pattern_direction + PATTERN_DIRECTION_COUNT - 1) % PATTERN_DIRECTION_COUNT;
         if (pattern_direction == 2) { ping_pong_going_forward = true; ping_pong_step = 0; }
         if (pattern_direction == 4) init_shuffle();
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_NOTE_SCALES) {
+        if (config_scale_phase == 0) {
+          scale_type = (scale_type + SCALE_COUNT - 1) % SCALE_COUNT;
+        } else {
+          scale_root = (scale_root + 12 - 1) % 12;
+        }
+        apply_scale_to_all_patterns();
         draw_config_menu();
       }
     }
@@ -284,10 +312,12 @@ void run_config_menu() {
         if (config_note_range_phase == 0 && slider_map_low_value > 0) {
           slider_map_low_value--;
           init_blank_patterns_to_range();
+          build_scale_notes();
           draw_config_menu();
         } else if (config_note_range_phase == 1 && slider_map_high_value > slider_map_low_value + 1) {
           slider_map_high_value--;
           init_blank_patterns_to_range();
+          build_scale_notes();
           draw_config_menu();
         }
       } else if (config_menu_item == CONFIG_ITEM_PAT_LENGTH && pattern_length > 1) {
@@ -300,6 +330,14 @@ void run_config_menu() {
         pattern_direction = (pattern_direction + 1) % PATTERN_DIRECTION_COUNT;
         if (pattern_direction == 2) { ping_pong_going_forward = true; ping_pong_step = 0; }
         if (pattern_direction == 4) init_shuffle();
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_NOTE_SCALES) {
+        if (config_scale_phase == 0) {
+          scale_type = (scale_type + 1) % SCALE_COUNT;
+        } else {
+          scale_root = (scale_root + 1) % 12;
+        }
+        apply_scale_to_all_patterns();
         draw_config_menu();
       }
     }
@@ -322,10 +360,15 @@ void run_config_menu() {
       if (config_menu_item == CONFIG_ITEM_NOTE_RANGE && config_note_range_phase == 0) {
         config_note_range_phase = 1;
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_NOTE_SCALES && config_scale_phase == 0) {
+        // Advance from scale type to root note sub-state.
+        config_scale_phase = 1;
+        draw_config_menu();
       } else {
         if (config_menu_item == CONFIG_ITEM_PAT_LENGTH) read_step_memory(0, pattern_value);
         config_editing_value = false;
         config_note_range_phase = 0;
+        config_scale_phase = 0;
         draw_config_menu();
       }
     }
@@ -442,9 +485,9 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_NOTE_SCALES:
-        // Placeholder — not yet implemented. Show a message on line 2.
-        lcd.print("?x00?y1");
-        lcd.print("Coming soon...  ");
+        config_editing_value = true;
+        config_scale_phase = 0;
+        draw_config_menu();
         break;
       case CONFIG_ITEM_PAT_LENGTH:
         config_editing_value = true;

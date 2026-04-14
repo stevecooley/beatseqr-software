@@ -39,8 +39,10 @@
 #define EEPROM_NOTE_RANGE_HIGH_ADDR   526
 #define EEPROM_PAT_LENGTH_ADDR        527
 #define EEPROM_PAT_DIR_ADDR           528
+#define EEPROM_SCALE_ROOT_ADDR        529
+#define EEPROM_SCALE_TYPE_ADDR        530
 
-#define EEPROM_MAGIC_VALUE  0xC4  // bumped: added pattern_length/direction
+#define EEPROM_MAGIC_VALUE  0xC5  // bumped: added scale_root/scale_type
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -72,6 +74,8 @@ void save_to_eeprom() {
   EEPROM.write(EEPROM_NOTE_RANGE_HIGH_ADDR, slider_map_high_value);
   EEPROM.write(EEPROM_PAT_LENGTH_ADDR, pattern_length);
   EEPROM.write(EEPROM_PAT_DIR_ADDR, pattern_direction);
+  EEPROM.write(EEPROM_SCALE_ROOT_ADDR, scale_root);
+  EEPROM.write(EEPROM_SCALE_TYPE_ADDR, scale_type);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -142,7 +146,16 @@ bool load_from_eeprom() {
   }
   {
     uint8_t pd = EEPROM.read(EEPROM_PAT_DIR_ADDR);
-    if (pd <= 3) pattern_direction = pd;
+    if (pd < PATTERN_DIRECTION_COUNT) pattern_direction = pd;
+  }
+
+  {
+    uint8_t sr = EEPROM.read(EEPROM_SCALE_ROOT_ADDR);
+    if (sr < 12) scale_root = sr;
+  }
+  {
+    uint8_t st = EEPROM.read(EEPROM_SCALE_TYPE_ADDR);
+    if (st < SCALE_COUNT) scale_type = st;
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm
@@ -151,6 +164,9 @@ bool load_from_eeprom() {
     voice_slider_midinotenum[s] = pattern_step_pitches[current_pattern][s];
     slider_needs_pickup[s] = true;
   }
+
+  // Rebuild scale note pool from loaded settings.
+  build_scale_notes();
 
   Serial.println("loaded from EEPROM");
   return true;

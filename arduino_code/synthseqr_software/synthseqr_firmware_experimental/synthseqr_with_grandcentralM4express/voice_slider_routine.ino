@@ -32,8 +32,14 @@ void run_voice_slider_routine()
 
     if (slider_mode == 1)
     {
-      // NN mode: map to note range, pickup guard protects stored pitch.
-      raw_voice_slider_values[j] = map(sector, 0, 255, slider_map_low_value, slider_map_high_value);
+      // NN mode: map to scale note pool when active, else full chromatic range.
+      // Pickup guard protects stored pitch across mode/pattern switches.
+      if (scale_note_count > 0) {
+        uint8_t idx = (uint8_t)map(sector, 0, 255, 0, (int)scale_note_count - 1);
+        raw_voice_slider_values[j] = scale_note_pool[idx];
+      } else {
+        raw_voice_slider_values[j] = map(sector, 0, 255, slider_map_low_value, slider_map_high_value);
+      }
 
       if (slider_needs_pickup[j])
       {
@@ -107,6 +113,8 @@ void resetSliders()
   // Also seed any other blank patterns with the current low note so they're
   // ready to use without needing to manually reset them too.
   init_blank_patterns_to_range();
+  // Rebuild scale pool in case the note range changed.
+  build_scale_notes();
 }
 
 void slider_serial_message_factory(const char *slider_message_header, int j)

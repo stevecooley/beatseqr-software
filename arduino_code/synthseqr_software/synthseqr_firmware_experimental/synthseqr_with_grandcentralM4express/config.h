@@ -394,6 +394,7 @@ uint8_t config_menu_item = 0;   // 0=Exit 1=ClearPat 2=ClearAll 3=ResetSliders 4
 bool config_confirm_pending = false;
 bool config_editing_value = false;  // true while adjusting a value (e.g. octave shift)
 uint8_t config_note_range_phase = 0; // 0 = editing low, 1 = editing high (used by NOTE_RANGE item)
+uint8_t config_scale_phase = 0;      // 0 = editing scale type, 1 = editing root (used by NOTE_SCALES item)
 
 /////////////////////////////////
 // octave shift
@@ -406,6 +407,27 @@ int8_t octave_shift = 0;
 // Semitone offset applied at MIDI send time on top of octave_shift.
 // Range -12 to +12. Stored separately from per-step pitches.
 int8_t note_shift = 0;
+
+/////////////////////////////////
+// note scales
+/////////////////////////////////
+
+// 0=Chromatic 1=Major 2=NatMinor 3=PentMaj 4=PentMin
+// 5=Dorian 6=Mixolydian 7=HarmMinor 8=Blues
+#define SCALE_COUNT 9
+uint8_t scale_type = 0;
+
+// 0=C 1=C# 2=D 3=D# 4=E 5=F 6=F# 7=G 8=G# 9=A 10=A# 11=B
+uint8_t scale_root = 0;
+
+// In-scale MIDI notes within the current note range; populated by build_scale_notes().
+uint8_t scale_note_pool[128];
+uint8_t scale_note_count = 0;
+
+// Declared in scales.ino; forward-declared here so config_menu.ino can use them.
+// (Arduino merges .ino files alphabetically; config_menu.ino precedes scales.ino.)
+extern const char* SCALE_NAMES[SCALE_COUNT];
+extern const char* ROOT_NAMES[12];
 
 // Pattern playback settings — global, applies to all patterns.
 // pattern_direction: 0=Fwd 1=Rev 2=Pong 3=Rand 4=Shuf 5=E/O 6=In 7=Quad

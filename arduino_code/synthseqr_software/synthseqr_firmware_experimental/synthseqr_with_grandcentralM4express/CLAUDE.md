@@ -88,6 +88,10 @@ unsigned long adv_blink_last_ms       // last blink toggle timestamp in nav mode
 bool adv_blink_state                  // current blink state for the playing pattern's LED in nav mode
 int8_t octave_shift                   // semitone offset applied at MIDI send time; range -5 to +5 octaves
 int8_t note_shift                     // additional semitone offset applied at MIDI send time; range -12 to +12
+uint8_t scale_type                    // 0=Chromatic 1=Major 2=NatMinor 3=PentMaj 4=PentMin 5=Dorian 6=Mixolydian 7=HarmMinor 8=Blues; default 0
+uint8_t scale_root                    // 0=C … 11=B; default 0 (C)
+uint8_t scale_note_pool[128]          // in-scale MIDI notes within the note range; rebuilt by build_scale_notes()
+uint8_t scale_note_count              // number of valid entries in scale_note_pool[]
 // Pattern playback settings (global — apply to all patterns):
 uint8_t pattern_length                // 1–16 steps before looping; default 16; FifteenStep step count kept in sync via seq.setSteps()
 uint8_t pattern_direction             // 0=Fwd 1=Rev 2=Pong 3=Rand 4=Shuf 5=E/O 6=In 7=Quad
@@ -316,7 +320,7 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 10. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); Enter or Left exits editing; label shows `Octave shift *` when non-zero
 11. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); Enter or Left exits editing; label shows `Note shift   *` when non-zero
 12. **Note range** — two-phase editor: Enter starts editing low value (`Edit Lo: N`), Enter again switches to high value (`Edit Hi: N`), Enter again exits; Left exits either phase; low range 0–(high-1), high range (low+1)–127; defaults 36/52; label shows `Note range   *` when non-default
-13. **Note scales** — placeholder, shows `Coming soon...` (not yet implemented)
+13. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; Left exits either phase; changing scale type or root immediately calls `apply_scale_to_all_patterns()` which retroactively quantizes all stored pitches across all 16 patterns to the nearest in-scale note and re-arms all pickup guards; scale pool is also rebuilt on note range changes; label shows `Note scales  *` when scale is non-default (not Chromatic/C). Scales: 0=Chromatic 1=Major 2=NatMinor 3=PentMaj 4=PentMin 5=Dorian 6=Mixolydian 7=HarmMinor 8=Blues. Scale tables and helpers live in `scales.ino`; `SCALE_COUNT` and `extern` declarations for `SCALE_NAMES`/`ROOT_NAMES` are in `config.h` so `config_menu.ino` (compiled before `scales.ino` alphabetically) can see them.
 14. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button to set length to N+1 (step buttons are consumed before `detect_step_button_presses()` runs); step LEDs 0..length-1 light up while editing, restored via `read_step_memory()` on exit; `seq.setSteps(pattern_length)` called on every change; `init_shuffle()` called if direction is Shuf; label shows `Pat length   *` when not 16
 15. **Pat dir** — enter editing sub-state; up/down cycles 0–7 (`PATTERN_DIRECTION_COUNT`); entering Pong resets `ping_pong_step=0`/`ping_pong_going_forward=true`; entering Shuf calls `init_shuffle()`; direction names: `Fwd`/`Rev`/`Pong`/`Rand`/`Shuf`/`E/O`/`In`/`Quad`
 
@@ -344,6 +348,8 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
   "note_shift": 0,
   "note_range_low": 36,
   "note_range_high": 52,
+  "scale_root": 0,
+  "scale_type": 0,
   "chain_active": 0,
   "chain_start": 0,
   "chain_end": 3,
@@ -369,7 +375,7 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 | Address | Size | Content |
 |---------|------|---------|
-| 0 | 1 | Magic byte `0xC4` |
+| 0 | 1 | Magic byte `0xC5` |
 | 1 | 1 | `MIDICHANNEL` |
 | 2 | 1 | `SWING` |
 | 3 | 4 | `TEMPO` (float) |
@@ -385,11 +391,13 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 526 | 1 | `slider_map_high_value` (uint8_t) |
 | 527 | 1 | `pattern_length` (uint8_t, 1–16) |
 | 528 | 1 | `pattern_direction` (uint8_t, 0–7) |
+| 529 | 1 | `scale_root` (uint8_t, 0–11) |
+| 530 | 1 | `scale_type` (uint8_t, 0–8) |
 
 **Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer.
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC4`.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC5`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.

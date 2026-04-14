@@ -145,6 +145,8 @@ bool save_to_sd() {
   _f.print("  \"advanced_mode\": ");    _f.print(advanced_mode ? 1 : 0); _f.println(",");
   _f.print("  \"pattern_length\": ");   _f.print(pattern_length);        _f.println(",");
   _f.print("  \"pattern_direction\": "); _f.print(pattern_direction);    _f.println(",");
+  _f.print("  \"scale_root\": ");        _f.print(scale_root);           _f.println(",");
+  _f.print("  \"scale_type\": ");        _f.print(scale_type);           _f.println(",");
   _f.println("  \"patterns\": [");
 
   for (int p = 0; p < 16; p++) {
@@ -276,7 +278,19 @@ bool load_from_sd() {
   _f.seek(0);
   if (sd_find("\"pattern_direction\":")) {
     int v = (int)sd_parse_number();
-    if (v >= 0 && v <= 3) pattern_direction = (uint8_t)v;
+    if (v >= 0 && v < PATTERN_DIRECTION_COUNT) pattern_direction = (uint8_t)v;
+  }
+
+  _f.seek(0);
+  if (sd_find("\"scale_root\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v < 12) scale_root = (uint8_t)v;
+  }
+
+  _f.seek(0);
+  if (sd_find("\"scale_type\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v < SCALE_COUNT) scale_type = (uint8_t)v;
   }
 
   // Parse patterns array — seek once to "patterns": then read sequentially.
@@ -353,6 +367,9 @@ bool load_from_sd() {
   // Reset ping-pong state so playback always starts from the beginning.
   ping_pong_step = 0;
   ping_pong_going_forward = true;
+
+  // Rebuild scale note pool from loaded settings.
+  build_scale_notes();
 
   Serial.println("loaded from SD");
   return true;

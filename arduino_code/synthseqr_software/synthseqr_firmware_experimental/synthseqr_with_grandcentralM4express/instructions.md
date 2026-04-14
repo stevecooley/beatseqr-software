@@ -314,6 +314,41 @@ The range determines how the sliders map to MIDI notes in NN mode: the full trav
 
 ---
 
+## Note Scales
+
+Open the **Config Menu** (double-tap Enter), scroll to **Note scales**, and press Enter.
+
+The editor has two phases:
+
+1. **Scale type** — line 2 shows `Sc: Major` (or whichever scale is active). D-pad up/down cycles through the 9 available scales. Press Enter to move to the root note editor.
+2. **Root note** — line 2 shows `Root: C#` (or current root). D-pad up/down cycles C → C# → D → D# → E → F → F# → G → G# → A → A# → B. Press Enter to confirm and exit.
+
+D-pad left exits either phase immediately.
+
+**Each change takes effect immediately** — as soon as you move up or down, all stored pitches across all 16 patterns are snapped to the nearest note in the new scale. Sliders are also re-locked until each physical position crosses the new pitch.
+
+The label shows `Note scales  *` in the menu when the scale is not Chromatic/C.
+
+### Available Scales
+
+| Name | Notes (intervals from root) |
+|---|---|
+| **Chromatic** | All 12 semitones — no constraint (default behavior) |
+| **Major** | W-W-H-W-W-W-H (e.g. C D E F G A B) |
+| **NatMinor** | W-H-W-W-H-W-W (e.g. A B C D E F G) |
+| **PentMaj** | Major pentatonic — 5 notes (e.g. C D E G A) |
+| **PentMin** | Minor pentatonic — 5 notes (e.g. A C D E G) |
+| **Dorian** | Like natural minor with raised 6th (e.g. D E F G A B C) |
+| **Mixolydian** | Like major with lowered 7th (e.g. G A B C D E F) |
+| **HarmMinor** | Natural minor with raised 7th (e.g. A B C D E F G#) |
+| **Blues** | Minor pentatonic + blue note (e.g. A C D D# E G) |
+
+### How It Works With Sliders
+
+In NN mode, the 16 sliders map evenly across only the in-scale notes within the configured note range. For example, with C Major and a note range of C3–C5, each slider position snaps to a C, D, E, F, G, A, or B — never an out-of-scale note. When you set the scale to Chromatic, sliders return to the full chromatic range.
+
+---
+
 ## Pattern Length
 
 Open the **Config Menu** (double-tap Enter), scroll to **Pat length**, and press Enter.
@@ -395,7 +430,7 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Octave shift | Adjust octave offset ±5; up/down to change, Enter or Left to exit; label shows * when non-zero |
 | Note shift | Adjust semitone offset ±12; up/down to change, Enter or Left to exit; label shows * when non-zero |
 | Note range | Two-phase editor: Enter to edit low note, Enter again to edit high note, Enter to exit; Left exits either phase; label shows * when non-default (36/52) |
-| Note scales | (Coming soon) |
+| Note scales | Two-phase editor: Enter to choose scale type, Enter again to choose root note, Enter to exit; changing either value immediately quantizes all stored pitches to the nearest in-scale note; label shows * when non-default |
 | Pat length | Step count 1–16; up/down or tap a step button; step LEDs show current length; label shows * when not 16 |
 | Pat dir | Playback direction; up/down cycles Fwd/Rev/Pong/Rand/Shuf/E/O/In/Quad |
 
@@ -413,6 +448,7 @@ The following are saved:
 - Tempo, swing, MIDI channel
 - Active pattern, chain mode on/off, clock source (INT/EXT)
 - Octave shift, Note shift, Note range (low/high)
+- Note scale (type and root note)
 - Simple / Advanced mode
 - Pattern length and Pattern direction
 
@@ -487,6 +523,7 @@ Connect at **57600 baud** to see:
 | Octave shift | Config menu → Octave shift, up/down |
 | Note shift | Config menu → Note shift, up/down |
 | Note range | Config menu → Note range, Enter for lo/hi phases |
+| Set note scale | Config menu → Note scales, Enter for scale/root phases |
 | Set pattern length | Config menu → Pat length, up/down or tap step button |
 | Set pattern direction | Config menu → Pat dir, up/down cycles 8 modes |
 | Save | Config menu → Save (sequencer stopped) |
