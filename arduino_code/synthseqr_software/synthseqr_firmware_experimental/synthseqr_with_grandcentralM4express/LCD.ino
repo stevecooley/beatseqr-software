@@ -88,6 +88,9 @@ void run_LCD_setup_routine() {
 }
 
 void run_LCD_update() {
+  // Diagnostics mode writes directly to the LCD — suppress normal updates.
+  if (diag_mode) return;
+
   // Rate-limit all LCD writes to ~15 fps (every 66 ms).
   // The LCD serial port is only 9850 baud (~985 bytes/sec). Without this gate
   // the main loop floods the LCD's receive buffer and produces garbage output.

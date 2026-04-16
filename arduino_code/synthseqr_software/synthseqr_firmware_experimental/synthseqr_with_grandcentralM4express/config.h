@@ -486,3 +486,7 @@ bool ext_clock_start_pending =
 // Declared in transport.ino; forward-declared here so the main sketch can
 // read the flag set by the play button hardware interrupt.
 extern volatile bool play_button_isr_fired;
+
+// Declared in diagnostics.ino; forward-declared here so loop() and LCD.ino
+// can suppress normal subsystems while diagnostics mode is active.
+extern bool diag_mode;

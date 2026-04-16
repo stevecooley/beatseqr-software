@@ -41,7 +41,7 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 | `pattern_select_routine.ino` | Pattern switching, copy, and 4-pattern chain mode |
 | `LCD.ino` | LCD initialization and display updates |
 | `midi_note_sending.ino` | `step()` blink callback and `midi()` MIDI clock output callback |
-| `diagnostics.ino` | Hardware test mode (hold D-pad left + right 1s to enter/exit) |
+| `diagnostics.ino` | Hardware test mode: LCD-based input tester; `bool diag_mode` gates the main loop and `run_LCD_update()`; `run_diagnostics()` handles entry/exit; `run_diagnostics_display()` polls all inputs each loop iteration |
 | `storage.ino` | EEPROM save/load: `save_to_eeprom()`, `load_from_eeprom()` |
 | `sd_storage.ino` | SD card save/load: `save_to_sd()`, `load_from_sd()`, `boot_load()`, `save_everywhere()` |
 | `config_menu.ino` | Modal config menu: save, clear, mode toggle, octave/note shift, note range, swing, clock, channel |
@@ -419,3 +419,30 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 **Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC6`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.
+
+## Diagnostics Mode
+
+Entered by holding D-pad left + right simultaneously for 1 second. All normal subsystems are bypassed while active.
+
+**`bool diag_mode`** — declared in `diagnostics.ino`, forward-declared as `extern` in `config.h`. When true:
+- `loop()` calls `run_diagnostics()` then executes `if (diag_mode) return;` — everything after (navigation, step buttons, pattern select, sliders, `run_LCD_update()`) is skipped.
+- `run_LCD_update()` also early-returns if `diag_mode` is true, so the normal LCD system cannot overwrite diagnostics output.
+
+**`run_diagnostics()`** — entry/exit detection only. On entry: waits for release, resets per-session state, shows a 1.5 s splash, then calls `diag_show_idle_screen()`. On exit: restores step LEDs via `read_step_memory()` + `go_to_pattern()`, clears LCD, restores `lcdflag = 255`.
+
+**`run_diagnostics_display()`** — called once per loop iteration while active. Non-blocking. Polls:
+- D-pad up/down/left/right and Enter via `uniquePress()` — writes button name + pin to LCD line 1.
+- Play button via `play_button_isr_fired` flag (same as main loop) — writes to line 1.
+- Step buttons — first pressed wins per frame; LED toggles as secondary visual confirm.
+- Pattern select buttons — first pressed wins per frame; LED toggles.
+- Voice sliders — raw `analogRead()` on the actual analog pin (bypasses `Potentiometer` class); change threshold ±16 ADC counts; rate-limited to once per 100 ms; writes slider index, pin name, and raw 0–4095 value to LCD line 2.
+- Auto-clears to idle screen after 2 s of no activity.
+
+**LCD format:**
+- Line 1 (buttons): `"%-8s pin:%3d"` → 16 chars. Example: `STEP01   pin: 23`
+- Line 2 (sliders): `"SL%02d %-3s r:%4d "` → 16 chars. Example: `SL00 A15 r:4095 `
+
+**Slider pin mapping** (matches `config.h` Potentiometer declarations, note A2/A3 swap):
+`SL00=A15 SL01=A14 SL02=A13 SL03=A12 SL04=A11 SL05=A10 SL06=A9 SL07=A8 SL08=A7 SL09=A6 SL10=A5 SL11=A4 SL12=A2 SL13=A3 SL14=A1 SL15=A0`
+
+`seq.run()` and `read_midi()` still execute each loop iteration so USB-MIDI does not stall if the sequencer happens to be playing when diagnostics is entered.

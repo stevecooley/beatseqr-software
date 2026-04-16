@@ -92,6 +92,11 @@ void loop() {
 
   read_midi();
 
+  // Diagnostics mode: polls all inputs directly and writes to LCD.
+  // When active, all normal subsystems are skipped via the early return below.
+  run_diagnostics();
+  if (diag_mode) return;
+
   if (dpad_left.uniquePress()) {
     Serial.println("listening for nav-left events");
     dpad_left_flag = true;
@@ -167,8 +172,6 @@ void loop() {
   // when the transport is playing
 
   run_step_button_routine();
-
-  run_diagnostics();
 
   // listen for pattern select button presses and set flags
   for (uint8_t i = 0; i < 4; i++) {

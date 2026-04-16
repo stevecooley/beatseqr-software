@@ -499,20 +499,64 @@ On the next power-up, everything is automatically restored exactly as you left i
 
 ## Diagnostics Mode
 
-Hold **D-pad left + D-pad right simultaneously for 1 second** to enter diagnostics mode. The Serial monitor (57600 baud) will print hardware test output.
+Hold **D-pad left + D-pad right simultaneously for 1 second** to enter diagnostics mode. All normal sequencer functions are suspended; the LCD shows input feedback directly.
 
-In diagnostics mode:
+### Entry
 
-- Press any **step button** — its LED toggles and `step N pressed` is printed to Serial.
-- Press any **pattern select button** — its LED toggles and `pattern N pressed` is printed.
-- Move any **voice slider** — `slider N value` is printed only when the value changes.
-- Press **D-pad up** and hold — hold duration in ms is printed continuously while held.
-- Press **D-pad down** — prints `dpad down pressed`.
-- Press **D-pad left** — prints `dpad left pressed`.
-- Press **D-pad right** — prints `dpad right pressed`.
-- Press **Enter** — prints `enter pressed`.
+The LCD briefly shows:
 
-**Enter / exit diagnostics:** hold **D-pad left + D-pad right simultaneously for 1 second**, then release. The same combo exits.
+```
+  DIAGNOSTICS   
+hold L+R to exit
+```
+
+then switches to an idle prompt after 1.5 seconds:
+
+```
+  DIAGNOSTICS   
+ press a button 
+```
+
+### Button Testing
+
+Press any button. **Line 1** of the LCD immediately shows the button name and the GPIO pin it is wired to:
+
+```
+STEP01   pin: 23
+DPAD-UP  pin: 19
+PLAY     pin: 21
+PAT1     pin: 15
+ENTER    pin: 20
+```
+
+Format: `<name (8 chars)> pin:<pin number>`
+
+Button names: `STEP01`–`STEP16`, `DPAD-UP`, `DPAD-DN`, `DPAD-LT`, `DPAD-RT`, `ENTER`, `PLAY`, `PAT1`–`PAT4`.
+
+Step buttons and pattern select buttons also toggle their LED as a secondary visual confirmation.
+
+### Slider Testing
+
+Move any voice slider. **Line 2** of the LCD shows the slider index, its analog pin, and the raw 12-bit ADC value (0–4095):
+
+```
+SL00 A15 r:4095 
+SL09 A6  r:2048 
+```
+
+Format: `SL<index> <pin> r:<raw value>`
+
+The display updates only when the value changes by more than 16 ADC counts (noise floor). Only one slider update appears per 100 ms to keep the LCD readable.
+
+A full-travel slider should smoothly sweep from near 0 to near 4095. A dead or noisy slider will show erratic values, a very narrow range, or no movement at all.
+
+### Auto-Clear
+
+After **2 seconds** of no button presses or slider movement, both LCD lines return to the idle prompt so you can tell the mode is still active.
+
+### Exit
+
+Hold **D-pad left + D-pad right simultaneously for 1 second**, then release. The sequencer restores all step LEDs and the main display.
 
 ---
 
