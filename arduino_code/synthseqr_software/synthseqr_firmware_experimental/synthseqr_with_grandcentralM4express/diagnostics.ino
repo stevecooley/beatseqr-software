@@ -6,6 +6,8 @@ static bool          diag_showing_idle       = true;
 static unsigned long diag_last_activity_ms   = 0;
 static int           diag_last_raw[16]       = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
 static unsigned long diag_last_slider_lcd_ms = 0;
+static bool          diag_enter_tap_pending  = false;
+static unsigned long diag_enter_tap_ms       = 0;
 
 // Pin lookup tables — must match config.h declarations.
 static const uint8_t DIAG_STEP_PINS[16]   = {23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53};
@@ -61,63 +63,40 @@ void diag_write_slider(uint8_t idx, const char* pin_name, int raw_val)
 // Entry / exit
 // ---------------------------------------------------------------------------
 
+// Called from the config menu to enter diagnostics mode.
+void enter_diagnostics()
+{
+  diag_mode = true;
+  diag_enter_tap_pending  = false;
+
+  // Reset per-session state.
+  for (int i = 0; i < 16; i++) diag_last_raw[i] = -1;
+  diag_last_activity_ms   = millis();
+  diag_last_slider_lcd_ms = 0;
+  diag_showing_idle       = false;
+
+  Serial.println("entering diagnostics");
+
+  // Entry splash — brief blocking delay is acceptable here.
+  lcd.print("?f");
+  lcd.print("?x00?y0");
+  lcd.print("  DIAGNOSTICS   ");
+  lcd.print("?x00?y1");
+  lcd.print("dbl-tap Entr=exit");
+  delay(1500);
+
+  diag_show_idle_screen();
+  diag_showing_idle = true;
+}
+
 void run_diagnostics()
 {
-  // Entry / exit: hold d-pad left + right simultaneously for 1 second.
-  if (dpad_left.heldFor(1000) && dpad_right.heldFor(1000))
-  {
-    if (!diag_mode)
-    {
-      // Wait for release so the exit check doesn't fire immediately on entry.
-      while (dpad_left.isPressed() || dpad_right.isPressed()) {}
+  if (!diag_mode) return;
 
-      diag_mode = true;
-
-      // Reset per-session state.
-      for (int i = 0; i < 16; i++) diag_last_raw[i] = -1;
-      diag_last_activity_ms   = millis();
-      diag_last_slider_lcd_ms = 0;
-      diag_showing_idle       = false;
-
-      Serial.println("entering diagnostics");
-
-      // Entry splash — brief blocking delay is acceptable here.
-      lcd.print("?f");
-      lcd.print("?x00?y0");
-      lcd.print("  DIAGNOSTICS   ");
-      lcd.print("?x00?y1");
-      lcd.print("hold L+R to exit");
-      delay(1500);
-
-      diag_show_idle_screen();
-      diag_showing_idle = true;
-    }
-    else
-    {
-      // Exit.
-      while (dpad_left.isPressed() || dpad_right.isPressed()) {}
-
-      diag_mode = false;
-      Serial.println("exiting diagnostics");
-
-      // Restore step LEDs and pattern LEDs to match current sequencer state.
-      read_step_memory(0, pattern_value);
-      go_to_pattern(current_pattern, 1);
-
-      // Hand LCD back to the normal display system.
-      lcd.print("?f");
-      update_line1 = true;
-      update_line2 = true;
-      lcdflag      = 255;
-      next_lcdflag = 255;
-    }
-    return;
-  }
-
-  if (diag_mode)
-  {
-    run_diagnostics_display();
-  }
+  // Run display FIRST so uniquePress() gets the CHANGED flag before any
+  // subsequent isPressed() call starts a debounce window that would clear
+  // CHANGED and cause uniquePress() to miss the press.
+  run_diagnostics_display();
 }
 
 // ---------------------------------------------------------------------------
@@ -135,8 +114,33 @@ void run_diagnostics_display()
   if (dpad_left.uniquePress())  { diag_write_button("DPAD-LT",  17); activity = true; }
   if (dpad_right.uniquePress()) { diag_write_button("DPAD-RT",  16); activity = true; }
 
-  // --- Enter ---
-  if (enterbutton.uniquePress()) { diag_write_button("ENTER",    20); activity = true; }
+  // --- Enter: single tap shows button, double-tap exits diagnostics ---
+  if (enterbutton.uniquePress()) {
+    unsigned long now_ms = millis();
+    if (diag_enter_tap_pending && now_ms - diag_enter_tap_ms <= 400) {
+      // Double-tap confirmed — exit diagnostics.
+      diag_enter_tap_pending = false;
+      diag_mode = false;
+      Serial.println("exiting diagnostics");
+      read_step_memory(0, pattern_value);
+      go_to_pattern(current_pattern, 1);
+      lcd.print("?f");
+      update_line1 = true;
+      update_line2 = true;
+      lcdflag      = 255;
+      next_lcdflag = 255;
+      return;
+    } else {
+      diag_enter_tap_pending = true;
+      diag_enter_tap_ms = now_ms;
+      diag_write_button("ENTER", 20);
+      activity = true;
+    }
+  }
+  // Clear pending tap if window expired without a second press.
+  if (diag_enter_tap_pending && millis() - diag_enter_tap_ms > 400) {
+    diag_enter_tap_pending = false;
+  }
 
   // --- Play (interrupt-driven) ---
   if (play_button_isr_fired)

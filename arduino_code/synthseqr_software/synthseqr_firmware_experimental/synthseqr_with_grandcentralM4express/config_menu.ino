@@ -98,14 +98,15 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 #define CONFIG_ITEM_CLOCK         6
 #define CONFIG_ITEM_CHANNEL       7
 #define CONFIG_ITEM_SWING         8
-#define CONFIG_ITEM_OCTAVE_SHIFT  9
-#define CONFIG_ITEM_NOTE_SHIFT    10
-#define CONFIG_ITEM_NOTE_RANGE    11
-#define CONFIG_ITEM_NOTE_SCALES   12
-#define CONFIG_ITEM_PAT_LENGTH    13
-#define CONFIG_ITEM_PAT_DIR       14
-#define CONFIG_ITEM_CC_NUMBER     15
-#define CONFIG_MENU_ITEM_COUNT    16
+#define CONFIG_ITEM_DIAGNOSTICS   9
+#define CONFIG_ITEM_OCTAVE_SHIFT  10
+#define CONFIG_ITEM_NOTE_SHIFT    11
+#define CONFIG_ITEM_NOTE_RANGE    12
+#define CONFIG_ITEM_NOTE_SCALES   13
+#define CONFIG_ITEM_PAT_LENGTH    14
+#define CONFIG_ITEM_PAT_DIR       15
+#define CONFIG_ITEM_CC_NUMBER     16
+#define CONFIG_MENU_ITEM_COUNT    17
 
 // line1_label: 14 chars printed after "> " on line 1.
 // Items with inline values are rendered dynamically in print_config_label().
@@ -119,6 +120,7 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Clock:        ",   // value overwritten at draw time
   "Channel:      ",   // value overwritten at draw time
   "Swing:        ",   // value overwritten at draw time
+  "Diagnostics   ",
   "Octave shift  ",
   "Note shift    ",
   "Note range    ",
@@ -554,6 +556,10 @@ void run_config_menu() {
         Serial.print("clock: ");
         Serial.println(external_clock_mode ? "ext" : "int");
         draw_config_menu();
+        break;
+      case CONFIG_ITEM_DIAGNOSTICS:
+        exit_config_menu();
+        enter_diagnostics();
         break;
       case CONFIG_ITEM_CHANNEL:
         config_editing_value = true;
