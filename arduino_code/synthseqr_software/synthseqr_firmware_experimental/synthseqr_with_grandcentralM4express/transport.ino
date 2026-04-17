@@ -112,19 +112,35 @@ void run_chase_lights(unsigned int this_step) {
   // The nav routine manages them; skip chase light processing entirely.
   if (adv_pat_nav_active) return;
 
+  // While the config menu PAT_LENGTH editor is active, the step LEDs show
+  // the pattern-length indicator (0..N-1 lit). Re-apply it before the chase
+  // toggle so incoming steps don't overwrite it with read_step_memory().
+  bool editing_pat_len = config_menu_active && config_editing_value
+                         && config_menu_item == CONFIG_ITEM_PAT_LENGTH;
+
   if (chase_lights_status == 1) {
     if (last_step !=
         this_step)  // clock pulses counted so we can advance to the next step.
     {
-      // clear the LEDs back to their data (mode-aware)
-      if (slider_mode == 4) read_cc_step_memory();
-      else                  read_step_memory(0, pattern_value);
+      if (editing_pat_len) {
+        // Re-apply the pattern-length indicator, then blink the current step.
+        for (int i = 0; i < 16; i++) {
+          if (i < pattern_length) step_leds[i].on();
+          else                    step_leds[i].off();
+        }
+      } else {
+        // clear the LEDs back to their data (mode-aware)
+        if (slider_mode == 4) read_cc_step_memory();
+        else                  read_step_memory(0, pattern_value);
+      }
       step_leds[this_step].toggle();  // chase lights!
       last_step = this_step;
     }
   } else {
-    if (slider_mode == 4) read_cc_step_memory();
-    else                  read_step_memory(0, pattern_value);
+    if (!editing_pat_len) {
+      if (slider_mode == 4) read_cc_step_memory();
+      else                  read_step_memory(0, pattern_value);
+    }
   }
 }
 
