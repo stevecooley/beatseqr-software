@@ -108,22 +108,26 @@ The key distinction from Synthseqr: each drum voice has ONE pitch/velocity/gate 
 ## Hardware Pin Map
 
 ```
-Play button:       A11 / pin 65   (hardware interrupt, FALLING edge)
+Play button:       A11 / pin 78   (hardware interrupt, FALLING edge)
 Play LED:          pin 10
 param_rec (Enter): D11 / pin 11
 Voice LEDs:        pins 2–9       (one per voice, active voice lit)
-Voice select:      A10            (resistor ladder, 8 voices)
+Voice select:      A10 / pin 77   (resistor ladder, 8 voices)
 Voice sliders:     A7–A0          (slider[0]=A7, slider[7]=A0)
-Tempo knob:        A8
-Swing knob:        A9
-slider_mode_select: A13 / pin 67
-voice_mode_select:  A12 / pin 66
-knob_mode_select:   A14 / pin 68
+Tempo knob:        A8 / pin 75
+Swing knob:        A9 / pin 76
+slider_mode_select: A13 / pin 80
+voice_mode_select:  A12 / pin 79
+knob_mode_select:   A14 / pin 81
+NOTE: On Grand Central M4, A0=67, A1=68...A11=78, A12=79, A13=80, A14=81.
+      Always use Ax macros in code, never hardcoded numbers for analog pins.
 Step LEDs:         pins 22–52 even
 Step buttons:      pins 23–53 odd
 Pattern LEDs:      pins 14–17     (LED[0]=pin17, LED[1]=pin16, LED[2]=pin15, LED[3]=pin14)
 Pattern buttons:   pins 18–21     (btn[0]=pin21, btn[1]=pin20, btn[2]=pin19, btn[3]=pin18)
-LCD:               Serial1, TX=pin1, 9850 baud
+LCD:               Serial1, TX=pin1, 9600 baud
+NOTE: LCD wire must connect to pin 1 (Serial1 TX). A15/pin61 cannot be UART TX
+      on SAMD51 (PAD[3] is RX-only). SoftwareSerial is not available on SAMD51.
 ```
 
 ## Config Menu Navigation

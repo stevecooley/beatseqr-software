@@ -33,7 +33,9 @@ static int detect_voice_from_adc(int adc_val) {
 // run_voice_select_routine — call every loop().
 void run_voice_select_routine() {
   // Fill rolling average buffer.
-  _vs_buf[_vs_buf_idx] = analogRead(A10);
+  // ADC is 12-bit globally; shift >> 2 to scale to 10-bit so the calibrated
+  // 10-bit thresholds in vselectval_lowerranges/upperranges remain valid.
+  _vs_buf[_vs_buf_idx] = analogRead(A10) >> 2;
   _vs_buf_idx = (_vs_buf_idx + 1) % VOICE_SELECT_SAMPLES;
 
   int sum = 0;

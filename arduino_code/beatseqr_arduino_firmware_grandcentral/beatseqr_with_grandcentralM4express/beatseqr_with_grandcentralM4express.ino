@@ -19,9 +19,10 @@ inline Print& operator<<(Print& obj, T arg) {
 void setup() {
   Serial.begin(57600);
 
-  // Keep voice select resistor ladder thresholds valid: they were calibrated on
-  // a 10-bit ADC (0–1023). Call this before any analogRead().
-  analogReadResolution(10);
+  // Use 12-bit ADC globally for accurate slider and knob reads.
+  // Voice select (A10) thresholds were calibrated at 10-bit; voice_select_routine
+  // shifts its raw read >> 2 to scale back to 10-bit before comparing thresholds.
+  analogReadResolution(12);
 
   // Start Serial1 (LCD TX, pin 1) so the line idles HIGH during startup.
   lcd.begin(9850);
@@ -43,7 +44,7 @@ void setup() {
   update_line2 = true;
 
   // Hardware interrupt for play button on A11 (pin 65), falling edge.
-  attachInterrupt(digitalPinToInterrupt(65), playButtonISR, FALLING);
+  attachInterrupt(digitalPinToInterrupt(A11), playButtonISR, FALLING);
 
   // Start TC4 hardware timer for internal clock.
   seq.setHardwareTimerMode(true);

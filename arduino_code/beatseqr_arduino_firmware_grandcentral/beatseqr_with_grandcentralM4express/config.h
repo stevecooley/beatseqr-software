@@ -199,7 +199,7 @@ uint8_t step_value    = 0;
 //
 ////////////////////////////////
 
-Button playbutton    = Button(65, PULLUP);  // A11
+Button playbutton    = Button(A11, PULLUP);
 LED    playbutton_LED = LED(10);
 bool   playbutton_flag = false;
 
@@ -235,9 +235,9 @@ int menu_knob_swing_last = 0;
 //
 ////////////////////////////////
 
-Button slider_mode_select = Button(67, PULLUP);   // A13
-Button voice_mode_select  = Button(66, PULLUP);   // A12
-Button knob_mode_select   = Button(68, PULLUP);   // A14
+Button slider_mode_select = Button(A13, PULLUP);
+Button voice_mode_select  = Button(A12, PULLUP);
+Button knob_mode_select   = Button(A14, PULLUP);
 Button param_rec          = Button(11, PULLUP);   // D11 — "Enter" button
 
 bool slider_mode_flag     = false;
@@ -296,7 +296,7 @@ char* step_padding;
 ////////////////////////////////
 
 #define rxPin   255   // unused RX — just an invalid pin number
-#define lcdTxPin  1   // Serial1 TX
+#define lcdTxPin  69   // Serial1 TX
 #define lcd Serial1
 
 // Line 1 cursor positions.

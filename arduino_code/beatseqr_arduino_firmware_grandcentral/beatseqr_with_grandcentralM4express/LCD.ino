@@ -1,8 +1,9 @@
 void run_LCD_setup_routine() {
   // On SAMD51, pinMode() disables PMUX on the pin (breaks Serial1 TX).
   // lcd.begin() immediately after re-enables it. Keep both calls together.
+  // some LCD serial boards run at 9850, and some run at 9600 baud.
   pinMode(lcdTxPin, OUTPUT);
-  lcd.begin(9850);
+  lcd.begin(9600);
 
   lcd.print("?c0");
   lcd.print("?c1");        // cursor blink on
@@ -34,6 +35,7 @@ void run_LCD_setup_routine() {
   delay(1500);
 
   lcd.print("?f");
+  delay(200);  // give LCD time to process clear before main loop writes
 }
 
 void run_LCD_update() {
@@ -246,10 +248,10 @@ void run_LCD_update() {
         lcd.print(_s);
       }
 
-      // No D-pad cursor in Beatseqr — cursor_flag is always false.
-      // Still reposition after a redraw to leave the cursor at a known spot.
+      // No D-pad cursor in Beatseqr. Move cursor off-screen so blink
+      // doesn't obscure the text at position 0,0.
       if (did_redraw) {
-        set_lcd_cursor(0, 0);
+        set_lcd_cursor(1, 16);
       }
 
       next_lcdflag = 255;

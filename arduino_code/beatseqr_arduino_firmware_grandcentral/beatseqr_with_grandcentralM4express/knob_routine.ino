@@ -12,7 +12,7 @@
 // counts. The saved position is updated after each event so the user can keep
 // spinning in one direction to get multiple increments.
 
-#define KNOB_JOG_THRESHOLD 20   // ADC counts (10-bit) needed to trigger one step
+#define KNOB_JOG_THRESHOLD 80   // ADC counts (12-bit) needed to trigger one step
 
 // Saved knob positions at the moment the config menu was entered.
 // These are the baseline for delta tracking during menu navigation.
@@ -76,8 +76,10 @@ void run_knob_routine() {
   // Only active in internal clock mode; external clock drives its own tempo.
   if (!external_clock_mode) {
     int raw_tempo = analogRead(A8);
-    float new_tempo = (float)map(raw_tempo, 0, 1023,
-                                 lower_BPM_number, upper_BPM_number);
+    // 12-bit ADC range 0-4095. Mapping upper→lower so CW = lower raw = higher BPM;
+    // swap lower_BPM_number / upper_BPM_number if knob direction is still wrong.
+    float new_tempo = (float)map(raw_tempo, 0, 4095,
+                                 upper_BPM_number, lower_BPM_number);
     if (fabsf(new_tempo - TEMPO) >= 1.0f) {
       TEMPO = new_tempo;
       seq.setTempo(TEMPO);
@@ -90,8 +92,8 @@ void run_knob_routine() {
   // 8 evenly-spaced sectors, clamped to 0–5 (same range as Synthseqr).
   {
     int raw_swing = analogRead(A9);
-    // Map 0-1023 to 0-5 in six equal bands.
-    uint8_t new_swing = (uint8_t)constrain(map(raw_swing, 0, 1023, 0, 5), 0, 5);
+    // Map 0-4095 (12-bit) to 0-5 in six equal bands.
+    uint8_t new_swing = (uint8_t)constrain(map(raw_swing, 0, 4095, 0, 5), 0, 5);
     if (new_swing != SWING) {
       SWING = new_swing;
       // No LCD redraw needed — SWING isn't shown on the main display.
