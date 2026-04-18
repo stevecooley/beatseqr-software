@@ -275,7 +275,6 @@ void draw_config_menu() {
 
 void enter_config_menu() {
   config_menu_active      = true;
-  config_menu_item        = 0;
   config_confirm_pending  = false;
   config_editing_value    = false;
   // Anchor jog baselines so initial knob position isn't misread as movement.
