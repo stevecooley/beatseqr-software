@@ -57,46 +57,14 @@ int knob_jog_horizontal() {
 
 // run_knob_routine — called every loop().
 //
-// In config menu mode: keeps jog baselines current so deltas stay meaningful
-// even when run_config_menu() isn't actively reading them (i.e. idle frames).
-// The config menu calls knob_jog_vertical() / knob_jog_horizontal() directly
-// when it needs navigation input; this function just keeps things ticking.
-//
-// In normal mode: maps knob ADC values to TEMPO and SWING and applies them.
-// TEMPO changes are rate-limited to ≥1 BPM difference to avoid constant redraws
-// from ADC noise.
+// The two hardware knobs (A8 = Tempo, A9 = Swing) serve as jog wheels for
+// config menu navigation only. Tempo and Swing values are set exclusively
+// via the config menu (items 16 and 17). Direct ADC-to-TEMPO mapping was
+// removed because ADC noise caused constant clock instability.
 void run_knob_routine() {
   if (config_menu_active) {
-    // Nothing extra needed here — jog functions are called on-demand by
-    // run_config_menu(). We return so tempo/swing aren't clobbered.
+    // Jog functions are called on-demand by run_config_menu().
     return;
   }
-
-  // --- Tempo knob ---
-  // Only active in internal clock mode; external clock drives its own tempo.
-  if (!external_clock_mode) {
-    int raw_tempo = analogRead(A8);
-    // 12-bit ADC range 0-4095. Mapping upper→lower so CW = lower raw = higher BPM;
-    // swap lower_BPM_number / upper_BPM_number if knob direction is still wrong.
-    float new_tempo = (float)map(raw_tempo, 0, 4095,
-                                 upper_BPM_number, lower_BPM_number);
-    if (fabsf(new_tempo - TEMPO) >= 1.0f) {
-      TEMPO = new_tempo;
-      seq.setTempo(TEMPO);
-      setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
-      update_line1 = true;
-    }
-  }
-
-  // --- Swing knob ---
-  // 8 evenly-spaced sectors, clamped to 0–5 (same range as Synthseqr).
-  {
-    int raw_swing = analogRead(A9);
-    // Map 0-4095 (12-bit) to 0-5 in six equal bands.
-    uint8_t new_swing = (uint8_t)constrain(map(raw_swing, 0, 4095, 0, 5), 0, 5);
-    if (new_swing != SWING) {
-      SWING = new_swing;
-      // No LCD redraw needed — SWING isn't shown on the main display.
-    }
-  }
+  // Outside the config menu, knobs have no direct effect.
 }

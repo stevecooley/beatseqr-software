@@ -5,7 +5,8 @@
       "WebFetch(domain:www.adafruit.com)",
       "WebFetch(domain:www.microchip.com)",
       "WebFetch(domain:ww1.microchip.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:en.wikipedia.org)"
     ]
   }
 }

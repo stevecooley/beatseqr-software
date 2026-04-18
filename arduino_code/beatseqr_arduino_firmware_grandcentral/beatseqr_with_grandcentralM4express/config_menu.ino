@@ -96,7 +96,9 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 #define CONFIG_ITEM_PAT_LENGTH    13
 #define CONFIG_ITEM_PAT_DIR       14
 #define CONFIG_ITEM_CC_NUMBER     15
-#define CONFIG_MENU_ITEM_COUNT    16
+#define CONFIG_ITEM_TEMPO         16
+#define CONFIG_ITEM_SWING         17
+#define CONFIG_MENU_ITEM_COUNT    18
 
 static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Exit          ",   // 14 chars each
@@ -114,7 +116,9 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Note scales   ",
   "Pat length    ",
   "Pat dir:      ",
-  "CC num:       "
+  "CC num:       ",
+  "Tempo:        ",
+  "Swing:        "
 };
 
 // Build the 14-char label for a given item index.
@@ -155,6 +159,12 @@ void print_config_label(uint8_t item) {
     lcd.print(_buf);
   } else if (item == CONFIG_ITEM_CC_NUMBER) {
     snprintf(_buf, sizeof(_buf), "CC:%03d %-7s", cc_number[pattern_value], cc_name(cc_number[pattern_value]));
+    lcd.print(_buf);
+  } else if (item == CONFIG_ITEM_TEMPO) {
+    snprintf(_buf, sizeof(_buf), "Tempo:     %3d", (int)TEMPO);
+    lcd.print(_buf);
+  } else if (item == CONFIG_ITEM_SWING) {
+    snprintf(_buf, sizeof(_buf), "Swing:      %2d", (int)SWING);
     lcd.print(_buf);
   } else {
     lcd.print(config_labels[item]);
@@ -241,6 +251,18 @@ void draw_config_menu() {
     } else {
       len = snprintf(line2, sizeof(line2), "  Root: %-8s", ROOT_NAMES[scale_root]);
     }
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_TEMPO) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  BPM: %d", (int)TEMPO);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_SWING) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Swing: %d", (int)SWING);
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
@@ -371,6 +393,24 @@ void run_config_menu() {
         if (jog_v > 0) cc_number[pattern_value] = next_valid_cc(cc_number[pattern_value], +1);
         if (jog_v < 0) cc_number[pattern_value] = next_valid_cc(cc_number[pattern_value], -1);
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_TEMPO) {
+        if (jog_v > 0 && TEMPO < (float)upper_BPM_number) {
+          TEMPO += 1.0f;
+          seq.setTempo(TEMPO);
+          setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
+          update_line1 = true;
+          draw_config_menu();
+        }
+        if (jog_v < 0 && TEMPO > (float)lower_BPM_number) {
+          TEMPO -= 1.0f;
+          seq.setTempo(TEMPO);
+          setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
+          update_line1 = true;
+          draw_config_menu();
+        }
+      } else if (config_menu_item == CONFIG_ITEM_SWING) {
+        if (jog_v > 0 && SWING < 5) { SWING++; draw_config_menu(); }
+        if (jog_v < 0 && SWING > 0) { SWING--; draw_config_menu(); }
       }
     }
 
@@ -489,6 +529,8 @@ void run_config_menu() {
       case CONFIG_ITEM_PAT_LENGTH:
       case CONFIG_ITEM_PAT_DIR:
       case CONFIG_ITEM_CC_NUMBER:
+      case CONFIG_ITEM_TEMPO:
+      case CONFIG_ITEM_SWING:
         config_editing_value    = true;
         config_note_range_phase = 0;
         config_scale_phase      = 0;

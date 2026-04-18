@@ -79,9 +79,20 @@ void loop() {
     slider_mode_flag = true;
   }
 
-  // Voice mode select button — reserved for future use.
+  // Voice mode select button — single press toggles internal / external clock mode.
   if (voice_mode_select.uniquePress()) {
     voice_mode_flag = true;
+    setExternalClockMode(!external_clock_mode);
+    // Show brief confirmation on LCD.
+    lcd.print("?f");
+    lcd.print("?x00?y0");
+    if (external_clock_mode) {
+      lcd.print("Clock: ext      ");
+    } else {
+      lcd.print("Clock: int      ");
+    }
+    update_line1 = true;
+    update_line2 = true;
   }
 
   // Knob mode select button — double-click enters/exits config menu.

@@ -18,9 +18,13 @@ void read_midi()
     if (rx.header != 0)
     {
 
-      // midi thru
-      // MidiUSB.sendMIDI(rx);
-      // MidiUSB.flush();
+      // MIDI thru: forward all incoming packets downstream.
+      // In external clock mode this passes the incoming clock (0xF8),
+      // Start (0xFA), and Stop (0xFC) to any device listening on this
+      // USB port. In internal clock mode, 0xF8 is not received (we're
+      // the master) so there is no feedback loop.
+      MidiUSB.sendMIDI(rx);
+      MidiUSB.flush();
 
       /*
         Serial.print("Received: ");
@@ -96,7 +100,8 @@ void read_midi()
         ext_clk_pulse_count     = 0;
         ext_clk_last_pulse_us   = 0;
         ext_swing_pulse_pending = false;
-        midistarted = true;
+        // Only let incoming transport control the sequencer in external clock mode.
+        if (external_clock_mode) midistarted = true;
       }
       else if (rx.byte1 == MIDISTOP)
       {
@@ -105,7 +110,8 @@ void read_midi()
         ext_clk_pulse_count      = 0;
         ext_swing_pulse_pending  = false;
         ext_clock_start_pending  = false;
-        midistopped = true;
+        // Only let incoming transport control the sequencer in external clock mode.
+        if (external_clock_mode) midistopped = true;
       }
     }
 

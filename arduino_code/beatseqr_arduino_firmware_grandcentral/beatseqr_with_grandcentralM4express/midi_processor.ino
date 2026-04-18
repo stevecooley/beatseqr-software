@@ -38,6 +38,8 @@ void read_midi() {
               seq.start();
               ext_clock_start_pending = false;
             }
+            Serial.print("ext step pulse, playstatus=");
+            Serial.println(playstatus ? "play" : "stop");
           }
 
           if (is_step_pulse && SWING > 0 && (seq.getPosition() % 2 == 0)) {
@@ -63,18 +65,24 @@ void read_midi() {
         }
 
       } else if (rx.byte1 == MIDISTART) {
-        Serial.println("Midi Start!");
-        ext_clk_pulse_count     = 0;
-        ext_clk_last_pulse_us   = 0;
-        ext_swing_pulse_pending = false;
-        midistarted = true;
+        Serial.print("Midi Start! ext_clock_mode=");
+        Serial.println(external_clock_mode ? "true" : "false");
+        if (external_clock_mode) {
+          ext_clk_pulse_count     = 0;
+          ext_clk_last_pulse_us   = 0;
+          ext_swing_pulse_pending = false;
+          midistarted = true;
+        }
 
       } else if (rx.byte1 == MIDISTOP) {
-        Serial.println("Midi Stop!");
-        ext_clk_pulse_count      = 0;
-        ext_swing_pulse_pending  = false;
-        ext_clock_start_pending  = false;
-        midistopped = true;
+        Serial.print("Midi Stop! ext_clock_mode=");
+        Serial.println(external_clock_mode ? "true" : "false");
+        if (external_clock_mode) {
+          ext_clk_pulse_count      = 0;
+          ext_swing_pulse_pending  = false;
+          ext_clock_start_pending  = false;
+          midistopped = true;
+        }
       }
     }
   } while (rx.header != 0);
