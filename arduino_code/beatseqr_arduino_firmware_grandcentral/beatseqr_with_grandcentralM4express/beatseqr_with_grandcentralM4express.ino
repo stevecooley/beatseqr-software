@@ -19,9 +19,7 @@ inline Print& operator<<(Print& obj, T arg) {
 void setup() {
   Serial.begin(57600);
 
-  // Use 12-bit ADC globally for accurate slider and knob reads.
-  // Voice select (A10) thresholds were calibrated at 10-bit; voice_select_routine
-  // shifts its raw read >> 2 to scale back to 10-bit before comparing thresholds.
+  // Use 12-bit ADC globally for accurate slider, knob, and voice select reads.
   analogReadResolution(12);
 
   // Start Serial1 (LCD TX, pin 1) so the line idles HIGH during startup.

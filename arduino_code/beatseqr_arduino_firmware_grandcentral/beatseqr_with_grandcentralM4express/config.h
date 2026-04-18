@@ -16,17 +16,19 @@ const char* hardware_version_number = "4.51";
 // Voice select resistor ladder
 //
 // Eight buttons share one analog pin (A10). Each button pulls the pin to a
-// different voltage via a resistor divider. ADC thresholds were calibrated on
-// a 10-bit ADC; call analogReadResolution(10) in setup() to keep them valid.
+// different voltage via a resistor divider. ADC thresholds are 12-bit (0–4095).
+// Idle (no button pressed) reads near 0. Button 0 = highest voltage.
+// *** CALIBRATION IN PROGRESS — placeholder thresholds, do not use ***
 //
 ////////////////////////////////
 
 const int VOICE_COUNT = 8;
 
-// Lower and upper ADC thresholds for each voice button (10-bit, 0–1023).
-// Button 0 = highest voltage, button 7 = lowest voltage.
-int vselectval_lowerranges[VOICE_COUNT] = {920, 830, 751, 700, 650, 611, 576, 550};
-int vselectval_upperranges[VOICE_COUNT] = {940, 860, 795, 750, 690, 645, 610, 575};
+// Lower and upper ADC thresholds for each voice button (12-bit, 0–4095).
+// Idle (no button) reads ~10. Button 0 = highest voltage, button 7 = lowest.
+// Calibrated with ladder: 2.2k+2.2k+3k+3.9k+4.7k+5.6k+6.8k+15k series, 15k pull-down.
+int vselectval_lowerranges[VOICE_COUNT] = {4047, 3660, 3016, 2471, 2016, 1675, 1305,  500};
+int vselectval_upperranges[VOICE_COUNT] = {4095, 4046, 3659, 3015, 2470, 2015, 1674, 1304};
 
 // Currently selected voice (0–7). Changed by pressing a voice select button.
 // All step button presses, slider reads, and LED updates operate on this voice.

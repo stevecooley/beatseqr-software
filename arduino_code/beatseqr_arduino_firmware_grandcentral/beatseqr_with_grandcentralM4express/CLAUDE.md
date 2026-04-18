@@ -53,7 +53,9 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 
 **Potentiometer / SAMD51 ADC resolution**: `Potentiometer.cpp` uses `analogRead() / (4096/sectors)` — do NOT use 1024 as the divisor. The `getSector()` method returns a 0–(sectors-1) value. Voice sliders use 255 sectors for full resolution. Swing knob uses 8 sectors.
 
-**Voice select ADC**: `analogReadResolution(10)` is called in `setup()` to keep the resistor-ladder thresholds (calibrated for 10-bit ADC) valid. Do not change to 12-bit for the resistor ladder — the thresholds in `vselectval_lowerranges/upperranges` would need recalibration.
+**Voice select ADC**: `analogReadResolution(12)` globally. Thresholds in `vselectval_lowerranges/upperranges` are 12-bit (0–4095). Idle reads ~10. All 8 voices fully calibrated. Ladder: 2.2k+2.2k+3k+3.9k+4.7k+5.6k+6.8k+15k series resistors, 15k pull-down to GND.
+
+Detection uses **unanimous consensus**: all VOICE_SELECT_SAMPLES reads must independently classify as the same voice before committing. Do NOT revert to averaging — averaging sweeps through lower voice ranges during button release and falsely triggers voice 8.
 
 ## Key Hardware Differences from Synthseqr
 

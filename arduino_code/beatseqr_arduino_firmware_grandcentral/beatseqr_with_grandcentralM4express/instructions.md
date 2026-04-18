@@ -31,7 +31,7 @@ Beatseqr is a 16-step MIDI drum sequencer with 8 voices. Each voice represents o
 ## Basic Operation
 
 ### 1. Select a Voice
-Press one of the 8 voice-select buttons. The corresponding LED lights up to show which voice is active. The 16 step LEDs refresh to show that voice's current pattern.
+Press one of the 8 voice-select buttons. The corresponding LED lights up to show which voice is active. The 16 step LEDs refresh to show that voice's current pattern. The selected voice stays active after releasing the button.
 
 ### 2. Program Steps
 Press any of the 16 step buttons to toggle steps on (LED lit) or off. Active steps will fire a MIDI note when the sequencer reaches them.
@@ -131,7 +131,7 @@ Enter the config menu by **double-tapping the Knob mode button** (two presses wi
 | **Mode** | Toggle Simple / Advanced mode |
 | **Clock** | Toggle internal / external USB-MIDI clock |
 | **Channel** | MIDI channel (1–16; default 10 for GM drums) |
-| **Diagnostics** | Hardware self-test mode (coming in Phase 5) |
+| **Diagnostics** | Hardware self-test mode |
 | **Octave shift** | Transpose all notes ±5 octaves at send time |
 | **Note shift** | Fine transpose ±12 semitones at send time |
 | **Note range** | Set low/high MIDI note range for sliders (two-phase: Lo then Hi) |

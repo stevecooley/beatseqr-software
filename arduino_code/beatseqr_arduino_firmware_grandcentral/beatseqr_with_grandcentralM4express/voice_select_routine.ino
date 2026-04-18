@@ -3,24 +3,20 @@
 // Reads the resistor-ladder voice select input (A10).
 // Eight buttons share one analog pin; each pulls the pin to a different voltage
 // via a resistor divider. ADC thresholds (vselectval_lowerranges/upperranges)
-// were calibrated for 10-bit ADC (0–1023) — analogReadResolution(10) must be
-// called in setup() to keep them valid.
+// are 12-bit (0–4095). Idle reads ~10 (below all ranges).
 //
-// Detection uses a small averaging buffer to suppress ADC noise and contact
-// bounce. A voice change is committed only when VOICE_SELECT_SAMPLES
-// consecutive reads all agree on the same button (or all agree on "none").
-//
-// When no button is pressed the analog value sits near 1023 (no pull-down),
-// which is outside all calibrated ranges. The current voice is kept active
-// until a different button is detected.
+// Detection requires ALL VOICE_SELECT_SAMPLES consecutive reads to classify as
+// the same voice before committing. This prevents false triggers during button
+// release — the voltage sweeps down through lower voice ranges on its way to
+// idle, but a mixed buffer never reaches unanimous agreement.
 
-#define VOICE_SELECT_SAMPLES 4   // readings to average before committing
+#define VOICE_SELECT_SAMPLES 4   // consecutive unanimous reads required
 
 static int  _vs_buf[VOICE_SELECT_SAMPLES] = {0, 0, 0, 0};
 static int  _vs_buf_idx    = 0;
 static int  _vs_prev_voice = -1;   // -1 = "no button was held" last frame
 
-// Classify an averaged ADC reading into a voice index (0–7) or -1 (none).
+// Classify a single ADC reading into a voice index (0–7) or -1 (none).
 static int detect_voice_from_adc(int adc_val) {
   for (int i = 0; i < VOICE_COUNT; i++) {
     if (adc_val >= vselectval_lowerranges[i] && adc_val <= vselectval_upperranges[i]) {
@@ -32,17 +28,17 @@ static int detect_voice_from_adc(int adc_val) {
 
 // run_voice_select_routine — call every loop().
 void run_voice_select_routine() {
-  // Fill rolling average buffer.
-  // ADC is 12-bit globally; shift >> 2 to scale to 10-bit so the calibrated
-  // 10-bit thresholds in vselectval_lowerranges/upperranges remain valid.
-  _vs_buf[_vs_buf_idx] = analogRead(A10) >> 2;
+  // Fill rolling buffer with native 12-bit ADC reads.
+  _vs_buf[_vs_buf_idx] = analogRead(A10);
   _vs_buf_idx = (_vs_buf_idx + 1) % VOICE_SELECT_SAMPLES;
 
-  int sum = 0;
-  for (int i = 0; i < VOICE_SELECT_SAMPLES; i++) sum += _vs_buf[i];
-  int avg = sum / VOICE_SELECT_SAMPLES;
-
-  int detected = detect_voice_from_adc(avg);
+  // Classify each sample individually. Only commit if all agree on the same voice.
+  int first = detect_voice_from_adc(_vs_buf[0]);
+  bool unanimous = true;
+  for (int i = 1; i < VOICE_SELECT_SAMPLES; i++) {
+    if (detect_voice_from_adc(_vs_buf[i]) != first) { unanimous = false; break; }
+  }
+  int detected = unanimous ? first : _vs_prev_voice;
 
   // Commit a voice change only on the rising edge of a new press.
   // Holding the same button does nothing after the initial switch.
