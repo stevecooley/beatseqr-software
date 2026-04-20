@@ -98,7 +98,8 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 #define CONFIG_ITEM_CC_NUMBER     15
 #define CONFIG_ITEM_TEMPO         16
 #define CONFIG_ITEM_SWING         17
-#define CONFIG_MENU_ITEM_COUNT    18
+#define CONFIG_ITEM_VOICE_PROB    18
+#define CONFIG_MENU_ITEM_COUNT    19
 
 static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Exit          ",   // 14 chars each
@@ -118,7 +119,8 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Pat dir:      ",
   "CC num:       ",
   "Tempo:        ",
-  "Swing:        "
+  "Swing:        ",
+  "Voice prob    "
 };
 
 // Build the 14-char label for a given item index.
@@ -166,6 +168,12 @@ void print_config_label(uint8_t item) {
   } else if (item == CONFIG_ITEM_SWING) {
     snprintf(_buf, sizeof(_buf), "Swing:      %2d", (int)SWING);
     lcd.print(_buf);
+  } else if (item == CONFIG_ITEM_VOICE_PROB) {
+    bool non_default = false;
+    for (int v = 0; v < VOICE_COUNT; v++) {
+      if (voice_probability[pattern_value][v] < 100) { non_default = true; break; }
+    }
+    lcd.print(non_default ? "Voice prob   *" : "Voice prob    ");
   } else {
     lcd.print(config_labels[item]);
   }
@@ -534,6 +542,10 @@ void run_config_menu() {
         config_note_range_phase = 0;
         config_scale_phase      = 0;
         draw_config_menu();
+        break;
+      case CONFIG_ITEM_VOICE_PROB:
+        exit_config_menu();
+        set_slider_mode(5);
         break;
     }
   }

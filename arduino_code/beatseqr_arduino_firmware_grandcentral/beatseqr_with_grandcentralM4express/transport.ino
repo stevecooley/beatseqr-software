@@ -205,28 +205,31 @@ void stepsend(int current_step, int last_step) {
   // Note-on scan: fire all voices that are active at play_step.
   for (int v = 0; v < VOICE_COUNT; v++) {
     if (step_data[pattern_value][v][play_step] == 1) {
+      bool fires = (voice_probability[pattern_value][v] >= 100)
+                   || ((uint8_t)random(100) < voice_probability[pattern_value][v]);
+      if (fires) {
+        // Retrigger: if this voice is still ringing, cut it before the new hit.
+        if (sounding_notes[v] >= 0) {
+          noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[v], 0);
+          sounding_notes[v] = -1;
+          sounding_note_end_step[v] = -1;
+        }
 
-      // Retrigger: if this voice is still ringing, cut it before the new hit.
-      if (sounding_notes[v] >= 0) {
-        noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[v], 0);
-        sounding_notes[v] = -1;
-        sounding_note_end_step[v] = -1;
-      }
+        int16_t shifted = (int16_t)voice_pitch[pattern_value][v]
+                        + (int16_t)(octave_shift * 12)
+                        + (int16_t)note_shift;
+        if (shifted < 0)   shifted = 0;
+        if (shifted > 127) shifted = 127;
+        uint8_t pitch = (uint8_t)shifted;
+        uint8_t vel   = voice_velocity[pattern_value][v];
 
-      int16_t shifted = (int16_t)voice_pitch[pattern_value][v]
-                      + (int16_t)(octave_shift * 12)
-                      + (int16_t)note_shift;
-      if (shifted < 0)   shifted = 0;
-      if (shifted > 127) shifted = 127;
-      uint8_t pitch = (uint8_t)shifted;
-      uint8_t vel   = voice_velocity[pattern_value][v];
-
-      // velocity == 0 means the voice is muted by the fader — skip note-on.
-      if (vel > 0) {
-        noteOn(MIDICHANNEL - 1, pitch, vel);
-        sounding_notes[v] = (int8_t)pitch;
-        sounding_note_end_step[v] =
-            (int8_t)((current_step + voice_gate[pattern_value][v]) % pattern_length);
+        // velocity == 0 means the voice is muted by the fader — skip note-on.
+        if (vel > 0) {
+          noteOn(MIDICHANNEL - 1, pitch, vel);
+          sounding_notes[v] = (int8_t)pitch;
+          sounding_note_end_step[v] =
+              (int8_t)((current_step + voice_gate[pattern_value][v]) % pattern_length);
+        }
       }
     }
 

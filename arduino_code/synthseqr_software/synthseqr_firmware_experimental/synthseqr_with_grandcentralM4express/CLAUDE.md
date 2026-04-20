@@ -37,7 +37,7 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 | `navigation.ino` | D-pad + enter button: adjusts tempo; enter cycles slider mode (NN/VL/GT) |
 | `sequencer_timer.ino` | TC4 hardware timer driver: setup, period update, stop/start, ISR |
 | `step_button_routine.ino` | Step button presses, LED toggling, pattern clear |
-| `voice_slider_routine.ino` | Reads 16 analog sliders in NN/VL/GT mode → note, velocity, or gate |
+| `voice_slider_routine.ino` | Reads 16 analog sliders in NN/VL/GT/CC/PR mode → note, velocity, gate, CC, or probability |
 | `pattern_select_routine.ino` | Pattern switching, copy, and 4-pattern chain mode |
 | `LCD.ino` | LCD initialization and display updates |
 | `midi_note_sending.ino` | `step()` blink callback and `midi()` MIDI clock output callback |
@@ -78,8 +78,10 @@ uint8_t SWING                         // 0–5
 uint8_t cc_step_values[16][16]        // CC value per pattern per step (0–127); default 0
 uint8_t cc_step_enabled[16][16]       // CC step on/off per pattern per step; default 0 (off)
 uint8_t cc_number[16]                 // CC controller number per pattern (1–119, skipping 32 and 96–101); default 1 (Mod Wheel)
-uint8_t slider_mode                   // 1=NN (note number), 2=VL (velocity), 3=GT (gate), 4=CC (control change)
-uint8_t slider_mode_total             // 4 (NN, VL, GT, CC)
+uint8_t slider_mode                   // 1=NN (note number), 2=VL (velocity), 3=GT (gate), 4=CC (control change), 5=PR (probability)
+uint8_t slider_mode_total             // 5 (NN, VL, GT, CC, PR)
+uint8_t step_probability[16][16]      // fire probability per step per pattern (0–100); default 100 = always fires
+uint8_t pitch_drift                   // semitones of random pitch wander at send time (0=off, 1–7); global
 uint8_t lcdflag                       // LCD display mode selector
 bool external_clock_mode              // false = internal TC4, true = follow USB-MIDI clock
 bool advanced_mode                    // false = Simple (4 patterns, buttons select), true = Advanced (16 patterns, buttons are function keys)
@@ -116,7 +118,7 @@ bool          ext_clock_start_pending  // play pressed while ext clock running; 
 1. `seq.run()` (FifteenStep) ticks the sequencer on each `loop()` call
 2. Timing is driven by the **TC4 hardware timer** (internal mode) or **incoming USB-MIDI 0xF8** (external mode) — both call `seq.hardwareClockPulse()` which sets volatile flags; `seq.run()` processes those flags in main-loop context
 3. On each step change, `stepsend(current_step, last_step)` fires as the step callback
-4. `stepsend()` first computes `play_step` from `current_step` via the `pattern_direction` switch (Fwd=identity; Rev=mirror; Pong=ping_pong_step counter; Rand=random(); Shuf=shuffle_order[shuffle_pos]; E/O=even-then-odd interleave; In=outside-in; Quad=Q1,Q3,Q2,Q4 reordering). Then it scans all 16 `sounding_note_end_step[]` entries — any slot whose end-step equals `current_step` gets a note-off (gate timing is always in hardware clock steps). If `step_data[pattern][0][play_step]` is on, note-on is sent using `pattern_step_pitches[pattern][play_step]` and `voice_slider_midivelocity[play_step]`; `sounding_note_end_step[play_step]` is set to `(current_step + step_gate[pattern][play_step]) % pattern_length`. `last_triggered_step` is updated to `play_step` and `update_line2` is set for the LCD. If `cc_step_enabled[pattern][play_step]` is set, a CC message is also sent using `cc_number[pattern]` and `cc_step_values[pattern][play_step]`; CC steps fire independently of note steps.
+4. `stepsend()` first computes `play_step` from `current_step` via the `pattern_direction` switch (Fwd=identity; Rev=mirror; Pong=ping_pong_step counter; Rand=random(); Shuf=shuffle_order[shuffle_pos]; E/O=even-then-odd interleave; In=outside-in; Quad=Q1,Q3,Q2,Q4 reordering). Then it scans all 16 `sounding_note_end_step[]` entries — any slot whose end-step equals `current_step` gets a note-off (gate timing is always in hardware clock steps). If `step_data[pattern][0][play_step]` is on, `step_probability[pattern][play_step]` is checked: the step fires only if `prob >= 100` or `random(100) < prob`. If it fires, pitch drift is applied: a random offset in `[-pitch_drift, +pitch_drift]` is added to the shifted pitch, clamped to `[slider_map_low_value, slider_map_high_value]`, and quantized to the active scale if any. Note-on is sent; `sounding_note_end_step[play_step]` is set to `(current_step + step_gate[pattern][play_step]) % pattern_length`. `last_triggered_step` is updated to `play_step` and `update_line2` is set for the LCD. If `cc_step_enabled[pattern][play_step]` is set, a CC message is sent using `cc_number[pattern]` and `cc_step_values[pattern][play_step]`; CC steps fire independently of note probability.
 5. On stop (play button or MIDI stop), `allNotesOff()` sends note-off for every entry in `sounding_notes[]` and clears both `sounding_notes[]` and `sounding_note_end_step[]`
 
 ## Hardware Timer (TC4)
@@ -203,10 +205,11 @@ The 16 voice sliders operate in one of four modes:
 | 2 — VL | `?5?2` (velocity icon) | MIDI velocity (1–127) | `pattern_step_velocities[p][s]`, `voice_slider_midivelocity[s]` |
 | 3 — GT | `?5G` | Gate length (1–8 steps) | `step_gate[p][s]` |
 | 4 — CC | `?5?3` (CC icon) | CC value (0–127) per step; step buttons toggle `cc_step_enabled` on/off | `cc_step_values[p][s]`, `cc_step_enabled[p][s]` |
+| 5 — PR | `?5P` | Fire probability (0–100%) per step | `step_probability[p][s]` |
 
 **Switching modes:**
-- **Simple mode**: Enter single-tap cycles NN → VL → GT → CC → NN
-- **Advanced mode**: Pattern button 1 = NN, button 2 = GT, button 3 = VL. CC mode not directly mapped to a button in advanced mode; use Enter to reach it.
+- **Simple mode**: Enter single-tap cycles NN → VL → GT → CC → NN. PR mode is accessed via config menu → **Step prob** (exits menu and sets mode 5). The Enter single-tap cycle skips PR.
+- **Advanced mode**: Pattern button 1 = NN, button 2 = GT, button 3 = VL. CC and PR modes accessed via Enter single-tap continuation or config menu.
 
 **`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders, sets `update_line1 = update_line2 = true`, and switches step LED display: entering CC mode calls `read_cc_step_memory()` (LEDs show `cc_step_enabled`); leaving CC mode calls `read_step_memory()` (LEDs show `step_data`). Always call this function — never set `slider_mode` directly — so pickup guards and LED display are always updated on transition.
 
@@ -330,6 +333,8 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 14. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button to set length to N+1 (step buttons are consumed before `detect_step_button_presses()` runs); step LEDs 0..length-1 light up while editing, restored via `read_step_memory()` on exit; `seq.setSteps(pattern_length)` called on every change; `init_shuffle()` called if direction is Shuf; label shows `Pat length   *` when not 16
 15. **Pat dir** — enter editing sub-state; up/down cycles 0–7 (`PATTERN_DIRECTION_COUNT`); entering Pong resets `ping_pong_step=0`/`ping_pong_going_forward=true`; entering Shuf calls `init_shuffle()`; direction names: `Fwd`/`Rev`/`Pong`/`Rand`/`Shuf`/`E/O`/`In`/`Quad`
 16. **CC number** — enter editing sub-state; up/down cycles through valid CC numbers (1–119, skipping 32 and 96–101) via `next_valid_cc(current, dir)`; Enter or Left exits editing; label shows `CC:{number} {name}` (7-char LCD name for well-known CCs); line 2 shows `CC: {number} {name}` while editing. One CC number per pattern, shared across all 16 steps of that pattern. Safe CC range: 1–119, forbidden: 32 (Bank LSB), 96–101 (RPN/NRPN data), 120–127 (Channel Mode Messages, not in menu range)
+17. **Step prob** — exits the config menu immediately and calls `set_slider_mode(5)`, activating PR mode; no value editor. The label shows `*` if any step in the current pattern has probability < 100.
+18. **Pitch drift** — enter editing sub-state; up/down adjust 0–7 (semitones of random drift applied at note-send time); Enter or Left exits; label shows `Drift: N` on line 2 while editing; label shows `*` when non-zero. Applied per note-on: a random offset in `[-pitch_drift, +pitch_drift]` is added to the post-octave/note-shift pitch, clamped to `[slider_map_low_value, slider_map_high_value]`, then quantized to the active scale.
 
 **Double-tap detection**: implemented in the main `loop()` with `last_enter_ms` and `enter_tap_pending` statics. The first tap starts a 400 ms window without immediately setting `enterbutton_flag` — this prevents the first press of a double-tap from accidentally triggering a slider mode change. If a second `uniquePress()` arrives within the window, `enter_config_menu()` fires. If the window expires without a second tap, `enterbutton_flag` is set as a normal single-tap. Single-tap actions are therefore delayed by up to 400 ms, which is imperceptible for mode-cycling use.
 
@@ -343,7 +348,7 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 
 **Save**: `save_everywhere()` writes to SD first, then EEPROM. Called from the config menu Save item.
 
-**JSON format**: hand-rolled minimal parser — no ArduinoJson dependency. Scans for known keys by name, ignores unknown keys (forward-compatible with extra fields added by external tools). All 16 patterns are saved including velocities and gates. Users can hand-edit or generate JSON externally and load it on the device.
+**JSON format**: hand-rolled minimal parser — no ArduinoJson dependency. Scans for known keys by name, ignores unknown keys (forward-compatible with extra fields added by external tools). All 16 patterns are saved including velocities, gates, probabilities, and pitch_drift. Users can hand-edit or generate JSON externally and load it on the device.
 
 ```json
 {
@@ -357,6 +362,7 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
   "note_range_high": 52,
   "scale_root": 0,
   "scale_type": 0,
+  "pitch_drift": 0,
   "chain_active": 0,
   "chain_start": 0,
   "chain_end": 3,
@@ -371,12 +377,15 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
       "gates":[1,1,...16 values],
       "cc_number": 1,
       "cc_enabled":[0,0,...16 values],
-      "cc_values":[0,0,...16 values]
+      "cc_values":[0,0,...16 values],
+      "probabilities":[100,100,...16 values]
     },
     ...16 patterns
   ]
 }
 ```
+
+`pitch_drift` and `probabilities` are optional in the JSON — older saves without them load cleanly and default to 0 and 100 respectively.
 
 **Arduino prototype issue**: The Arduino build tool auto-generates function prototypes before `#include`s are processed. Functions with `File&` parameters fail with "File not declared in this scope". All SD helper functions use a module-level `static File _f` handle instead — no `File` type appears in any function signature. Do not add `File&` parameters to helpers in `sd_storage.ino`.
 
@@ -411,12 +420,14 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 531 | 16 | `cc_number[16]` (one byte per pattern) |
 | 547 | 256 | `cc_step_enabled[16][16]` (one byte per step) |
 | 803 | 256 | `cc_step_values[16][16]` (one byte per step) |
+| 1059 | 1 | `pitch_drift` (uint8_t, 0–7) |
+| 1060 | 256 | `step_probability[16][16]` (one byte per step) |
 
-**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101).
+**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100.
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC6`.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC7`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.
 

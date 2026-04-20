@@ -190,13 +190,14 @@ void run_LCD_update() {
           strcpy(step_str, ">--");
         }
 
-        // Mode char: N=NN, V=VL, G=GT, C=CC
+        // Mode char: N=NN, V=VL, G=GT, C=CC, P=PR
         char mode_char;
         switch (slider_mode) {
           case 1: mode_char = 'N'; break;
           case 2: mode_char = 'V'; break;
           case 3: mode_char = 'G'; break;
           case 4: mode_char = 'C'; break;
+          case 5: mode_char = 'P'; break;
           default: mode_char = 'N'; break;
         }
 

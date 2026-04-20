@@ -72,8 +72,8 @@ int last_voice_slider_values[VOICE_COUNT];
 // stored value before it takes control. Set on voice switch and mode switch.
 bool slider_needs_pickup[VOICE_COUNT];
 
-uint8_t slider_mode       = 1;  // 1=NN  2=VL  3=GT  4=CC
-uint8_t slider_mode_total = 4;
+uint8_t slider_mode       = 1;  // 1=NN  2=VL  3=GT  4=CC  5=PR
+uint8_t slider_mode_total = 5;
 uint8_t slider_reset_counter = 0;
 
 uint8_t slider_map_low_value  = 36;   // default low MIDI note (kick drum range)
@@ -149,6 +149,26 @@ uint8_t voice_gate[16][VOICE_COUNT] = {
 
 // CC value (0–127) for each voice per pattern. Used in CC slider mode.
 uint8_t voice_cc_value[16][VOICE_COUNT];   // zero-initialised = 0
+
+// Fire probability (0–100%) for each voice per pattern. Default 100 = always fires.
+// Controlled by slider mode 5 (PR). Checked in stepsend() before each note-on.
+uint8_t voice_probability[16][VOICE_COUNT] = {
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100},
+    {100,100,100,100,100,100,100,100}};
 
 // Whether each voice fires a CC message when its step is active.
 // Per-voice global (not per-pattern). Toggle in CC mode via step buttons or

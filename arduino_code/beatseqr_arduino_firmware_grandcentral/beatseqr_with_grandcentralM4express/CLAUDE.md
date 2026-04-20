@@ -45,7 +45,7 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 | `LCD.ino` | LCD initialization and display updates |
 | `scales.ino` | Musical scale tables, `build_scale_notes()`, `quantize_to_scale()`, `apply_scale_to_all_patterns()` |
 | `config_menu.ino` | Modal config menu: knob-jog navigation, all settings |
-| `storage.ino` | EEPROM save/load (2605-byte layout, magic `0xBE`) |
+| `storage.ino` | EEPROM save/load (2733-byte layout, magic `0xBF`) |
 | `sd_storage.ino` | SD card save/load: `/beatseqr/autosave.json`, `boot_load()`, `save_everywhere()` |
 | `diagnostics.ino` | Hardware test mode stub (Phase 5 — not yet implemented) |
 
@@ -81,13 +81,14 @@ Beatseqr uses a **per-voice** data model, not the per-step model of Synthseqr:
 
 ```cpp
 // Core sequencer data:
-int step_data[16][VOICE_COUNT][16]     // [pattern][voice][step] — on/off
-uint8_t voice_pitch[16][VOICE_COUNT]   // [pattern][voice] — MIDI note for each voice
-uint8_t voice_velocity[16][VOICE_COUNT]// [pattern][voice] — velocity (0=muted)
-uint8_t voice_gate[16][VOICE_COUNT]    // [pattern][voice] — gate length 1–8 steps
-uint8_t voice_cc_value[16][VOICE_COUNT]// [pattern][voice] — CC value 0–127
-uint8_t voice_cc_enabled[VOICE_COUNT]  // [voice] — per-voice CC enable (not per-step)
-uint8_t cc_number[16]                  // [pattern] — CC controller number per pattern
+int step_data[16][VOICE_COUNT][16]          // [pattern][voice][step] — on/off
+uint8_t voice_pitch[16][VOICE_COUNT]        // [pattern][voice] — MIDI note for each voice
+uint8_t voice_velocity[16][VOICE_COUNT]     // [pattern][voice] — velocity (0=muted)
+uint8_t voice_gate[16][VOICE_COUNT]         // [pattern][voice] — gate length 1–8 steps
+uint8_t voice_cc_value[16][VOICE_COUNT]     // [pattern][voice] — CC value 0–127
+uint8_t voice_cc_enabled[VOICE_COUNT]       // [voice] — per-voice CC enable (not per-step)
+uint8_t cc_number[16]                       // [pattern] — CC controller number per pattern
+uint8_t voice_probability[16][VOICE_COUNT]  // [pattern][voice] — fire probability 0–100% (default 100)
 
 // Voice sounding state (indexed by voice, not step):
 int8_t sounding_notes[VOICE_COUNT]         // MIDI pitch currently sounding (-1=silent)
@@ -103,8 +104,9 @@ The key distinction from Synthseqr: each drum voice has ONE pitch/velocity/gate 
 3. On each step, `stepsend(current_step, last_step)` fires
 4. `stepsend()` computes `play_step` from `pattern_direction`, then for all 8 voices:
    - Sends note-off for any voice whose `sounding_note_end_step[v] == current_step`
-   - If `step_data[pat][v][play_step]` is on AND velocity > 0: sends note-on, schedules note-off
-   - If `voice_cc_enabled[v]` AND step active: sends CC message
+   - If `step_data[pat][v][play_step]` is on: checks `voice_probability[pat][v]` — fires only if `prob >= 100` or `random(100) < prob`
+   - If the probability check passes AND velocity > 0: sends note-on, schedules note-off
+   - If `voice_cc_enabled[v]` AND step active: sends CC message (CC fires regardless of probability)
 5. On stop: `allNotesOff()` sends note-off for all 8 `sounding_notes[]` entries
 
 ## Hardware Pin Map
@@ -163,8 +165,11 @@ Jog threshold: 20 ADC counts. `enter_knob_jog_mode()` anchors the baseline when 
 13. Pat length (1–16, step buttons tap-to-set)
 14. Pat dir (Fwd/Rev/Pong/Rand/Shuf/E/O/In/Quad)
 15. CC number (per-pattern, valid range 1–119 skipping 32, 96–101)
+16. Tempo (integer BPM, editing sub-state)
+17. Swing (0–5, editing sub-state)
+18. Voice prob — exits menu immediately and activates slider mode 5 (PR); label shows `*` if any voice probability < 100 for the current pattern
 
-Note: Swing is NOT a menu item — it is set by the hardware knob.
+Note: Swing is also available as a hardware knob (A9) — the menu item edits the same value.
 
 ## Slider Modes
 
@@ -176,8 +181,11 @@ Cycled by single press of `slider_mode_select`:
 | 2 — VL | Velocity 0–127 → `voice_velocity[pattern][voice]` (0 = voice muted) |
 | 3 — GT | Gate length 1–8 → `voice_gate[pattern][voice]` |
 | 4 — CC | CC value 0–127 → `voice_cc_value[pattern][voice]` |
+| 5 — PR | Fire probability 0–100% → `voice_probability[pattern][voice]` |
 
-**Important**: Slider `j` always controls voice `j` — the mapping is fixed regardless of `current_voice`. All 8 voices are simultaneously adjustable. The **pickup guard** (`slider_needs_pickup[j]`) prevents a slider from overwriting stored data after a voice switch, mode switch, or pattern switch until the physical slider reaches the stored value (±1 tolerance for NN/VL/CC, exact for GT).
+PR mode is accessed via config menu → **Voice prob** (exits the menu and sets `slider_mode = 5`). Slider j controls voice j's probability for the current pattern. Default 100 = always fires. At 0 the voice is silenced; at 50 it fires roughly half the time.
+
+**Important**: Slider `j` always controls voice `j` — the mapping is fixed regardless of `current_voice`. All 8 voices are simultaneously adjustable. The **pickup guard** (`slider_needs_pickup[j]`) prevents a slider from overwriting stored data after a voice switch, mode switch, or pattern switch until the physical slider reaches the stored value (±1 tolerance for NN/VL/CC/PR, exact for GT).
 
 ## LCD Display
 
@@ -208,9 +216,9 @@ LCD rate-limited to ~15 fps (66 ms) to prevent overflow at 9850 baud.
 
 ## Storage
 
-**EEPROM** (magic `0xBE`, ~2605 bytes): stores all 16 patterns × 8 voices of step data, pitch, velocity, gate, CC value; also voice_cc_enabled, cc_number, and all config scalars. Velocities, gates, and CC data are all stored (unlike old Beatseqr firmware). Increment `EEPROM_MAGIC_VALUE` in `storage.ino` if you change the layout.
+**EEPROM** (magic `0xBF`, ~2733 bytes): stores all 16 patterns × 8 voices of step data, pitch, velocity, gate, CC value, and probability; also voice_cc_enabled, cc_number, and all config scalars. Increment `EEPROM_MAGIC_VALUE` in `storage.ino` if you change the layout. Old saves with magic `0xBE` are automatically rejected and replaced with defaults.
 
-**SD card** (`/beatseqr/autosave.json`): primary storage. Per-pattern JSON with per-voice arrays (`pitches[8]`, `velocities[8]`, `gates[8]`, `cc_values[8]`, `steps_v0`…`steps_v7`). `voice_cc_enabled` stored once at top level. Hand-rolled parser, no ArduinoJson dependency.
+**SD card** (`/beatseqr/autosave.json`): primary storage. Per-pattern JSON with per-voice arrays (`pitches[8]`, `velocities[8]`, `gates[8]`, `cc_values[8]`, `probabilities[8]`, `steps_v0`…`steps_v7`). `voice_cc_enabled` stored once at top level. Hand-rolled parser, no ArduinoJson dependency. `probabilities` is optional in the JSON — older saves without it load cleanly and default to 100.
 
 **Boot**: `boot_load()` tries SD first, falls back to EEPROM. `save_everywhere()` writes SD + EEPROM.
 

@@ -233,6 +233,13 @@ bool save_to_sd() {
     }
     _f.println("],");
 
+    _f.print("      \"probabilities\": [");
+    for (int v = 0; v < VOICE_COUNT; v++) {
+      _f.print(voice_probability[p][v]);
+      if (v < VOICE_COUNT - 1) _f.print(",");
+    }
+    _f.println("],");
+
     // Per-voice step arrays — step_data[pattern][voice][step].
     for (int v = 0; v < VOICE_COUNT; v++) {
       _f.print("      \"steps_v");
@@ -420,6 +427,13 @@ bool load_from_sd() {
       if (sd_find_bounded("\"cc_values\":", 300)) {
         if (sd_read_until('['))
           sd_read_int8_array(voice_cc_value[p], VOICE_COUNT, 0, 127);
+      } else { _f.seek(pos); }
+    }
+    {
+      uint32_t pos = _f.position();
+      if (sd_find_bounded("\"probabilities\":", 300)) {
+        if (sd_read_until('['))
+          sd_read_int8_array(voice_probability[p], VOICE_COUNT, 0, 100);
       } else { _f.seek(pos); }
     }
 

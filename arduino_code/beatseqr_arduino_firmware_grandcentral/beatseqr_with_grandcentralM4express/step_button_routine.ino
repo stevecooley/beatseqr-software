@@ -24,10 +24,11 @@ void run_step_button_routine() {
           for (int s = 0; s < 16; s++) {
             step_data[i][v][s] = step_data[current_pattern][v][s];
           }
-          voice_pitch[i][v]    = voice_pitch[current_pattern][v];
-          voice_velocity[i][v] = voice_velocity[current_pattern][v];
-          voice_gate[i][v]     = voice_gate[current_pattern][v];
-          voice_cc_value[i][v] = voice_cc_value[current_pattern][v];
+          voice_pitch[i][v]        = voice_pitch[current_pattern][v];
+          voice_velocity[i][v]     = voice_velocity[current_pattern][v];
+          voice_gate[i][v]         = voice_gate[current_pattern][v];
+          voice_cc_value[i][v]     = voice_cc_value[current_pattern][v];
+          voice_probability[i][v]  = voice_probability[current_pattern][v];
         }
         cc_number[i] = cc_number[current_pattern];
         copy_pattern_to = i;
@@ -109,10 +110,11 @@ void clear_pattern_memory_for_voice(int voice) {
     step_data[pattern_value][voice][i] = 0;
     step_leds[i].off();
   }
-  voice_pitch[pattern_value][voice]    = slider_map_low_value;
-  voice_velocity[pattern_value][voice] = 100;
-  voice_gate[pattern_value][voice]     = 1;
-  voice_cc_value[pattern_value][voice] = 0;
+  voice_pitch[pattern_value][voice]        = slider_map_low_value;
+  voice_velocity[pattern_value][voice]     = 100;
+  voice_gate[pattern_value][voice]         = 1;
+  voice_cc_value[pattern_value][voice]     = 0;
+  voice_probability[pattern_value][voice]  = 100;
 }
 
 // clear_pattern_memory — clear all 16 patterns, all 8 voices.
@@ -123,10 +125,11 @@ void clear_pattern_memory() {
       for (int i = 0; i < 16; i++) {
         step_data[p][v][i] = 0;
       }
-      voice_pitch[p][v]    = slider_map_low_value;
-      voice_velocity[p][v] = 100;
-      voice_gate[p][v]     = 1;
-      voice_cc_value[p][v] = 0;
+      voice_pitch[p][v]        = slider_map_low_value;
+      voice_velocity[p][v]     = 100;
+      voice_gate[p][v]         = 1;
+      voice_cc_value[p][v]     = 0;
+      voice_probability[p][v]  = 100;
     }
     cc_number[p] = 1;
   }

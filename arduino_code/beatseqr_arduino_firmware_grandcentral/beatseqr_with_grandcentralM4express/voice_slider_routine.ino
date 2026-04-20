@@ -103,6 +103,19 @@ void run_voice_slider_routine() {
         voice_cc_value[pattern_value][j] = ccval;
         voice_slider_values[j] = ccval;
       }
+
+    } else if (slider_mode == 5) {
+      // PR mode: probability 0–100%.
+      uint8_t prob = (uint8_t)map(sector, 0, 255, 0, 100);
+      raw_voice_slider_values[j] = prob;
+
+      if (slider_needs_pickup[j]) {
+        if (abs((int)prob - (int)voice_probability[pattern_value][j]) <= 1)
+          slider_needs_pickup[j] = false;
+      } else if (prob != voice_probability[pattern_value][j]) {
+        voice_probability[pattern_value][j] = prob;
+        voice_slider_values[j] = prob;
+      }
     }
 
     last_voice_slider_values[j] = voice_slider_values[j];
@@ -114,11 +127,12 @@ void run_voice_slider_routine() {
 void resetSliders() {
   lcdflag = 93; next_lcdflag = 93;
   for (int v = 0; v < VOICE_COUNT; v++) {
-    voice_pitch[pattern_value][v]    = slider_map_low_value;
-    voice_velocity[pattern_value][v] = 100;
-    voice_gate[pattern_value][v]     = 1;
-    voice_cc_value[pattern_value][v] = 0;
-    slider_needs_pickup[v]           = false;
+    voice_pitch[pattern_value][v]        = slider_map_low_value;
+    voice_velocity[pattern_value][v]     = 100;
+    voice_gate[pattern_value][v]         = 1;
+    voice_cc_value[pattern_value][v]     = 0;
+    voice_probability[pattern_value][v]  = 100;
+    slider_needs_pickup[v]               = false;
   }
   init_blank_patterns_to_range();
   build_scale_notes();

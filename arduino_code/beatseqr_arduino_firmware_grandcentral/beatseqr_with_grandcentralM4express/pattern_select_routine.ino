@@ -224,10 +224,11 @@ void listen_for_copy_command() {
         for (int s = 0; s < 16; s++) {
           step_data[copy_pattern_to][v][s] = step_data[current_pattern][v][s];
         }
-        voice_pitch[copy_pattern_to][v]    = voice_pitch[current_pattern][v];
-        voice_velocity[copy_pattern_to][v] = voice_velocity[current_pattern][v];
-        voice_gate[copy_pattern_to][v]     = voice_gate[current_pattern][v];
-        voice_cc_value[copy_pattern_to][v] = voice_cc_value[current_pattern][v];
+        voice_pitch[copy_pattern_to][v]        = voice_pitch[current_pattern][v];
+        voice_velocity[copy_pattern_to][v]     = voice_velocity[current_pattern][v];
+        voice_gate[copy_pattern_to][v]         = voice_gate[current_pattern][v];
+        voice_cc_value[copy_pattern_to][v]     = voice_cc_value[current_pattern][v];
+        voice_probability[copy_pattern_to][v]  = voice_probability[current_pattern][v];
       }
       cc_number[copy_pattern_to] = cc_number[current_pattern];
 

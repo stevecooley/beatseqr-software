@@ -60,6 +60,7 @@ Each step has four editable values: **pitch**, **velocity**, **gate length**, an
 | **VL** (velocity) | `♪V` at top-right of line 1 | MIDI velocity (1–127) for each step |
 | **GT** (gate) | `♪G` at top-right of line 1 | Gate length (1–8 steps) for each step |
 | **CC** (control change) | `♪♩` at top-right of line 1 | MIDI CC value (0–127) per step; step buttons toggle CC steps on/off |
+| **PR** (probability) | `♪P` at top-right of line 1 | Fire probability (0–100%) for each step |
 
 The current mode is always shown in the top-right corner of LCD line 1.
 
@@ -67,11 +68,13 @@ The current mode is always shown in the top-right corner of LCD line 1.
 
 **Simple mode:** Single-tap the **Enter button** to cycle NN → VL → GT → CC → NN. The mode change fires ~400 ms after the tap so the sequencer can confirm it isn't the start of a double-tap.
 
+**PR mode** is accessed via the **Config Menu** (double-tap Enter) → **Step prob**. This exits the menu and activates PR mode. The Enter cycle does not include PR — use the menu to reach it.
+
 **Advanced mode:** Use the **pattern select buttons**:
 - **Pattern button 1** → NN mode (LED 1 lights up)
 - **Pattern button 2** → GT mode (LED 2 lights up)
 - **Pattern button 3** → VL mode (LED 3 lights up)
-- For CC mode in advanced mode: use Enter single-tap to continue cycling to CC after GT.
+- For CC and PR modes in advanced mode: use the config menu.
 
 The lit LED tells you which slider mode is currently active.
 
@@ -109,6 +112,15 @@ In CC mode, the step LEDs and buttons switch to show and control the **CC automa
 - The CC **controller number** is set per-pattern in the Config Menu (see **CC Number** below). Default is CC 1 (Modulation Wheel).
 
 When you exit CC mode, step LEDs return to showing note step on/off state.
+
+### Probability (PR) Mode
+
+In PR mode each slider controls the **fire probability** for its corresponding step (0–100%). A step at 100% (default) always fires. A step at 50% fires roughly half the time. A step at 0% never fires (silenced without turning it off).
+
+- PR mode does not change which steps are "on" — it layers randomness on top of existing step data.
+- CC steps fire independently: a step can have CC enabled and its note probabilistic.
+- Probabilities are saved per step, per pattern.
+- Clearing a pattern resets all probabilities to 100%.
 
 ---
 
@@ -451,8 +463,27 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Pat length | Step count 1–16; up/down or tap a step button; step LEDs show current length; label shows * when not 16 |
 | Pat dir | Playback direction; up/down cycles Fwd/Rev/Pong/Rand/Shuf/E/O/In/Quad |
 | CC number | CC controller number for the current pattern (1–119, skipping reserved CCs); up/down cycles; Enter or Left exits; line 2 shows name of selected CC |
+| Step prob | Exits the menu immediately and activates PR slider mode — sliders set per-step fire probability 0–100%; label shows * when any step is below 100% |
+| Pitch drift | Semitones of random pitch wander applied at note-send time (0=off, 1–7); up/down to adjust; Enter or Left exits; label shows * when non-zero |
 
 **Confirmation prompt**: for destructive actions, line 2 shows `Entr=ok  Lft=no`. Press Enter to confirm or D-pad left to cancel.
+
+---
+
+## Pitch Drift
+
+Open the **Config Menu** (double-tap Enter) and scroll to **Pitch drift**. Press Enter to enter editing.
+
+- D-pad up/down adjusts the drift amount from 0 to 7 semitones.
+- **0** = no drift (deterministic pitch, default).
+- At each note-on, a random offset in the range `[-drift, +drift]` is added to the note's pitch.
+- The result is clamped to the configured note range (low/high) so drift never exceeds the range.
+- If a note scale is active, the drifted pitch is then snapped to the nearest in-scale note.
+- Drift applies at send time — stored pitches are not modified.
+- Press Enter or D-pad left to exit.
+- The label shows `Pitch drift  *` when the value is non-zero.
+
+**Musical uses**: at low values (1–2) it adds subtle pitch variation like a slightly unstable oscillator. Higher values (4–7) create wide random leaps, useful for generative melodic content.
 
 ---
 
@@ -479,7 +510,8 @@ Open the config menu (double-tap Enter), scroll to **Save**, and press Enter. Th
 
 The following are saved:
 
-- All 16 patterns (step on/off, pitch, velocity, gate length, CC on/off, CC value, and CC controller number per pattern)
+- All 16 patterns (step on/off, pitch, velocity, gate length, CC on/off, CC value, CC controller number, and step probability per pattern)
+- Pitch drift (global)
 - Tempo, swing, MIDI channel
 - Active pattern, chain mode on/off, clock source (INT/EXT)
 - Octave shift, Note shift, Note range (low/high)
@@ -582,6 +614,9 @@ Connect at **57600 baud** to see:
 | Set step gate length | Voice slider (GT mode) |
 | Set step CC value | Voice slider (CC mode) |
 | Toggle CC step on/off | Step button (CC mode) |
+| Set step probability | Voice slider (PR mode) |
+| Enter PR mode | Config menu → Step prob |
+| Set pitch drift | Config menu → Pitch drift, up/down |
 | Cycle slider mode (simple) | Enter button |
 | Slider mode → NN (advanced) | Pattern button 2 |
 | Slider mode → GT (advanced) | Pattern button 3 |

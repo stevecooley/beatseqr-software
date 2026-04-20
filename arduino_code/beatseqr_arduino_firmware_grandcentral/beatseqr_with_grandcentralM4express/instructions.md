@@ -18,8 +18,8 @@ Beatseqr is a 16-step MIDI drum sequencer with 8 voices. Each voice represents o
 | **Play button** | Start / Stop sequencer |
 | **16 step buttons** | Toggle steps on/off for the active voice |
 | **8 voice-select buttons** | Select which voice to edit |
-| **8 voice sliders** | Set pitch / velocity / gate / CC for each voice |
-| **Slider mode button** | Cycle slider mode: NN → VL → GT → CC |
+| **8 voice sliders** | Set pitch / velocity / gate / CC / probability for each voice |
+| **Slider mode button** | Cycle slider mode: NN → VL → GT → CC → NN |
 | **Tempo knob** | Set BPM (30–250) |
 | **Swing knob** | Set swing amount (0–5) |
 | **4 pattern buttons** | Select pattern (Simple) or function keys (Advanced) |
@@ -58,6 +58,9 @@ Press the **Slider mode button** to cycle through four modes. All 8 sliders are 
 | **VL** | V | Velocity 0–127. Slider fully down = 0 = voice muted |
 | **GT** | G | Gate length 1–8 steps (how long the note rings) |
 | **CC** | C | CC value 0–127 for a MIDI control change message |
+| **PR** | P | Fire probability 0–100% for each voice |
+
+**PR mode** is accessed via the config menu → **Voice prob**. The Slider mode button only cycles NN → VL → GT → CC; use the menu to enter PR mode. PR is saved per pattern.
 
 **Pickup guard**: after switching modes, a slider won't change its value until it physically reaches the currently-stored value. This prevents accidental jumps when sliders are at different positions for different modes.
 
@@ -139,6 +142,29 @@ Enter the config menu by **double-tapping the Knob mode button** (two presses wi
 | **Pat length** | Pattern length 1–16 steps (or tap a step button to set directly) |
 | **Pat dir** | Playback direction: Fwd / Rev / Pong / Rand / Shuf / E/O / In / Quad |
 | **CC number** | MIDI CC controller number for this pattern (1–119) |
+| **Tempo** | BPM (integer); tempo knob CW/CCW to adjust; param_rec to exit |
+| **Swing** | Swing amount 0–5; same as the hardware swing knob |
+| **Voice prob** | Exits the menu and activates PR slider mode — sliders set per-voice probability 0–100% |
+
+---
+
+## Voice Probability (PR Mode)
+
+Each voice can have an independent fire probability per pattern. A voice with probability 100 (the default) always fires on its active steps. A voice at 50 fires roughly half the time. A voice at 0 is silenced entirely.
+
+**To set probabilities:**
+1. Open the config menu (double-tap Knob mode button)
+2. Scroll to **Voice prob** and press param_rec
+3. The menu closes and slider mode switches to **PR** (LCD shows `P` in the mode indicator)
+4. Move any of the 8 sliders — slider N sets voice N's probability for the current pattern
+5. To exit PR mode, press the **Slider mode button** to cycle back to NN
+
+**Notes:**
+- Probability is per-pattern — each of the 16 patterns has its own set of probabilities
+- The menu label shows `*` when any voice in the current pattern has probability below 100%
+- Patterns are silenced completely if their voice probability reaches 0, but any CC messages still fire normally
+- Probabilities are saved with the pattern (SD card and EEPROM)
+- Clearing a pattern or resetting sliders resets all probabilities to 100%
 
 ---
 

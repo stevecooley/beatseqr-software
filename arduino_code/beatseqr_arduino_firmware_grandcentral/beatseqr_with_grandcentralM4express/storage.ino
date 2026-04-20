@@ -57,8 +57,9 @@
 #define EEPROM_VOICE_CC_VAL_ADDR      2453   // 128 bytes: voice_cc_value[16][8]
 #define EEPROM_VOICE_CC_EN_ADDR       2581   // 8 bytes:   voice_cc_enabled[8]
 #define EEPROM_CC_NUMBERS_ADDR        2589   // 16 bytes:  cc_number[16]
+#define EEPROM_VOICE_PROB_ADDR        2605   // 128 bytes: voice_probability[16][8]
 
-#define EEPROM_MAGIC_VALUE  0xBE  // Beatseqr-specific; invalidates any Synthseqr saves
+#define EEPROM_MAGIC_VALUE  0xBF  // bumped: added voice_probability
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -111,6 +112,13 @@ void save_to_eeprom() {
 
   for (int p = 0; p < 16; p++)
     EEPROM.write(EEPROM_CC_NUMBERS_ADDR + p, cc_number[p]);
+
+  {
+    int addr = EEPROM_VOICE_PROB_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int v = 0; v < VOICE_COUNT; v++)
+        EEPROM.write(addr++, voice_probability[p][v]);
+  }
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   EEPROM.commit();
@@ -223,6 +231,15 @@ bool load_from_eeprom() {
     uint8_t n = EEPROM.read(EEPROM_CC_NUMBERS_ADDR + p);
     if (n >= 1 && n <= 119 && n != 32 && !(n >= 96 && n <= 101))
       cc_number[p] = n;
+  }
+
+  {
+    int addr = EEPROM_VOICE_PROB_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int v = 0; v < VOICE_COUNT; v++) {
+        uint8_t val = EEPROM.read(addr++);
+        if (val <= 100) voice_probability[p][v] = val;
+      }
   }
 
   // Arm pickup guards so sliders don't immediately overwrite loaded values.
