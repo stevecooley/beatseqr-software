@@ -106,7 +106,9 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 #define CONFIG_ITEM_PAT_LENGTH    14
 #define CONFIG_ITEM_PAT_DIR       15
 #define CONFIG_ITEM_CC_NUMBER     16
-#define CONFIG_MENU_ITEM_COUNT    17
+#define CONFIG_ITEM_STEP_PROB     17
+#define CONFIG_ITEM_PITCH_DRIFT   18
+#define CONFIG_MENU_ITEM_COUNT    19
 
 // line1_label: 14 chars printed after "> " on line 1.
 // Items with inline values are rendered dynamically in print_config_label().
@@ -127,7 +129,9 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Note scales   ",   // placeholder
   "Pat length    ",
   "Pat dir:      ",   // value overwritten at draw time
-  "CC num:       "    // value overwritten at draw time
+  "CC num:       ",   // value overwritten at draw time
+  "Step prob     ",   // * appended if any step < 100 in current pattern
+  "Pitch drift   "    // * appended if non-zero
 };
 
 // Build the 14-char label for a given item index.
@@ -178,6 +182,14 @@ void print_config_label(uint8_t item) {
     // "CC:%03d %-7s" = 3+3+1+7 = 14 chars
     snprintf(_buf, sizeof(_buf), "CC:%03d %-7s", cc_number[pattern_value], cc_name(cc_number[pattern_value]));
     lcd.print(_buf);
+  } else if (item == CONFIG_ITEM_STEP_PROB) {
+    bool non_default = false;
+    for (int s = 0; s < 16; s++) {
+      if (step_probability[pattern_value][s] < 100) { non_default = true; break; }
+    }
+    lcd.print(non_default ? "Step prob    *" : "Step prob     ");
+  } else if (item == CONFIG_ITEM_PITCH_DRIFT) {
+    lcd.print(pitch_drift != 0 ? "Pitch drift  *" : "Pitch drift   ");
   } else {
     lcd.print(config_labels[item]);
   }
@@ -262,6 +274,12 @@ void draw_config_menu() {
     char line2[17];
     // "CC: 001 Mod Whl " — 4+3+1+7+1 = 16 chars
     int len = snprintf(line2, sizeof(line2), "CC: %03d %s", cc_number[pattern_value], cc_name(cc_number[pattern_value]));
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_PITCH_DRIFT) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Drift: %d", pitch_drift);
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
@@ -381,6 +399,9 @@ void run_config_menu() {
       } else if (config_menu_item == CONFIG_ITEM_CC_NUMBER) {
         cc_number[pattern_value] = next_valid_cc(cc_number[pattern_value], +1);
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_PITCH_DRIFT && pitch_drift < 7) {
+        pitch_drift++;
+        draw_config_menu();
       }
     }
     if (dpad_down_flag) {
@@ -431,6 +452,9 @@ void run_config_menu() {
         draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_CC_NUMBER) {
         cc_number[pattern_value] = next_valid_cc(cc_number[pattern_value], -1);
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_PITCH_DRIFT && pitch_drift > 0) {
+        pitch_drift--;
         draw_config_menu();
       }
     }
@@ -595,6 +619,15 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_CC_NUMBER:
+        config_editing_value = true;
+        draw_config_menu();
+        break;
+      case CONFIG_ITEM_STEP_PROB:
+        // Exit menu and activate PR slider mode so sliders control probability.
+        exit_config_menu();
+        set_slider_mode(5);
+        break;
+      case CONFIG_ITEM_PITCH_DRIFT:
         config_editing_value = true;
         draw_config_menu();
         break;

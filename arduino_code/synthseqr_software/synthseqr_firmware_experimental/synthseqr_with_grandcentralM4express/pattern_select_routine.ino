@@ -319,6 +319,8 @@ void listen_for_copy_command() {
                 cc_step_enabled[current_pattern][step];
             cc_step_values[copy_pattern_to][step] =
                 cc_step_values[current_pattern][step];
+            step_probability[copy_pattern_to][step] =
+                step_probability[current_pattern][step];
           }
         }
         cc_number[copy_pattern_to] = cc_number[current_pattern];

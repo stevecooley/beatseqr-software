@@ -107,6 +107,19 @@ void run_voice_slider_routine()
         cc_step_values[pattern_value][j] = ccval;
       }
     }
+    else if (slider_mode == 5)
+    {
+      // PR mode: map to probability range 0-100, pickup guard prevents writes
+      // until the slider physically reaches the stored probability value.
+      uint8_t prob = (uint8_t)map(sector, 0, 255, 0, 100);
+      if (slider_needs_pickup[j]) {
+        if (abs((int)prob - (int)step_probability[pattern_value][j]) <= 1) {
+          slider_needs_pickup[j] = false;
+        }
+      } else if (prob != step_probability[pattern_value][j]) {
+        step_probability[pattern_value][j] = prob;
+      }
+    }
 
     last_voice_slider_values[j] = voice_slider_values[j];
   }
@@ -125,6 +138,7 @@ void resetSliders()
     voice_slider_midivelocity[i] = 127;
     pattern_step_velocities[pattern_value][i] = 127;
     step_gate[pattern_value][i] = 1;
+    step_probability[pattern_value][i] = 100;
     slider_needs_pickup[i] = false;
     slider_serial_message_factory("NN", i);
     slider_serial_message_factory("CC", i);

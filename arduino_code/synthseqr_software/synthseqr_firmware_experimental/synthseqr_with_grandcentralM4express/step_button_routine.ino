@@ -31,6 +31,7 @@ void run_step_button_routine()
           step_gate[i][s] = step_gate[current_pattern][s];
           cc_step_enabled[i][s] = cc_step_enabled[current_pattern][s];
           cc_step_values[i][s] = cc_step_values[current_pattern][s];
+          step_probability[i][s] = step_probability[current_pattern][s];
         }
         cc_number[i] = cc_number[current_pattern];
         copy_pattern_to = i;

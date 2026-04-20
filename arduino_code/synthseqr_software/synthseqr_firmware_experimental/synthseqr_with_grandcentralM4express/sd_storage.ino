@@ -166,6 +166,7 @@ bool save_to_sd() {
   _f.print("  \"pattern_direction\": "); _f.print(pattern_direction);    _f.println(",");
   _f.print("  \"scale_root\": ");        _f.print(scale_root);           _f.println(",");
   _f.print("  \"scale_type\": ");        _f.print(scale_type);           _f.println(",");
+  _f.print("  \"pitch_drift\": ");       _f.print(pitch_drift);          _f.println(",");
   _f.println("  \"patterns\": [");
 
   for (int p = 0; p < 16; p++) {
@@ -199,6 +200,11 @@ bool save_to_sd() {
     _f.print("],\"cc_values\":[");
     for (int s = 0; s < 16; s++) {
       _f.print(cc_step_values[p][s]);
+      if (s < 15) _f.print(",");
+    }
+    _f.print("],\"probabilities\":[");
+    for (int s = 0; s < 16; s++) {
+      _f.print(step_probability[p][s]);
       if (s < 15) _f.print(",");
     }
     _f.print("]}");
@@ -324,6 +330,12 @@ bool load_from_sd() {
     if (v >= 0 && v < SCALE_COUNT) scale_type = (uint8_t)v;
   }
 
+  _f.seek(0);
+  if (sd_find("\"pitch_drift\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v <= 7) pitch_drift = (uint8_t)v;
+  }
+
   // Parse patterns array — seek once to "patterns": then read sequentially.
   _f.seek(0);
   if (!sd_find("\"patterns\":")) {
@@ -417,6 +429,21 @@ bool load_from_sd() {
             sd_skip_ws();
             int v = (int)sd_parse_number();
             if (v >= 0 && v <= 127) cc_step_values[p][s] = (uint8_t)v;
+            sd_skip_ws();
+            char c = (char)_f.peek();
+            if (c == ',' || c == ']') _f.read();
+          }
+        }
+      } else { _f.seek(pos); }
+    }
+    {
+      uint32_t pos = _f.position();
+      if (sd_find_bounded("\"probabilities\":", 400)) {
+        if (sd_read_until('[')) {
+          for (int s = 0; s < 16; s++) {
+            sd_skip_ws();
+            int v = (int)sd_parse_number();
+            if (v >= 0 && v <= 100) step_probability[p][s] = (uint8_t)v;
             sd_skip_ws();
             char c = (char)_f.peek();
             if (c == ',' || c == ']') _f.read();

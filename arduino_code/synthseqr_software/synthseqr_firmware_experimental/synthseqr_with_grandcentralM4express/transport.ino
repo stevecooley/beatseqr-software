@@ -255,29 +255,43 @@ void stepsend(int current_step, int last_step) {
   }
 
   if (step_data[pattern_value][0][play_step] == 1) {
-    // If this slot is still sounding (e.g. random mode re-triggered it),
-    // send note-off before the new note-on.
-    if (sounding_notes[play_step] >= 0) {
-      noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[play_step], 0);
-      sounding_notes[play_step] = -1;
-      sounding_note_end_step[play_step] = -1;
-    }
-    int16_t shifted = (int16_t)voice_slider_midinotenum[play_step] + (int16_t)(octave_shift * 12) + (int16_t)note_shift;
-    if (shifted < 0) shifted = 0;
-    if (shifted > 127) shifted = 127;
-    uint8_t pitch = (uint8_t)shifted;
-    uint8_t vel = voice_slider_midivelocity[play_step];
-    noteOn(MIDICHANNEL - 1, pitch, vel);
-    sounding_notes[play_step] = (int8_t)pitch;
-    // Schedule note-off: gate steps later in hardware clock time
-    sounding_note_end_step[play_step] =
-        (int8_t)((current_step + step_gate[pattern_value][play_step]) % pattern_length);
-    // Update LCD lines with this step's trigger info —
-    // but only when the config menu isn't using line 2.
-    if (!config_menu_active) {
-      last_triggered_step = (int8_t)play_step;
-      update_line1 = true;  // step counter on line 1
-      update_line2 = true;
+    bool fires = (step_probability[pattern_value][play_step] >= 100)
+                 || ((uint8_t)random(100) < step_probability[pattern_value][play_step]);
+    if (fires) {
+      // If this slot is still sounding (e.g. random mode re-triggered it),
+      // send note-off before the new note-on.
+      if (sounding_notes[play_step] >= 0) {
+        noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[play_step], 0);
+        sounding_notes[play_step] = -1;
+        sounding_note_end_step[play_step] = -1;
+      }
+      int16_t shifted = (int16_t)voice_slider_midinotenum[play_step]
+                      + (int16_t)(octave_shift * 12) + (int16_t)note_shift;
+      // Apply pitch drift: random wander ±pitch_drift semitones, then clamp
+      // to note range and quantize to the active scale.
+      if (pitch_drift > 0) {
+        shifted += (int16_t)random(-(long)pitch_drift, (long)pitch_drift + 1);
+        if (shifted < (int16_t)slider_map_low_value)  shifted = (int16_t)slider_map_low_value;
+        if (shifted > (int16_t)slider_map_high_value) shifted = (int16_t)slider_map_high_value;
+        if (scale_type != 0 && scale_note_count > 0)
+          shifted = (int16_t)quantize_to_scale((uint8_t)shifted);
+      }
+      if (shifted < 0)   shifted = 0;
+      if (shifted > 127) shifted = 127;
+      uint8_t pitch = (uint8_t)shifted;
+      uint8_t vel = voice_slider_midivelocity[play_step];
+      noteOn(MIDICHANNEL - 1, pitch, vel);
+      sounding_notes[play_step] = (int8_t)pitch;  // store drifted pitch for correct note-off
+      // Schedule note-off: gate steps later in hardware clock time
+      sounding_note_end_step[play_step] =
+          (int8_t)((current_step + step_gate[pattern_value][play_step]) % pattern_length);
+      // Update LCD lines with this step's trigger info —
+      // but only when the config menu isn't using line 2.
+      if (!config_menu_active) {
+        last_triggered_step = (int8_t)play_step;
+        update_line1 = true;  // step counter on line 1
+        update_line2 = true;
+      }
     }
   }
 

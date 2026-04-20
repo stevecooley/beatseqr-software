@@ -363,6 +363,7 @@ void run_LCD_update() {
           case 2: lcd.print("?2"); Serial.println("?2"); break;
           case 3: lcd.print("G");  Serial.println("G");  break;
           case 4: lcd.print("?3"); Serial.println("?3"); break;
+          case 5: lcd.print("P");  Serial.println("P");  break;
           default: lcd.print("?4"); Serial.println("?4"); break;
         }
       }

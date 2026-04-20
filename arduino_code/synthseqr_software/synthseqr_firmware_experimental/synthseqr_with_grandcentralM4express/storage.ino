@@ -49,8 +49,10 @@
 #define EEPROM_CC_NUMBERS_ADDR        531   // 16 bytes: cc_number[16]
 #define EEPROM_CC_ENABLED_ADDR        547   // 256 bytes: cc_step_enabled[16][16]
 #define EEPROM_CC_VALUES_ADDR         803   // 256 bytes: cc_step_values[16][16]
+#define EEPROM_PITCH_DRIFT_ADDR      1059   // 1 byte: pitch_drift
+#define EEPROM_STEP_PROB_ADDR        1060   // 256 bytes: step_probability[16][16]
 
-#define EEPROM_MAGIC_VALUE  0xC6  // bumped: added CC sequencing data
+#define EEPROM_MAGIC_VALUE  0xC7  // bumped: added pitch_drift and step_probability
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -97,6 +99,15 @@ void save_to_eeprom() {
   for (int p = 0; p < 16; p++)
     for (int s = 0; s < 16; s++)
       EEPROM.write(cc_addr++, cc_step_values[p][s]);
+
+  EEPROM.write(EEPROM_PITCH_DRIFT_ADDR, pitch_drift);
+
+  {
+    int addr = EEPROM_STEP_PROB_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int s = 0; s < 16; s++)
+        EEPROM.write(addr++, step_probability[p][s]);
+  }
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -199,6 +210,20 @@ bool load_from_eeprom() {
       for (int s = 0; s < 16; s++) {
         uint8_t v = EEPROM.read(cc_addr++);
         if (v <= 127) cc_step_values[p][s] = v;
+      }
+  }
+
+  {
+    uint8_t v = EEPROM.read(EEPROM_PITCH_DRIFT_ADDR);
+    if (v <= 7) pitch_drift = v;
+  }
+
+  {
+    int addr = EEPROM_STEP_PROB_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int s = 0; s < 16; s++) {
+        uint8_t v = EEPROM.read(addr++);
+        if (v <= 100) step_probability[p][s] = v;
       }
   }
 
