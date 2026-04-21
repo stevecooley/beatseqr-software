@@ -198,6 +198,7 @@ void clear_pattern_memory_for_voice(int voice)
     step_gate[pattern_value][i] = 1;
     cc_step_enabled[pattern_value][i] = 0;
     cc_step_values[pattern_value][i] = 0;
+    step_probability[pattern_value][i] = 100;
     step_leds[i].off();
   }
   return;
@@ -217,6 +218,7 @@ void clear_pattern_memory()
         step_gate[p][i] = 1;
         cc_step_enabled[p][i] = 0;
         cc_step_values[p][i] = 0;
+        step_probability[p][i] = 100;
       }
     }
   }

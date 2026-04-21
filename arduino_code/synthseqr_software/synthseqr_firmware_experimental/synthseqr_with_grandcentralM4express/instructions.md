@@ -416,14 +416,7 @@ Pattern direction is global — it applies to all patterns simultaneously. Gate 
 
 ## Clearing Patterns
 
-These combos work while the sequencer is stopped or playing.
-
-| Action                | Combo                                       |
-| --------------------- | ------------------------------------------- |
-| Clear current pattern | Hold **step button 1** + **step button 16** |
-| Clear all patterns    | Hold **step button 1** + **step button 12** |
-
-Clearing turns off all step LEDs, silences all steps, resets velocities to 127, resets gate lengths to 1, and clears CC step data (all CC steps disabled, CC values set to 0).
+Clearing turns off all step LEDs, silences all steps, resets pitches to the low note value, resets velocities to 127, resets gate lengths to 1, resets all step probabilities to 100%, and clears CC step data (all CC steps disabled, CC values set to 0).
 
 ---
 
