@@ -395,11 +395,11 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 **On boot**: `load_from_eeprom()` is called only if `load_from_sd()` returns false. Checks for a magic sentinel byte at address 0. If missing (first boot or layout change), globals keep compiled-in defaults.
 
-**EEPROM layout** (1059 bytes, defined as `#define` constants in `storage.ino`):
+**EEPROM layout** (1316 bytes, defined as `#define` constants in `storage.ino`):
 
 | Address | Size | Content |
 |---------|------|---------|
-| 0 | 1 | Magic byte `0xC6` |
+| 0 | 1 | Magic byte `0xC9` |
 | 1 | 1 | `MIDICHANNEL` |
 | 2 | 1 | `SWING` |
 | 3 | 4 | `TEMPO` (float) |
@@ -427,7 +427,7 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC7`.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC9`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.
 

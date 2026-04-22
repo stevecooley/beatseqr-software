@@ -165,7 +165,7 @@ bool save_to_sd() {
   _f.print("  \"chain_active\": ");  _f.print(extended_step_length_mode); _f.println(",");
   _f.print("  \"chain_start\": ");   _f.print(chain_start);           _f.println(",");
   _f.print("  \"chain_end\": ");     _f.print(chain_end);             _f.println(",");
-  // advanced_mode is intentionally not saved — always boots Simple.
+  _f.print("  \"advanced_mode\": "); _f.print(advanced_mode ? 1 : 0); _f.println(",");
   _f.print("  \"pattern_length\": ");   _f.print(pattern_length);        _f.println(",");
   _f.print("  \"pattern_direction\": "); _f.print(pattern_direction);    _f.println(",");
   _f.print("  \"scale_root\": ");        _f.print(scale_root);           _f.println(",");
@@ -305,7 +305,10 @@ bool load_from_sd() {
     if (v >= 0 && v <= 15) chain_end = (uint8_t)v;
   }
 
-  // advanced_mode is intentionally not loaded — always boots Simple.
+  if (sd_find("\"advanced_mode\":")) {
+    int v = (int)sd_parse_number();
+    if (v == 0 || v == 1) advanced_mode = (bool)v;
+  }
 
   _f.seekSet(0);
   if (sd_find("\"pattern_length\":")) {

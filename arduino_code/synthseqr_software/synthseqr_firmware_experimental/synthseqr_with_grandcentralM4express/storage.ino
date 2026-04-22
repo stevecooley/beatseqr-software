@@ -1,32 +1,34 @@
 // SAMD51 has no native EEPROM; use FlashStorage_SAMD for a compatible API.
 #include <FlashAsEEPROM_SAMD.h>
 
-// EEPROM layout — 529 bytes total.
+// EEPROM layout — 1316 bytes total.
 // If you change the layout, increment EEPROM_MAGIC_VALUE so old saves are
 // ignored rather than misread as valid data.
 //
-//  Addr  Bytes  Content
-//  0     1      magic sentinel
-//  1     1      MIDICHANNEL
-//  2     1      SWING
-//  3     4      TEMPO (float)
-//  7     1      current_pattern
-//  8     1      extended_step_length_mode (chain mode)
-//  9     1      external_clock_mode
-//  10    256    step_data[16][16]  (one byte per step, 0 or 1)
-//  266   256    pattern_step_pitches[16][16]
-//  522   1      octave_shift (int8_t stored as raw byte)
-//  523   1      advanced_mode (bool)
-//  524   1      note_shift (int8_t stored as raw byte)
-//  525   1      slider_map_low_value (uint8_t)
-//  526   1      slider_map_high_value (uint8_t)
-//  527   1      pattern_length (uint8_t, 1–16)
-//  528   1      pattern_direction (uint8_t, 0–7)
-//  529   1      scale_root (uint8_t, 0–11)
-//  530   1      scale_type (uint8_t, 0–8)
-//  531   16     cc_number[16]
-//  547   256    cc_step_enabled[16][16]
-//  803   256    cc_step_values[16][16]
+//  Addr    Bytes  Content
+//  0       1      magic sentinel
+//  1       1      MIDICHANNEL
+//  2       1      SWING
+//  3       4      TEMPO (float)
+//  7       1      current_pattern
+//  8       1      extended_step_length_mode (chain mode)
+//  9       1      external_clock_mode
+//  10      256    step_data[16][16]  (one byte per step, 0 or 1)
+//  266     256    pattern_step_pitches[16][16]
+//  522     1      octave_shift (int8_t stored as raw byte)
+//  523     1      advanced_mode (bool)
+//  524     1      note_shift (int8_t stored as raw byte)
+//  525     1      slider_map_low_value (uint8_t)
+//  526     1      slider_map_high_value (uint8_t)
+//  527     1      pattern_length (uint8_t, 1–16)
+//  528     1      pattern_direction (uint8_t, 0–7)
+//  529     1      scale_root (uint8_t, 0–11)
+//  530     1      scale_type (uint8_t, 0–8)
+//  531     16     cc_number[16]
+//  547     256    cc_step_enabled[16][16]
+//  803     256    cc_step_values[16][16]
+//  1059    1      pitch_drift
+//  1060    256    step_probability[16][16]
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -52,7 +54,7 @@
 #define EEPROM_PITCH_DRIFT_ADDR      1059   // 1 byte: pitch_drift
 #define EEPROM_STEP_PROB_ADDR        1060   // 256 bytes: step_probability[16][16]
 
-#define EEPROM_MAGIC_VALUE  0xC8  // bumped: force clean boot to clear stale advanced_mode
+#define EEPROM_MAGIC_VALUE  0xC9  // bumped: advanced_mode now persisted
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -78,7 +80,7 @@ void save_to_eeprom() {
   }
 
   EEPROM.write(EEPROM_OCTAVE_SHIFT_ADDR, (uint8_t)octave_shift);
-  // advanced_mode is intentionally not saved — always boots Simple.
+  EEPROM.write(EEPROM_ADVANCED_MODE_ADDR, (uint8_t)advanced_mode);
   EEPROM.write(EEPROM_NOTE_SHIFT_ADDR, (uint8_t)note_shift);
   EEPROM.write(EEPROM_NOTE_RANGE_LOW_ADDR, slider_map_low_value);
   EEPROM.write(EEPROM_NOTE_RANGE_HIGH_ADDR, slider_map_high_value);
@@ -158,7 +160,8 @@ bool load_from_eeprom() {
   octave_shift = (int8_t)EEPROM.read(EEPROM_OCTAVE_SHIFT_ADDR);
   if (octave_shift < -5 || octave_shift > 5) octave_shift = 0;
 
-  // advanced_mode is intentionally not loaded — always boots Simple.
+  advanced_mode = (bool)EEPROM.read(EEPROM_ADVANCED_MODE_ADDR);
+  if (advanced_mode > 1) advanced_mode = false;
 
   note_shift = (int8_t)EEPROM.read(EEPROM_NOTE_SHIFT_ADDR);
   if (note_shift < -12 || note_shift > 12) note_shift = 0;
