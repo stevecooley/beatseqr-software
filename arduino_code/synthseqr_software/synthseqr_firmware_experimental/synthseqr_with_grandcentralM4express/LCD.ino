@@ -295,6 +295,25 @@ void run_LCD_update() {
       }
       break;
     }
+    case 203:  // EEPROM saved but SD failed
+    {
+      static unsigned long msg_until = 0;
+      if (msg_until == 0) {
+        msg_until = millis() + 2000;
+        lcd.print("?x00?y0");
+        lcd.print("EE ok, no SD!   ");
+        Serial.println("EE ok, SD failed");
+      }
+      if (millis() >= msg_until) {
+        msg_until = 0;
+        update_line1 = true;
+        update_line2 = true;
+        next_lcdflag = 255;
+      } else {
+        next_lcdflag = 203;
+      }
+      break;
+    }
     case 200:  // pattern chain single — show once then return to main display
     {
       lcd.print("?x00?y0");

@@ -646,6 +646,83 @@ Connect at **57600 baud** to see:
 
 ---
 
+## Troubleshooting
+
+### "The device boots into Advanced mode even though I want Simple mode"
+
+The sequencer saves and restores all settings including Simple/Advanced mode. If a previous session saved with Advanced mode active, every boot will load it back.
+
+**To fix:**
+
+1. Double-tap Enter to open the config menu.
+2. Scroll to **Mode: Advanced** (or **Mode: Simple** — it shows the current state).
+3. Press **Enter** — this enters the value editor. Line 2 shows `  Advanced  ` or `  Simple  `.
+4. Press **D-pad up or down** to toggle to `  Simple  `.
+5. Press **Enter** (or D-pad left) to confirm and exit editing. Line 1 should now show `> Mode: Simple  `.
+6. Scroll up to **Save** and press Enter. The sequencer must be stopped to save.
+
+The next boot will start in Simple mode.
+
+> **Why this happens:** Save writes exactly what is currently in memory — it does not reset any settings to defaults. If the mode was Advanced when you saved, it stays Advanced. You must explicitly change the Mode item before saving.
+
+---
+
+### "Save is blocked — it shows 'Stop first!'"
+
+Saving while the sequencer is playing is intentionally blocked to prevent timing glitches during the flash write.
+
+**Steps:**
+1. Press the Play button to stop the sequencer.
+2. The config menu redraws automatically — the **Save** item is ready.
+3. Press Enter to save.
+
+---
+
+### "I pressed Enter on Mode but the value won't change / keeps toggling back"
+
+The Mode item uses an editing sub-state:
+
+- Pressing **Enter** on Mode *enters the editor* — it does not immediately change the value.
+- Use **D-pad up or down** to toggle between Simple and Advanced.
+- Press **Enter** (or D-pad left) to *confirm and exit* the editor.
+
+If you press Enter twice without pressing up or down, you enter and then exit editing without changing anything — the mode stays the same. This is intentional: it prevents accidental mode changes.
+
+---
+
+### "The sequencer is playing but not following my external MIDI clock"
+
+- Confirm **Clock: ext** is shown in the config menu (not `Clock: int`).
+- Make sure the external device is sending MIDI clock (0xF8 at 24 PPQN) over USB to the sequencer.
+- In EXT mode the sequencer does not output its own clock — it only follows.
+- If you press Play before the external clock is running, the sequencer arms and waits; it starts on the next incoming 0xF8 pulse.
+- If the external clock is already running when you press Play, the sequencer waits for the next beat boundary (6th pulse) before starting, to lock in phase.
+
+---
+
+### "Step LEDs show pattern numbers instead of step data"
+
+You are in **pattern-nav mode** (Advanced mode only). Pattern button 1 LED is lit.
+
+- **Single-click pattern button 1** (tap and wait ~400 ms) to exit nav mode. Step LEDs return to normal step display.
+
+---
+
+### "After clearing or saving, the LCD seems stuck on an old message"
+
+The config menu draws directly to the LCD while it is open, bypassing the normal update rate limit. If the display looks frozen after a stop or a menu action, press a D-pad button or wait for the next step to fire — the LCD will refresh.
+
+---
+
+### "Settings are lost after power-off"
+
+- Check that the SD card is seated properly. If the SD card is missing or unreadable, the sequencer falls back to EEPROM on boot, which may have older data.
+- The sequencer does **not** auto-save — you must save manually via Config Menu → Save.
+- If no SD card and no valid EEPROM save exists, the sequencer starts with factory defaults on every boot.
+- After saving successfully, the LCD briefly shows `saved!` for 2 seconds. If you do not see this, the save did not complete.
+
+---
+
 ## MIDI CC Number Reference
 
 The CC Number config menu item selects which MIDI CC controller the current pattern outputs. The sequencer skips reserved CC numbers automatically. The LCD shows a 7-character abbreviated name; the full name is listed below.

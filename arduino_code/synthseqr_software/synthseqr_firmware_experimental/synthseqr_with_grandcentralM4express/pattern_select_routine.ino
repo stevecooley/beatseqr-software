@@ -122,7 +122,6 @@ void run_pattern_select_routine() {
       if (pattern_select_button_flags[pattern] == true) {
         pattern_select_button_flags[pattern] = false;
         go_to_pattern(pattern, 0);
-        read_step_memory(0, pattern);
       }
     }
   }

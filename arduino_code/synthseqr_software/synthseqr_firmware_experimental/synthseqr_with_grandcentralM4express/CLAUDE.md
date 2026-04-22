@@ -325,7 +325,7 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 6. **Clock: int/ext** — toggles immediately via `setExternalClockMode(!external_clock_mode)`; value shown inline on line 1
 7. **Channel** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing
 8. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing
-9. **Mode: Simple/Advanced** — toggles immediately, value shown inline on line 1
+9. **Mode: Simple/Advanced** — confirmation required (line 2: `Entr=ok  Lft=no`); Enter toggles Simple↔Advanced; line 1 shows target (`Mode:->Simple ` or `Mode:->Advancd`); Left cancels. Menu cursor always resets to Exit (item 0) on open
 10. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); Enter or Left exits editing; label shows `Octave shift *` when non-zero
 11. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); Enter or Left exits editing; label shows `Note shift   *` when non-zero
 12. **Note range** — two-phase editor: Enter starts editing low value (`Edit Lo: N`), Enter again switches to high value (`Edit Hi: N`), Enter again exits; Left exits either phase; low range 0–(high-1), high range (low+1)–127; defaults 36/52; label shows `Note range   *` when non-default

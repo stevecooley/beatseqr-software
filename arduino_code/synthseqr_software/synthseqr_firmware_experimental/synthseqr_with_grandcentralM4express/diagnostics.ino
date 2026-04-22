@@ -9,6 +9,12 @@ static unsigned long diag_last_slider_lcd_ms = 0;
 static bool          diag_enter_tap_pending  = false;
 static unsigned long diag_enter_tap_ms       = 0;
 
+// Save-file viewer sub-mode (triggered by PAT1 press in diagnostics).
+static bool    diag_savefile_mode = false;
+static uint8_t diag_savefile_idx  = 0;
+static char    diag_sf_l1[SD_DIAG_FIELD_COUNT][17];
+static char    diag_sf_l2[SD_DIAG_FIELD_COUNT][17];
+
 // Pin lookup tables — must match config.h declarations.
 static const uint8_t DIAG_STEP_PINS[16]   = {23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53};
 static const uint8_t DIAG_PAT_PINS[4]     = {15,14,6,8};
@@ -29,7 +35,21 @@ void diag_show_idle_screen()
   lcd.print("?x00?y0");
   lcd.print("  DIAGNOSTICS   ");
   lcd.print("?x00?y1");
-  lcd.print(" press a button ");
+  lcd.print("btn/PAT1:savefil");
+}
+
+// Save-file viewer: display the currently selected field on both LCD lines.
+// Line 1 = field name, line 2 = value from the saved JSON.
+// A field counter "(N/16)" would not fit, so the user scrolls with d-pad up/down.
+void diag_show_savefile_field()
+{
+  char idx_buf[17];
+  // Show field index in brackets on line 1: "[02] advanced_mo"
+  snprintf(idx_buf, sizeof(idx_buf), "[%02d] %-11s", diag_savefile_idx, diag_sf_l1[diag_savefile_idx]);
+  lcd.print("?x00?y0");
+  lcd.print(idx_buf);
+  lcd.print("?x00?y1");
+  lcd.print(diag_sf_l2[diag_savefile_idx]);
 }
 
 // Line 1: "%-8s pin:%3d"  → 16 chars
@@ -82,7 +102,7 @@ void enter_diagnostics()
   lcd.print("?x00?y0");
   lcd.print("  DIAGNOSTICS   ");
   lcd.print("?x00?y1");
-  lcd.print("dbl-tap Entr=exit");
+  lcd.print("dbl-tap Entr=out");
   delay(1500);
 
   diag_show_idle_screen();
@@ -107,6 +127,39 @@ void run_diagnostics_display()
 {
   unsigned long now_ms = millis();
   bool activity = false;
+
+  // --- Save-file viewer sub-mode ---
+  // D-pad up/down scrolls through fields; any other button exits.
+  if (diag_savefile_mode) {
+    if (dpad_up.uniquePress()) {
+      if (diag_savefile_idx > 0) diag_savefile_idx--;
+      diag_show_savefile_field();
+    } else if (dpad_down.uniquePress()) {
+      if (diag_savefile_idx < SD_DIAG_FIELD_COUNT - 1) diag_savefile_idx++;
+      diag_show_savefile_field();
+    } else {
+      // Any other button press exits back to idle.
+      bool exit_sf = false;
+      if (enterbutton.uniquePress() || dpad_left.uniquePress() || dpad_right.uniquePress()) {
+        exit_sf = true;
+      }
+      if (play_button_isr_fired) { play_button_isr_fired = false; exit_sf = true; }
+      if (!exit_sf) {
+        for (int i = 0; i < 16; i++) { if (step_buttons[i].uniquePress()) { exit_sf = true; break; } }
+      }
+      if (!exit_sf) {
+        for (int i = 0; i < 4; i++) { if (pattern_select_buttons[i].uniquePress()) { exit_sf = true; break; } }
+      }
+      if (exit_sf) {
+        diag_savefile_mode = false;
+        diag_last_activity_ms = millis();
+        diag_showing_idle = false;
+        diag_show_idle_screen();
+        diag_showing_idle = true;
+      }
+    }
+    return;
+  }
 
   // --- D-pad ---
   if (dpad_up.uniquePress())    { diag_write_button("DPAD-UP",  19); activity = true; }
@@ -168,16 +221,25 @@ void run_diagnostics_display()
   }
 
   // --- Pattern select buttons (first pressed wins this frame) ---
+  // PAT1 enters the save-file viewer; PAT2-4 do the normal button test.
   if (!activity)
   {
     for (int i = 0; i < 4; i++)
     {
       if (pattern_select_buttons[i].uniquePress())
       {
-        pattern_select_leds[i].toggle();
-        char name[5];
-        snprintf(name, sizeof(name), "PAT%d", i + 1);
-        diag_write_button(name, DIAG_PAT_PINS[i]);
+        if (i == 0) {
+          // Enter save-file viewer: load all fields from SD, show first.
+          diag_savefile_idx = 0;
+          sd_diag_load_fields(diag_sf_l1, diag_sf_l2);
+          diag_savefile_mode = true;
+          diag_show_savefile_field();
+        } else {
+          pattern_select_leds[i].toggle();
+          char name[5];
+          snprintf(name, sizeof(name), "PAT%d", i + 1);
+          diag_write_button(name, DIAG_PAT_PINS[i]);
+        }
         activity = true;
         break;
       }

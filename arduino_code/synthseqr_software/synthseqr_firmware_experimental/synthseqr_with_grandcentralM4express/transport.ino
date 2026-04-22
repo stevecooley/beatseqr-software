@@ -66,6 +66,11 @@ void listen_for_transport_events() {
       seq.stop();
       allNotesOff();
 
+      // If the config menu is open (user stopped to satisfy "Stop first!"),
+      // redraw it now so the stale "Stop first!" message clears and the user
+      // can see they're ready to press Enter to save.
+      if (config_menu_active) draw_config_menu();
+
     } else if (midistarted == true) {
       // stand down the event flag, we got this
       midistarted = false;

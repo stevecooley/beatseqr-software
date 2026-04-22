@@ -1,4 +1,4 @@
-#include <SD.h>      // SD card storage
+#include <SdFat.h>   // SD card storage (Adafruit Fork, replaces standard SD.h)
 #include <stdlib.h>  // because dtostrf()
 
 #include "Button.h"
@@ -267,6 +267,12 @@ int8_t adv_chain_hold_step = -1;
 unsigned long adv_blink_last_ms = 0;
 bool adv_blink_state = false;
 
+// Timestamp of the most recent Pattern Button 0 press in advanced mode.
+// Kept as a global (not static local) so it can be reset to 0 whenever
+// advanced_mode is enabled — prevents a stale press from instantly
+// triggering the 400 ms single-click timeout on first entry to adv mode.
+unsigned long adv_pat0_press_ms = 0;
+
 bool told_which_pattern_to_copy_to = false;
 uint8_t copy_pattern_to;
 
@@ -464,6 +470,7 @@ int8_t note_shift = 0;
 // 0=Chromatic 1=Major 2=NatMinor 3=PentMaj 4=PentMin
 // 5=Dorian 6=Mixolydian 7=HarmMinor 8=Blues
 #define SCALE_COUNT 9
+#define SD_DIAG_FIELD_COUNT 16
 uint8_t scale_type = 0;
 
 // 0=C 1=C# 2=D 3=D# 4=E 5=F 6=F# 7=G 8=G# 9=A 10=A# 11=B

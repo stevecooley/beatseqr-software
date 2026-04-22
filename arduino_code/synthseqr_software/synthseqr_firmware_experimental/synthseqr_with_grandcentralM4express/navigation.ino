@@ -1,4 +1,24 @@
 void listen_for_navigation_events() {
+  // D-pad left exits advanced pattern-nav mode and clears chain mode.
+  if (adv_pat_nav_active && dpad_left_flag) {
+    dpad_left_flag = false;
+    adv_pat_nav_active = false;
+    adv_chain_hold_step = -1;
+    extended_step_length_mode = 0;
+    read_step_memory(0, pattern_value);
+    update_line1 = true;
+    update_line2 = true;
+    next_lcdflag = 255;
+    Serial.println("nav mode: exited via dpad left");
+    return;
+  }
+
+  // D-pad left also clears chain mode in simple mode.
+  if (!advanced_mode && extended_step_length_mode && dpad_left_flag) {
+    extended_step_length_mode = 0;
+    // don't consume flag — let timing mode cycle happen too
+  }
+
   // Cancel advanced copy mode (either phase) with d-pad left.
   if ((adv_copy_waiting_source || adv_copy_armed) && dpad_left_flag) {
     dpad_left_flag = false;

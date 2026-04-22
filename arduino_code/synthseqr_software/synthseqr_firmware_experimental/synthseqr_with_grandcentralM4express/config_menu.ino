@@ -139,7 +139,12 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
 void print_config_label(uint8_t item) {
   char _buf[15];
   if (item == CONFIG_ITEM_MODE) {
-    lcd.print(advanced_mode ? "Mode: Advanced" : "Mode: Simple  ");
+    if (config_confirm_pending) {
+      // Show target mode so it's clear what Enter will do
+      lcd.print(advanced_mode ? "Mode:->Simple " : "Mode:->Advancd");
+    } else {
+      lcd.print(advanced_mode ? "Mode: Advanced" : "Mode: Simple  ");
+    }
   } else if (item == CONFIG_ITEM_CLOCK) {
     // "Clock: int    " or "Clock: ext    " — 14 chars
     lcd.print(external_clock_mode ? "Clock: ext    " : "Clock: int    ");
@@ -305,8 +310,12 @@ void draw_config_menu() {
 
 void enter_config_menu() {
   config_menu_active = true;
+  config_menu_item = 0;  // always start at Exit — prevents stale cursor on dangerous items
   config_confirm_pending = false;
   config_editing_value = false;
+  // Clear any Enter flag that arrived as part of the opening double-tap so it
+  // doesn't immediately select the first menu item on the first run_config_menu().
+  enterbutton_flag = false;
   draw_config_menu();
 }
 
@@ -316,6 +325,14 @@ void exit_config_menu() {
   config_editing_value = false;
   config_note_range_phase = 0;
   config_scale_phase = 0;
+  // If Simple mode, always clear advanced sub-states — guards against any
+  // scenario where adv_pat_nav_active was left true with advanced_mode false.
+  if (!advanced_mode) {
+    adv_pat_nav_active = false;
+    adv_copy_waiting_source = false;
+    adv_copy_armed = false;
+    adv_chain_hold_step = -1;
+  }
   // Restore step LEDs to pattern data state (in case PAT_LENGTH was editing).
   read_step_memory(0, pattern_value);
   // Force a full LCD redraw back to the main display.
@@ -511,6 +528,18 @@ void run_config_menu() {
         case CONFIG_ITEM_RESET_SLIDERS:
           resetSliders();
           break;
+        case CONFIG_ITEM_MODE:
+          advanced_mode = !advanced_mode;
+          if (!advanced_mode) {
+            adv_pat_nav_active = false;
+            adv_copy_waiting_source = false;
+            adv_copy_armed = false;
+            adv_chain_hold_step = -1;
+            read_step_memory(0, pattern_value);
+          } else {
+            adv_pat0_press_ms = 0;
+          }
+          break;
       }
       config_confirm_pending = false;
       // After a destructive action, return to menu (don't auto-exit)
@@ -555,10 +584,18 @@ void run_config_menu() {
           lcd.print("?x00?y1");
           lcd.print("Stop first!     ");
         } else {
-          save_everywhere();  // SD primary + EEPROM backup
-          lcdflag = 202;
-          next_lcdflag = 202;
+          if (!advanced_mode) {
+            adv_pat_nav_active = false;
+            adv_copy_waiting_source = false;
+            adv_copy_armed = false;
+            adv_chain_hold_step = -1;
+          }
+          bool sd_ok = save_to_sd();
+          save_to_eeprom();
           exit_config_menu();
+          // Show result: 202 = "saved!" (both ok), 203 = "EE ok, no SD!"
+          lcdflag      = sd_ok ? 202 : 203;
+          next_lcdflag = sd_ok ? 202 : 203;
         }
         break;
       case CONFIG_ITEM_CLEAR_PAT:
@@ -568,9 +605,7 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_MODE:
-        advanced_mode = !advanced_mode;
-        Serial.print("mode: ");
-        Serial.println(advanced_mode ? "Advanced" : "Simple");
+        config_confirm_pending = true;
         draw_config_menu();
         break;
       case CONFIG_ITEM_CLOCK:

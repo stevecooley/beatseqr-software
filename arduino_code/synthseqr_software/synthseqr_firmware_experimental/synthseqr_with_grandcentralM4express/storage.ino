@@ -52,7 +52,7 @@
 #define EEPROM_PITCH_DRIFT_ADDR      1059   // 1 byte: pitch_drift
 #define EEPROM_STEP_PROB_ADDR        1060   // 256 bytes: step_probability[16][16]
 
-#define EEPROM_MAGIC_VALUE  0xC7  // bumped: added pitch_drift and step_probability
+#define EEPROM_MAGIC_VALUE  0xC8  // bumped: force clean boot to clear stale advanced_mode
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -78,7 +78,7 @@ void save_to_eeprom() {
   }
 
   EEPROM.write(EEPROM_OCTAVE_SHIFT_ADDR, (uint8_t)octave_shift);
-  EEPROM.write(EEPROM_ADVANCED_MODE_ADDR, (uint8_t)advanced_mode);
+  // advanced_mode is intentionally not saved — always boots Simple.
   EEPROM.write(EEPROM_NOTE_SHIFT_ADDR, (uint8_t)note_shift);
   EEPROM.write(EEPROM_NOTE_RANGE_LOW_ADDR, slider_map_low_value);
   EEPROM.write(EEPROM_NOTE_RANGE_HIGH_ADDR, slider_map_high_value);
@@ -158,7 +158,7 @@ bool load_from_eeprom() {
   octave_shift = (int8_t)EEPROM.read(EEPROM_OCTAVE_SHIFT_ADDR);
   if (octave_shift < -5 || octave_shift > 5) octave_shift = 0;
 
-  advanced_mode = (bool)EEPROM.read(EEPROM_ADVANCED_MODE_ADDR);
+  // advanced_mode is intentionally not loaded — always boots Simple.
 
   note_shift = (int8_t)EEPROM.read(EEPROM_NOTE_SHIFT_ADDR);
   if (note_shift < -12 || note_shift > 12) note_shift = 0;

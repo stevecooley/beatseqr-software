@@ -97,6 +97,13 @@ void loop() {
   run_diagnostics();
   if (diag_mode) return;
 
+  // Consistency guard: nav mode is only valid in advanced mode.
+  if (!advanced_mode && adv_pat_nav_active) {
+    adv_pat_nav_active = false;
+    adv_chain_hold_step = -1;
+    read_step_memory(0, pattern_value);
+  }
+
   if (dpad_left.uniquePress()) {
     Serial.println("listening for nav-left events");
     dpad_left_flag = true;
@@ -120,30 +127,45 @@ void loop() {
   // Double-tap Enter (two presses within 400 ms) enters the config menu.
   // The single-tap action is deferred until the 400 ms window expires so the
   // first tap of a double-tap never accidentally triggers a slider mode change.
+  // While the config menu is already active the double-tap machinery is bypassed
+  // entirely: every press goes directly and immediately to enterbutton_flag so
+  // the menu responds without the 400 ms lag and so double-taps inside the menu
+  // can never accidentally call enter_config_menu() and swallow both presses.
   {
     static unsigned long last_enter_ms = 0;
     static bool enter_tap_pending = false;
     unsigned long now_ms = millis();
 
-    if (enterbutton.uniquePress()) {
-      if (enter_tap_pending && now_ms - last_enter_ms <= 400) {
-        // Second tap within window — confirmed double-tap.
-        enter_tap_pending = false;
-        last_enter_ms = 0;
-        enter_config_menu();
-      } else {
-        // First tap — start the window; don't fire single-tap yet.
-        enter_tap_pending = true;
-        last_enter_ms = now_ms;
+    if (config_menu_active) {
+      // Menu is open: route Enter directly, no double-tap detection.
+      if (enterbutton.uniquePress()) {
+        enterbutton_flag = true;
+        Serial.println("enter button pressed (menu)");
       }
-    }
-
-    // Window expired without a second tap — fire as single tap now.
-    if (enter_tap_pending && now_ms - last_enter_ms > 400) {
+      // Discard any pending window state so it can't misfire after menu closes.
       enter_tap_pending = false;
       last_enter_ms = 0;
-      enterbutton_flag = true;
-      Serial.println("enter button pressed");
+    } else {
+      if (enterbutton.uniquePress()) {
+        if (enter_tap_pending && now_ms - last_enter_ms <= 400) {
+          // Second tap within window — confirmed double-tap.
+          enter_tap_pending = false;
+          last_enter_ms = 0;
+          enter_config_menu();
+        } else {
+          // First tap — start the window; don't fire single-tap yet.
+          enter_tap_pending = true;
+          last_enter_ms = now_ms;
+        }
+      }
+
+      // Window expired without a second tap — fire as single tap now.
+      if (enter_tap_pending && now_ms - last_enter_ms > 400) {
+        enter_tap_pending = false;
+        last_enter_ms = 0;
+        enterbutton_flag = true;
+        Serial.println("enter button pressed");
+      }
     }
   }
 
@@ -194,27 +216,26 @@ void loop() {
   //     Phase 1 (adv_copy_waiting_source): tap a step to pick the source pattern.
   //     Phase 2 (adv_copy_armed):          tap a step to pick the destination.
   if (advanced_mode) {
-    static unsigned long last_pat0_press_ms = 0;
     unsigned long now_ms = millis();
 
     if (pattern_select_button_flags[0]) {
       pattern_select_button_flags[0] = false;
-      if (last_pat0_press_ms != 0 && now_ms - last_pat0_press_ms <= 400) {
+      if (adv_pat0_press_ms != 0 && now_ms - adv_pat0_press_ms <= 400) {
         // Double-click confirmed — enter copy mode, pick source first.
-        last_pat0_press_ms = 0;
+        adv_pat0_press_ms = 0;
         adv_copy_waiting_source = true;
         adv_copy_armed = false;
         lcdflag = 103;  next_lcdflag = 103;  // "copy which pat?"
         Serial.println("copy mode: pick source pattern");
       } else {
         // First press — record timestamp; wait to see if second press comes.
-        last_pat0_press_ms = now_ms;
+        adv_pat0_press_ms = now_ms;
       }
     }
 
     // Single-click: 400 ms elapsed without a second press → toggle nav mode.
-    if (last_pat0_press_ms != 0 && now_ms - last_pat0_press_ms > 400) {
-      last_pat0_press_ms = 0;
+    if (adv_pat0_press_ms != 0 && now_ms - adv_pat0_press_ms > 400) {
+      adv_pat0_press_ms = 0;
       adv_pat_nav_active = !adv_pat_nav_active;
       if (adv_pat_nav_active) {
         adv_chain_hold_step = -1;
@@ -223,6 +244,7 @@ void loop() {
         Serial.println("pattern nav mode ON");
       } else {
         adv_chain_hold_step = -1;
+        extended_step_length_mode = 0;  // exit chain mode when leaving nav
         read_step_memory(0, pattern_value);
         Serial.println("pattern nav mode OFF");
       }
