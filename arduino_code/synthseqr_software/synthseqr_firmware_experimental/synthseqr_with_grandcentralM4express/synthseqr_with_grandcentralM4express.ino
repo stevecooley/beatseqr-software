@@ -195,18 +195,23 @@ void loop() {
 
   run_step_button_routine();
 
-  // listen for pattern select button presses and set flags
-  for (uint8_t i = 0; i < 4; i++) {
-    if (pattern_select_buttons[i].uniquePress()) {
-      pattern_select_button_flags[i] = true;
-    }
+  // Pattern buttons are modal to the config menu — a stray press while the
+  // menu is open must NOT leak into advanced-mode single/double-click state.
+  // Without this guard, a uniquePress() during save-and-exit can arm the
+  // nav-mode timer, which then fires ~400 ms later and makes it look like
+  // saving the file flipped the device into advanced mode.
+  if (!config_menu_active) {
+    for (uint8_t i = 0; i < 4; i++) {
+      if (pattern_select_buttons[i].uniquePress()) {
+        pattern_select_button_flags[i] = true;
+      }
 
-    // pattern copy — simple mode only; advanced mode uses holds for function keys
-    if (!advanced_mode && pattern_select_buttons[i].heldFor(2000)) {
-      // Serial.print(last_serial);
-      told_which_pattern_to_copy_to =
-          true;       // this is us being told to copy the pattern
-      lcdflag = 100;  next_lcdflag = 100;  // pattern copy
+      // pattern copy — simple mode only; advanced mode uses holds for function keys
+      if (!advanced_mode && pattern_select_buttons[i].heldFor(2000)) {
+        told_which_pattern_to_copy_to =
+            true;       // this is us being told to copy the pattern
+        lcdflag = 100;  next_lcdflag = 100;  // pattern copy
+      }
     }
   }
 
@@ -215,7 +220,7 @@ void loop() {
   //   Double click (second press within 400 ms) → enter pattern copy mode:
   //     Phase 1 (adv_copy_waiting_source): tap a step to pick the source pattern.
   //     Phase 2 (adv_copy_armed):          tap a step to pick the destination.
-  if (advanced_mode) {
+  if (advanced_mode && !config_menu_active) {
     unsigned long now_ms = millis();
 
     if (pattern_select_button_flags[0]) {

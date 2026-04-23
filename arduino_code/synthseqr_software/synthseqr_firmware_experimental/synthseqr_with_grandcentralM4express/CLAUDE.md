@@ -28,23 +28,23 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 
 **File responsibilities:**
 
-| File | Role |
-|------|------|
-| `synthseqr_with_grandcentralM4express.ino` | `setup()` and `loop()` — polls all subsystems in order |
-| `config.h` | All global state: pin definitions, arrays, library includes |
-| `transport.ino` | Play/stop button, MIDI clock output, `stepsend()` callback, `allNotesOff()` |
-| `midi_processor.ino` | MIDI input: clock sync (0xF8), start (0xFA), stop (0xFC) |
-| `navigation.ino` | D-pad + enter button: adjusts tempo; enter cycles slider mode (NN/VL/GT) |
-| `sequencer_timer.ino` | TC4 hardware timer driver: setup, period update, stop/start, ISR |
-| `step_button_routine.ino` | Step button presses, LED toggling, pattern clear |
-| `voice_slider_routine.ino` | Reads 16 analog sliders in NN/VL/GT/CC/PR mode → note, velocity, gate, CC, or probability |
-| `pattern_select_routine.ino` | Pattern switching, copy, and 4-pattern chain mode |
-| `LCD.ino` | LCD initialization and display updates |
-| `midi_note_sending.ino` | `step()` blink callback and `midi()` MIDI clock output callback |
-| `diagnostics.ino` | Hardware test mode: LCD-based input tester; `bool diag_mode` gates the main loop and `run_LCD_update()`; `run_diagnostics()` handles entry/exit; `run_diagnostics_display()` polls all inputs each loop iteration |
-| `storage.ino` | EEPROM save/load: `save_to_eeprom()`, `load_from_eeprom()` |
-| `sd_storage.ino` | SD card save/load: `save_to_sd()`, `load_from_sd()`, `boot_load()`, `save_everywhere()` |
-| `config_menu.ino` | Modal config menu: save, clear, mode toggle, octave/note shift, note range, swing, clock, channel |
+| File                                       | Role                                                                                                                                                                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `synthseqr_with_grandcentralM4express.ino` | `setup()` and `loop()` — polls all subsystems in order                                                                                                                                                            |
+| `config.h`                                 | All global state: pin definitions, arrays, library includes                                                                                                                                                       |
+| `transport.ino`                            | Play/stop button, MIDI clock output, `stepsend()` callback, `allNotesOff()`                                                                                                                                       |
+| `midi_processor.ino`                       | MIDI input: clock sync (0xF8), start (0xFA), stop (0xFC)                                                                                                                                                          |
+| `navigation.ino`                           | D-pad + enter button: adjusts tempo; enter cycles slider mode (NN/VL/GT)                                                                                                                                          |
+| `sequencer_timer.ino`                      | TC4 hardware timer driver: setup, period update, stop/start, ISR                                                                                                                                                  |
+| `step_button_routine.ino`                  | Step button presses, LED toggling, pattern clear                                                                                                                                                                  |
+| `voice_slider_routine.ino`                 | Reads 16 analog sliders in NN/VL/GT/CC/PR mode → note, velocity, gate, CC, or probability                                                                                                                         |
+| `pattern_select_routine.ino`               | Pattern switching, copy, and 4-pattern chain mode                                                                                                                                                                 |
+| `LCD.ino`                                  | LCD initialization and display updates                                                                                                                                                                            |
+| `midi_note_sending.ino`                    | `step()` blink callback and `midi()` MIDI clock output callback                                                                                                                                                   |
+| `diagnostics.ino`                          | Hardware test mode: LCD-based input tester; `bool diag_mode` gates the main loop and `run_LCD_update()`; `run_diagnostics()` handles entry/exit; `run_diagnostics_display()` polls all inputs each loop iteration |
+| `storage.ino`                              | EEPROM save/load: `save_to_eeprom()`, `load_from_eeprom()`                                                                                                                                                        |
+| `sd_storage.ino`                           | SD card save/load: `save_to_sd()`, `load_from_sd()`, `boot_load()`, `save_everywhere()`                                                                                                                           |
+| `config_menu.ino`                          | Modal config menu: save, clear, mode toggle, octave/note shift, note range, swing, clock, channel                                                                                                                 |
 
 **HAL classes** (Button, LED, Potentiometer) provide debouncing and event helpers used throughout.
 
@@ -133,15 +133,7 @@ The sequencer uses the SAMD51's TC4 peripheral in 16-bit MFRQ mode for drift-fre
 - `stopSequencerTimer()` / `startSequencerTimer()` — used when switching to/from external clock mode
 - CMSIS-Atmel 1.2.2 (Adafruit SAMD 1.7.17) is missing `MCLK_APBDMASK_TC4`; the raw bit `(1ul << 5)` is used instead (SAMD51P20A datasheet Table 14-8)
 
-## Physical Layout
-
-The enclosure is 3D-printed with a honeycomb texture. Controls from left to right / top to bottom:
-
-- **Top-left**: Play button (single yellow/green LED, pin 21) + LCD (16×2, Serial1)
-- **Top-center**: D-pad (up/down/left/right, pins 16–19) + Enter button (pin 20) with LED
-- **Top-right**: 4 pattern select buttons (pins 6/8/14/15) with yellow/green LEDs
-- **Middle**: 16 faders (analog pins A0–A15), one per step
-- **Bottom row**: 16 step buttons (pins 23–53 odd) paired with red LEDs (pins 22–52 even)
+# 
 
 ## Key Hardware Details
 
@@ -165,12 +157,12 @@ The play button (pin 21) is attached to a SAMD51 EIC external interrupt (FALLING
 
 D-pad left/right cycles through 4 `timing_mode` values controlling what up/down adjusts, in visual left-to-right order matching the LCD layout:
 
-| Mode | Up/Down adjusts | LCD location |
-|------|----------------|--------------|
-| 1 | Pattern (1–4 simple / 1–16 advanced, wraps) | Line 1, column 1 |
-| 2 | Tempo ±10 BPM | Line 1, column 9 |
-| 3 | Tempo ±1 BPM | Line 1, column 10 |
-| 4 | Tempo ±0.1 BPM | Line 1, column 12 |
+| Mode | Up/Down adjusts                             | LCD location      |
+| ---- | ------------------------------------------- | ----------------- |
+| 1    | Pattern (1–4 simple / 1–16 advanced, wraps) | Line 1, column 1  |
+| 2    | Tempo ±10 BPM                               | Line 1, column 9  |
+| 3    | Tempo ±1 BPM                                | Line 1, column 10 |
+| 4    | Tempo ±0.1 BPM                              | Line 1, column 12 |
 
 Default `timing_mode = 2` (±10 BPM). Timing mode 5 (±0.01 BPM) was removed. Swing, clock source, and MIDI channel have moved to the config menu (double-tap Enter).
 
@@ -181,6 +173,7 @@ Default `timing_mode = 2` (±10 BPM). Timing mode 5 (±0.01 BPM) was removed. Sw
 **LCD line 2 format** (case 255): Real-time step-trigger feedback. Format: `[note_icon]PPP [vel_icon]VVV G{gate}[cc_icon]{ccc}` (16 chars). Fields: note icon (`?4`) + 3-digit pitch + space (5 chars), velocity icon (`?2`) + 3-digit velocity + space (5 chars), `G` + gate digit (2 chars), CC icon (`?3`) + 3-digit CC value or `---` if cc_step_enabled is 0 (4 chars). Example: `♪045 ♩127 G4♩064`. Updates on every step trigger (`last_triggered_step` changes) or slider mode cycle. When no step has fired yet (`last_triggered_step == -1`), line 2 shows blanks or a default state.
 
 **LCD cursor positions** are defined as named constants in config.h — use these instead of hardcoded numbers:
+
 - `LCD_L1_X_PATTERN = 1` — first digit of pattern in "P%02u"
 - `LCD_L1_X_STEP = 5` — first digit of step counter in ">%02d"
 - `LCD_L1_X_TEMPO_10 = 9` — hundreds/tens digit of tempo
@@ -199,15 +192,16 @@ Switching clock source calls `setExternalClockMode()` which stops or starts TC4 
 
 The 16 voice sliders operate in one of four modes:
 
-| Mode | Display | Slider controls | Storage |
-|------|---------|----------------|---------|
-| 1 — NN | `?5?4` (note icon) | MIDI note number (mapped to `slider_map_low_value`–`slider_map_high_value`) | `pattern_step_pitches[p][s]`, `voice_slider_midinotenum[s]` |
-| 2 — VL | `?5?2` (velocity icon) | MIDI velocity (1–127) | `pattern_step_velocities[p][s]`, `voice_slider_midivelocity[s]` |
-| 3 — GT | `?5G` | Gate length (1–8 steps) | `step_gate[p][s]` |
-| 4 — CC | `?5?3` (CC icon) | CC value (0–127) per step; step buttons toggle `cc_step_enabled` on/off | `cc_step_values[p][s]`, `cc_step_enabled[p][s]` |
-| 5 — PR | `?5P` | Fire probability (0–100%) per step | `step_probability[p][s]` |
+| Mode   | Display                | Slider controls                                                             | Storage                                                         |
+| ------ | ---------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 1 — NN | `?5?4` (note icon)     | MIDI note number (mapped to `slider_map_low_value`–`slider_map_high_value`) | `pattern_step_pitches[p][s]`, `voice_slider_midinotenum[s]`     |
+| 2 — VL | `?5?2` (velocity icon) | MIDI velocity (1–127)                                                       | `pattern_step_velocities[p][s]`, `voice_slider_midivelocity[s]` |
+| 3 — GT | `?5G`                  | Gate length (1–8 steps)                                                     | `step_gate[p][s]`                                               |
+| 4 — CC | `?5?3` (CC icon)       | CC value (0–127) per step; step buttons toggle `cc_step_enabled` on/off     | `cc_step_values[p][s]`, `cc_step_enabled[p][s]`                 |
+| 5 — PR | `?5P`                  | Fire probability (0–100%) per step                                          | `step_probability[p][s]`                                        |
 
 **Switching modes:**
+
 - **Simple mode**: Enter single-tap cycles NN → VL → GT → CC → NN. PR mode is accessed via config menu → **Step prob** (exits menu and sets mode 5). The Enter single-tap cycle skips PR.
 - **Advanced mode**: Pattern button 1 = NN, button 2 = GT, button 3 = VL. CC and PR modes accessed via Enter single-tap continuation or config menu.
 
@@ -245,6 +239,7 @@ Because TC4's period changes, the MIDI clock output (0xF8) also swings. Avoid us
 ## External MIDI Clock Mode
 
 When `external_clock_mode == true`:
+
 - TC4 is stopped (`stopSequencerTimer()`)
 - Incoming USB-MIDI 0xF8 bytes in `read_midi()` call `seq.hardwareClockPulse()` directly
 - Transport messages (0xFA start, 0xFC stop) still start/stop the sequencer
@@ -253,6 +248,7 @@ When `external_clock_mode == true`:
 - **Swing is supported**: 0xF8 pulses are counted per step (0–5; 6th pulse = step advance). An IIR-averaged interval (`ext_clk_avg_interval_us`, 7/8 old + 1/8 new) estimates pulse spacing. When transitioning to an odd step with SWING > 0, the step pulse is deferred by `avg_interval × SWING` µs using `ext_swing_pulse_pending` / `ext_swing_pulse_fire_us`. The main loop checks `(long)(micros() - ext_swing_pulse_fire_us) >= 0` and fires the deferred `hardwareClockPulse()` before `seq.run()`. Only the "late odd step" side is implemented (no compensating early even step), making external swing slightly milder than internal at the same SWING value.
 
 When `external_clock_mode == false` (default):
+
 - TC4 drives `hardwareClockPulse()` from its ISR at the rate set by `TEMPO`
 - Sequencer outputs MIDI clock (0xF8), start (0xFA), and stop (0xFC)
 
@@ -285,6 +281,7 @@ When `external_clock_mode == false` (default):
 ## Simple vs Advanced Mode
 
 **Simple mode** (`advanced_mode == false`, default):
+
 - Pattern buttons 0–3 select patterns 0–3 directly
 - Pattern buttons 0+3 simultaneously toggle chain mode (4 patterns)
 - Hold any pattern button 2s → pattern copy (press destination pattern button)
@@ -293,6 +290,7 @@ When `external_clock_mode == false` (default):
 - Enter single-tap cycles slider mode: NN → VL → GT → NN
 
 **Advanced mode** (`advanced_mode == true`):
+
 - Pattern buttons are function keys — do NOT select patterns directly
 - Pattern button 0 **single-click** (400 ms timeout) → toggle `adv_pat_nav_active` (pattern-nav mode)
   - In nav mode, step buttons select/chain patterns; LED 0 stays lit; step LEDs show chain state with blink
@@ -317,6 +315,7 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 **Navigation**: d-pad up/down scrolls. Line 1 shows `> {current item}`, line 2 shows the next item (no cursor). D-pad left exits from anywhere (also cancels a pending confirmation). Enter selects.
 
 **Menu items (in order)**:
+
 1. **Exit** — Enter, left, or right all exit
 2. **Save** — saves to SD (primary) + EEPROM (backup); blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
 3. **Clear pattern** — confirmation required (line 2: `Entr=ok  Lft=no`)
@@ -397,31 +396,31 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 **EEPROM layout** (1316 bytes, defined as `#define` constants in `storage.ino`):
 
-| Address | Size | Content |
-|---------|------|---------|
-| 0 | 1 | Magic byte `0xC9` |
-| 1 | 1 | `MIDICHANNEL` |
-| 2 | 1 | `SWING` |
-| 3 | 4 | `TEMPO` (float) |
-| 7 | 1 | `current_pattern` |
-| 8 | 1 | `extended_step_length_mode` |
-| 9 | 1 | `external_clock_mode` |
-| 10 | 256 | `step_data[16][16]` (1 byte per step) |
-| 266 | 256 | `pattern_step_pitches[16][16]` |
-| 522 | 1 | `octave_shift` (int8_t as raw byte) |
-| 523 | 1 | `advanced_mode` (bool) |
-| 524 | 1 | `note_shift` (int8_t as raw byte) |
-| 525 | 1 | `slider_map_low_value` (uint8_t) |
-| 526 | 1 | `slider_map_high_value` (uint8_t) |
-| 527 | 1 | `pattern_length` (uint8_t, 1–16) |
-| 528 | 1 | `pattern_direction` (uint8_t, 0–7) |
-| 529 | 1 | `scale_root` (uint8_t, 0–11) |
-| 530 | 1 | `scale_type` (uint8_t, 0–8) |
-| 531 | 16 | `cc_number[16]` (one byte per pattern) |
-| 547 | 256 | `cc_step_enabled[16][16]` (one byte per step) |
-| 803 | 256 | `cc_step_values[16][16]` (one byte per step) |
-| 1059 | 1 | `pitch_drift` (uint8_t, 0–7) |
-| 1060 | 256 | `step_probability[16][16]` (one byte per step) |
+| Address | Size | Content                                        |
+| ------- | ---- | ---------------------------------------------- |
+| 0       | 1    | Magic byte `0xC9`                              |
+| 1       | 1    | `MIDICHANNEL`                                  |
+| 2       | 1    | `SWING`                                        |
+| 3       | 4    | `TEMPO` (float)                                |
+| 7       | 1    | `current_pattern`                              |
+| 8       | 1    | `extended_step_length_mode`                    |
+| 9       | 1    | `external_clock_mode`                          |
+| 10      | 256  | `step_data[16][16]` (1 byte per step)          |
+| 266     | 256  | `pattern_step_pitches[16][16]`                 |
+| 522     | 1    | `octave_shift` (int8_t as raw byte)            |
+| 523     | 1    | `advanced_mode` (bool)                         |
+| 524     | 1    | `note_shift` (int8_t as raw byte)              |
+| 525     | 1    | `slider_map_low_value` (uint8_t)               |
+| 526     | 1    | `slider_map_high_value` (uint8_t)              |
+| 527     | 1    | `pattern_length` (uint8_t, 1–16)               |
+| 528     | 1    | `pattern_direction` (uint8_t, 0–7)             |
+| 529     | 1    | `scale_root` (uint8_t, 0–11)                   |
+| 530     | 1    | `scale_type` (uint8_t, 0–8)                    |
+| 531     | 16   | `cc_number[16]` (one byte per pattern)         |
+| 547     | 256  | `cc_step_enabled[16][16]` (one byte per step)  |
+| 803     | 256  | `cc_step_values[16][16]` (one byte per step)   |
+| 1059    | 1    | `pitch_drift` (uint8_t, 0–7)                   |
+| 1060    | 256  | `step_probability[16][16]` (one byte per step) |
 
 **Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100.
 
@@ -436,12 +435,14 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 Entered by holding D-pad left + right simultaneously for 1 second. All normal subsystems are bypassed while active.
 
 **`bool diag_mode`** — declared in `diagnostics.ino`, forward-declared as `extern` in `config.h`. When true:
+
 - `loop()` calls `run_diagnostics()` then executes `if (diag_mode) return;` — everything after (navigation, step buttons, pattern select, sliders, `run_LCD_update()`) is skipped.
 - `run_LCD_update()` also early-returns if `diag_mode` is true, so the normal LCD system cannot overwrite diagnostics output.
 
 **`run_diagnostics()`** — entry/exit detection only. On entry: waits for release, resets per-session state, shows a 1.5 s splash, then calls `diag_show_idle_screen()`. On exit: restores step LEDs via `read_step_memory()` + `go_to_pattern()`, clears LCD, restores `lcdflag = 255`.
 
 **`run_diagnostics_display()`** — called once per loop iteration while active. Non-blocking. Polls:
+
 - D-pad up/down/left/right and Enter via `uniquePress()` — writes button name + pin to LCD line 1.
 - Play button via `play_button_isr_fired` flag (same as main loop) — writes to line 1.
 - Step buttons — first pressed wins per frame; LED toggles as secondary visual confirm.
@@ -450,6 +451,7 @@ Entered by holding D-pad left + right simultaneously for 1 second. All normal su
 - Auto-clears to idle screen after 2 s of no activity.
 
 **LCD format:**
+
 - Line 1 (buttons): `"%-8s pin:%3d"` → 16 chars. Example: `STEP01   pin: 23`
 - Line 2 (sliders): `"SL%02d %-3s r:%4d "` → 16 chars. Example: `SL00 A15 r:4095 `
 

@@ -305,6 +305,7 @@ bool load_from_sd() {
     if (v >= 0 && v <= 15) chain_end = (uint8_t)v;
   }
 
+  _f.seekSet(0);
   if (sd_find("\"advanced_mode\":")) {
     int v = (int)sd_parse_number();
     if (v == 0 || v == 1) advanced_mode = (bool)v;

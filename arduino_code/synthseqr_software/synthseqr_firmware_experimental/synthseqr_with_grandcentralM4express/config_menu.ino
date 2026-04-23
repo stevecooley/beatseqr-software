@@ -325,6 +325,12 @@ void exit_config_menu() {
   config_editing_value = false;
   config_note_range_phase = 0;
   config_scale_phase = 0;
+  // Drop any pattern-button state that may have been accumulated while the
+  // menu was open. Without this, a stray uniquePress() during menu navigation
+  // can fire nav-mode toggle right after exit — visually indistinguishable
+  // from advanced mode activating on its own.
+  adv_pat0_press_ms = 0;
+  for (int i = 0; i < 4; i++) pattern_select_button_flags[i] = false;
   // If Simple mode, always clear advanced sub-states — guards against any
   // scenario where adv_pat_nav_active was left true with advanced_mode false.
   if (!advanced_mode) {
@@ -539,6 +545,11 @@ void run_config_menu() {
           } else {
             adv_pat0_press_ms = 0;
           }
+          // Repaint pattern LEDs for the new mode. Without this, e.g. LED 1
+          // stays lit after Advanced→Simple because the Advanced-mode slider-
+          // indicator runs every frame while Advanced, but nothing repaints on
+          // exit. Looks indistinguishable from "still in Advanced."
+          go_to_pattern(current_pattern, 1);
           break;
       }
       config_confirm_pending = false;

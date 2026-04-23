@@ -1,4 +1,10 @@
 // SAMD51 has no native EEPROM; use FlashStorage_SAMD for a compatible API.
+// The library's default EEPROM_EMULATION_SIZE is 1024 bytes — smaller than our
+// 1316-byte layout. Writes past 1024 overflow the library's RAM buffer and
+// corrupt adjacent globals (seen symptom: `advanced_mode` and
+// `adv_pat_nav_active` bools getting set to 100, the default value of
+// step_probability bytes being written past the buffer end).
+#define EEPROM_EMULATION_SIZE 2048
 #include <FlashAsEEPROM_SAMD.h>
 
 // EEPROM layout — 1316 bytes total.
@@ -160,8 +166,11 @@ bool load_from_eeprom() {
   octave_shift = (int8_t)EEPROM.read(EEPROM_OCTAVE_SHIFT_ADDR);
   if (octave_shift < -5 || octave_shift > 5) octave_shift = 0;
 
-  advanced_mode = (bool)EEPROM.read(EEPROM_ADVANCED_MODE_ADDR);
-  if (advanced_mode > 1) advanced_mode = false;
+  {
+    uint8_t raw = EEPROM.read(EEPROM_ADVANCED_MODE_ADDR);
+    advanced_mode = (bool)raw;
+    if (advanced_mode > 1) advanced_mode = false;
+  }
 
   note_shift = (int8_t)EEPROM.read(EEPROM_NOTE_SHIFT_ADDR);
   if (note_shift < -12 || note_shift > 12) note_shift = 0;
