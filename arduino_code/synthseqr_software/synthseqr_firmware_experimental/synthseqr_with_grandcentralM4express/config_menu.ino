@@ -325,6 +325,7 @@ void exit_config_menu() {
   config_editing_value = false;
   config_note_range_phase = 0;
   config_scale_phase = 0;
+  end_scale_edit_session();
   // Drop any pattern-button state that may have been accumulated while the
   // menu was open. Without this, a stray uniquePress() during menu navigation
   // can fire nav-mode toggle right after exit — visually indistinguishable
@@ -357,6 +358,7 @@ void run_config_menu() {
     dpad_left_flag = false;
     if (config_editing_value) {
       if (config_menu_item == CONFIG_ITEM_PAT_LENGTH) read_step_memory(0, pattern_value);
+      if (config_menu_item == CONFIG_ITEM_NOTE_SCALES) end_scale_edit_session();
       config_editing_value = false;
       config_note_range_phase = 0;
       config_scale_phase = 0;
@@ -506,6 +508,7 @@ void run_config_menu() {
         draw_config_menu();
       } else {
         if (config_menu_item == CONFIG_ITEM_PAT_LENGTH) read_step_memory(0, pattern_value);
+        if (config_menu_item == CONFIG_ITEM_NOTE_SCALES) end_scale_edit_session();
         config_editing_value = false;
         config_note_range_phase = 0;
         config_scale_phase = 0;
@@ -654,6 +657,7 @@ void run_config_menu() {
       case CONFIG_ITEM_NOTE_SCALES:
         config_editing_value = true;
         config_scale_phase = 0;
+        begin_scale_edit_session();
         draw_config_menu();
         break;
       case CONFIG_ITEM_PAT_LENGTH:
