@@ -76,45 +76,12 @@ uint8_t quantize_to_scale(uint8_t note) {
   return best;
 }
 
-// Snapshot of pre-quantization pitches taken when the user enters the scale
-// editing sub-state. While active, apply_scale_to_all_patterns() quantizes from
-// this snapshot instead of the live array — so scrolling through scales in the
-// menu re-quantizes from the original notes each time, rather than progressively
-// squishing already-quantized data.
-static uint8_t scale_edit_snapshot[16][16];
-static bool scale_edit_snapshot_active = false;
-
-void begin_scale_edit_session() {
-  for (uint8_t p = 0; p < 16; p++) {
-    for (uint8_t s = 0; s < 16; s++) {
-      scale_edit_snapshot[p][s] = pattern_step_pitches[p][s];
-    }
-  }
-  scale_edit_snapshot_active = true;
-}
-
-void end_scale_edit_session() {
-  scale_edit_snapshot_active = false;
-}
-
-// Rebuild scale pool, then retroactively quantize all stored pitches across all
-// 16 patterns. Syncs voice_slider_midinotenum[] to the active pattern and
-// re-arms all pickup guards so sliders must cross the new pitch before writing.
+// Rebuild scale pool and re-arm pickup guards. Stored pitches are NOT modified —
+// scale quantization is applied at playback time in stepsend() so the original
+// note data is always preserved regardless of scale changes.
 void apply_scale_to_all_patterns() {
   build_scale_notes();
-  if (scale_note_count == 0) return;
-
-  for (uint8_t p = 0; p < 16; p++) {
-    for (uint8_t s = 0; s < 16; s++) {
-      uint8_t source = scale_edit_snapshot_active
-                         ? scale_edit_snapshot[p][s]
-                         : pattern_step_pitches[p][s];
-      pattern_step_pitches[p][s] = quantize_to_scale(source);
-    }
-  }
-
   for (uint8_t s = 0; s < 16; s++) {
-    voice_slider_midinotenum[s] = pattern_step_pitches[pattern_value][s];
     slider_needs_pickup[s] = true;
   }
 }

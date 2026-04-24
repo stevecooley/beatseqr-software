@@ -407,6 +407,8 @@ int8_t sounding_note_end_step[16] = {-1, -1, -1, -1, -1, -1, -1, -1,
 // The last step that actually fired a note-on (for LCD line 2 feedback).
 // -1 = no step has fired yet this session.
 int8_t last_triggered_step = -1;
+// The actual MIDI pitch sent for that step (after octave/note shift + scale quantization).
+uint8_t last_triggered_pitch = 0;
 
 //////////////////////////////////
 //
@@ -441,8 +443,7 @@ bool advanced_mode = false;
 /////////////////////////////////
 
 bool config_menu_active = false;
-uint8_t config_menu_item =
-    0;  // 0=Exit 1=ClearPat 2=ClearAll 3=ResetSliders 4=Mode
+uint8_t config_menu_item = 0;  // persists between opens; restored on re-entry
 bool config_confirm_pending = false;
 bool config_editing_value =
     false;  // true while adjusting a value (e.g. octave shift)

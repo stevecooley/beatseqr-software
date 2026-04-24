@@ -399,7 +399,7 @@ void run_LCD_update() {
           char _s[8];
           // NN icon + note value + space (1+3+1 = 5 chars)
           lcd.print("?4");  Serial.print("?4");
-          sprintf(_s, "%03d ", voice_slider_midinotenum[last_triggered_step]);
+          sprintf(_s, "%03d ", last_triggered_pitch);
           lcd.print(_s);  Serial.print(_s);
           // VL icon + velocity + space (1+3+1 = 5 chars)
           lcd.print("?2");  Serial.print("?2");

@@ -272,8 +272,15 @@ void stepsend(int current_step, int last_step) {
       }
       int16_t shifted = (int16_t)voice_slider_midinotenum[play_step]
                       + (int16_t)(octave_shift * 12) + (int16_t)note_shift;
+      // Apply scale quantization to the base pitch (non-destructive: raw stored
+      // values are preserved; the scale is always applied fresh at playback time).
+      if (scale_type != 0 && scale_note_count > 0) {
+        if (shifted < 0)   shifted = 0;
+        if (shifted > 127) shifted = 127;
+        shifted = (int16_t)quantize_to_scale((uint8_t)shifted);
+      }
       // Apply pitch drift: random wander ±pitch_drift semitones, then clamp
-      // to note range and quantize to the active scale.
+      // to note range and re-quantize to the active scale.
       if (pitch_drift > 0) {
         shifted += (int16_t)random(-(long)pitch_drift, (long)pitch_drift + 1);
         if (shifted < (int16_t)slider_map_low_value)  shifted = (int16_t)slider_map_low_value;
@@ -286,7 +293,7 @@ void stepsend(int current_step, int last_step) {
       uint8_t pitch = (uint8_t)shifted;
       uint8_t vel = voice_slider_midivelocity[play_step];
       noteOn(MIDICHANNEL - 1, pitch, vel);
-      sounding_notes[play_step] = (int8_t)pitch;  // store drifted pitch for correct note-off
+      sounding_notes[play_step] = (int8_t)pitch;  // store actual pitch for correct note-off
       // Schedule note-off: gate steps later in hardware clock time
       sounding_note_end_step[play_step] =
           (int8_t)((current_step + step_gate[pattern_value][play_step]) % pattern_length);
@@ -294,6 +301,7 @@ void stepsend(int current_step, int last_step) {
       // but only when the config menu isn't using line 2.
       if (!config_menu_active) {
         last_triggered_step = (int8_t)play_step;
+        last_triggered_pitch = pitch;
         update_line1 = true;  // step counter on line 1
         update_line2 = true;
       }
