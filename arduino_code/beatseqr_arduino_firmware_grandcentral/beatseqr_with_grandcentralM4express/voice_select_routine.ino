@@ -59,14 +59,21 @@ void run_voice_select_routine() {
 void set_current_voice(uint8_t v) {
   if (v >= VOICE_COUNT) return;
 
-  current_voice      = v;
+  uint8_t prev_voice  = current_voice;
+  current_voice       = v;
   last_voice_selected = v;
 
-  // Light only the active voice LED.
-  for (int i = 0; i < VOICE_COUNT; i++) {
-    if (i == (int)v) voice_select_leds[i].on();
-    else             voice_select_leds[i].off();
+  // Light the active voice LED. When stopped, extinguish all others.
+  // During playback, only extinguish the voice we just left (gate activity
+  // controls the rest); the previous voice LED stays off until its next hit.
+  if (!playstatus) {
+    for (int i = 0; i < VOICE_COUNT; i++) {
+      if (i != (int)v) voice_select_leds[i].off();
+    }
+  } else if (prev_voice != v) {
+    voice_select_leds[prev_voice].off();
   }
+  voice_select_leds[v].on();
 
   // Step LEDs now show this voice's active steps.
   read_step_memory(current_voice, pattern_value);

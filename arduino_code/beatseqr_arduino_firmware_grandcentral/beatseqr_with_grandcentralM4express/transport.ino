@@ -106,8 +106,10 @@ void allNotesOff() {
       sounding_notes[v] = -1;
     }
     sounding_note_end_step[v] = -1;
+    if (v != current_voice) voice_select_leds[v].off();
   }
   MidiUSB.flush();
+  voice_select_leds[current_voice].on();
 }
 
 // init_shuffle — Fisher-Yates permutation for Shuffle pattern direction.
@@ -199,6 +201,7 @@ void stepsend(int current_step, int last_step) {
       noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[v], 0);
       sounding_notes[v] = -1;
       sounding_note_end_step[v] = -1;
+      if (v != current_voice) voice_select_leds[v].off();
     }
   }
 
@@ -229,6 +232,7 @@ void stepsend(int current_step, int last_step) {
           sounding_notes[v] = (int8_t)pitch;
           sounding_note_end_step[v] =
               (int8_t)((current_step + voice_gate[pattern_value][v]) % pattern_length);
+          voice_select_leds[v].on();
         }
       }
     }
