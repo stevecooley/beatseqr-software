@@ -54,7 +54,10 @@ void run_LCD_update() {
     lcd.print("?f");
   }
 
+  static uint8_t prev_lcdflag = 255;
   if (next_lcdflag != lcdflag) lcdflag = next_lcdflag;
+  bool lcdflag_just_changed = (lcdflag != prev_lcdflag);
+  prev_lcdflag = lcdflag;
 
   switch (lcdflag) {
 
@@ -71,11 +74,13 @@ void run_LCD_update() {
 
     case 100:  // simple-mode copy: "Copy N->" waiting for destination
     {
-      lcd.print("?f");
-      lcd.print("?x00?y0");
-      lcd.print("Copy ");
-      lcd.print(current_pattern + 1);
-      lcd.print("->             ");
+      if (lcdflag_just_changed) {
+        lcd.print("?f");
+        lcd.print("?x00?y0");
+        lcd.print("Copy ");
+        lcd.print(current_pattern + 1);
+        lcd.print("->             ");
+      }
       next_lcdflag = 100;
       break;
     }
@@ -94,7 +99,7 @@ void run_LCD_update() {
       }
       if (millis() >= msg_until) {
         msg_until = 0;
-        update_line1 = true;
+        go_to_pattern(copy_pattern_to, 0);
         update_line2 = true;
         next_lcdflag = 255;
       } else {
@@ -105,20 +110,24 @@ void run_LCD_update() {
 
     case 102:  // adv copy phase 2 — "Copy N->where?"
     {
-      lcd.print("?f");
-      lcd.print("?x00?y0");
-      char _buf[17];
-      snprintf(_buf, sizeof(_buf), "Copy %d->where? ", current_pattern + 1);
-      lcd.print(_buf);
+      if (lcdflag_just_changed) {
+        lcd.print("?f");
+        lcd.print("?x00?y0");
+        char _buf[17];
+        snprintf(_buf, sizeof(_buf), "Copy %d->where? ", current_pattern + 1);
+        lcd.print(_buf);
+      }
       next_lcdflag = 102;
       break;
     }
 
     case 103:  // adv copy phase 1 — "copy which pat?"
     {
-      lcd.print("?f");
-      lcd.print("?x00?y0");
-      lcd.print("copy which pat?");
+      if (lcdflag_just_changed) {
+        lcd.print("?f");
+        lcd.print("?x00?y0");
+        lcd.print("copy which pat?");
+      }
       next_lcdflag = 103;
       break;
     }

@@ -15,10 +15,11 @@
 // copy. The cancel is triggered by pressing param_rec (Enter) while a copy
 // phase is active — same natural "abort" gesture as pressing Esc/Back.
 void listen_for_navigation_events() {
-  if ((adv_copy_waiting_source || adv_copy_armed) && param_rec_flag) {
+  if ((adv_copy_waiting_source || adv_copy_armed || told_which_pattern_to_copy_to) && param_rec_flag) {
     param_rec_flag = false;
     adv_copy_waiting_source = false;
     adv_copy_armed = false;
+    told_which_pattern_to_copy_to = false;
     update_line1 = true;
     update_line2 = true;
     next_lcdflag = 255;

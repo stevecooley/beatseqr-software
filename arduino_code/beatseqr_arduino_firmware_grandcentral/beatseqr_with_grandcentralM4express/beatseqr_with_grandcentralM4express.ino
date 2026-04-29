@@ -157,8 +157,8 @@ void loop() {
     if (pattern_select_buttons[i].uniquePress()) {
       pattern_select_button_flags[i] = true;
     }
-    // Simple mode: hold 2 s → pattern copy armed.
-    if (!advanced_mode && pattern_select_buttons[i].heldFor(2000)) {
+    // Simple mode: hold 2 s → pattern copy armed (held() fires once per press).
+    if (!advanced_mode && pattern_select_buttons[i].held(2000)) {
       told_which_pattern_to_copy_to = true;
       lcdflag = 100; next_lcdflag = 100;
     }
