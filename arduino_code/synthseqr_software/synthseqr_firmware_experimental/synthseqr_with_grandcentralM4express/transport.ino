@@ -248,6 +248,10 @@ void stepsend(int current_step, int last_step) {
 
   run_chase_lights(play_step);
 
+  // Flash play button LED on quarter notes: on at steps 0,4,8,12 — off at 2,6,10,14.
+  if (current_step % 4 == 0)      playbutton_LED.on();
+  else if (current_step % 4 == 2) playbutton_LED.off();
+
   // Note-off scan: turn off any notes whose gate expires at this step.
   // Gate end steps are stored as hardware clock steps (current_step-based),
   // so this scan always uses current_step regardless of direction.

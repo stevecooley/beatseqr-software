@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/**)",
+      "Read(//Users/stevecooley/Library/CloudStorage/Dropbox/arduino/**)",
+      "Bash(arduino-cli board *)",
+      "Bash(arduino-cli compile *)",
+      "Bash(arduino-cli upload *)",
+      "Bash(python3 -c ' *)",
+      "Read(//dev/**)"
+    ]
+  }
+}

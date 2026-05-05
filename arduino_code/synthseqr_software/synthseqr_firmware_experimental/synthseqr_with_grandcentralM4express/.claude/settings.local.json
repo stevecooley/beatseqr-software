@@ -13,7 +13,9 @@
       "Bash(grep -n \"lcdflag.*100\\\\|100.*lcdflag\\\\|told_which_pattern\" /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/beatseqr_arduino_firmware_grandcentral/beatseqr_with_grandcentralM4express/*.ino /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/beatseqr_arduino_firmware_grandcentral/beatseqr_with_grandcentralM4express/*.h)",
       "Bash(git -C /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express diff --stat)",
       "Bash(git -C /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express diff storage.ino sd_storage.ino config_menu.ino synthseqr_with_grandcentralM4express.ino)",
-      "Bash(git -C /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express log --oneline -5)"
+      "Bash(git -C /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express log --oneline -5)",
+      "Read(//Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/**)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

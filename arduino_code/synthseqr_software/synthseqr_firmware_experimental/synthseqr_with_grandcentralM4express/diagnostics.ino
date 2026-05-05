@@ -18,11 +18,19 @@ static char    diag_sf_l2[SD_DIAG_FIELD_COUNT][17];
 // Pin lookup tables — must match config.h declarations.
 static const uint8_t DIAG_STEP_PINS[16]   = {23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53};
 static const uint8_t DIAG_PAT_PINS[4]     = {15,14,6,8};
-static const uint8_t DIAG_SLIDER_PINS[16] = {A15,A14,A13,A12,A11,A10,A9,A8,A7,A6,A5,A4,A2,A3,A1,A0};
+#if PCB_VERSION == 1
+static const uint8_t DIAG_SLIDER_PINS[16]   = {A15,A14,A13,A12,A11,A10,A9,A8,A7,A6,A5,A4,A2,A3,A1,A0};
 static const char*   DIAG_SLIDER_PNAMES[16] = {
   "A15","A14","A13","A12","A11","A10","A9","A8",
   "A7","A6","A5","A4","A2","A3","A1","A0"
 };
+#else
+static const uint8_t DIAG_SLIDER_PINS[16]   = {A15,A14,A13,A12,A11,A10,A9,A8,A7,A6,A5,A4,A3,A2,A1,A0};
+static const char*   DIAG_SLIDER_PNAMES[16] = {
+  "A15","A14","A13","A12","A11","A10","A9","A8",
+  "A7","A6","A5","A4","A3","A2","A1","A0"
+};
+#endif
 
 // ---------------------------------------------------------------------------
 // LCD helpers — write directly, bypassing run_LCD_update().
@@ -104,6 +112,27 @@ void enter_diagnostics()
   lcd.print("?x00?y1");
   lcd.print("dbl-tap Entr=out");
   delay(1500);
+
+  // LED test sweep: light each LED in sequence, leave them on, wait for Enter.
+  lcd.print("?x00?y0");
+  lcd.print("  DIAGNOSTICS   ");
+  lcd.print("?x00?y1");
+  lcd.print("LED test...     ");
+  for (int i = 0; i < 16; i++) { step_leds[i].on();           delay(80); }
+  for (int i = 0; i < 4;  i++) { pattern_select_leds[i].on(); delay(80); }
+  playbutton_LED.on();  delay(80);
+  enterbutton_LED.on(); delay(80);
+  lcd.print("?x00?y1");
+  lcd.print("Enter to proceed");
+  // Drain any queued press from the entry combo, then wait for a fresh tap.
+  while (enterbutton.isPressed()) {}
+  enterbutton.uniquePress();
+  while (!enterbutton.uniquePress()) {}
+  // Turn all LEDs off before handing control to the normal diagnostics loop.
+  for (int i = 0; i < 16; i++) step_leds[i].off();
+  for (int i = 0; i < 4;  i++) pattern_select_leds[i].off();
+  playbutton_LED.off();
+  enterbutton_LED.off();
 
   diag_show_idle_screen();
   diag_showing_idle = true;

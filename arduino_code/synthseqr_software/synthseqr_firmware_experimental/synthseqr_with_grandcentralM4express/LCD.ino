@@ -8,7 +8,7 @@ void run_LCD_setup_routine() {
   // setup()) if you swap in a different module.
   // lcd.begin(9600);  // ← use this line instead for standard-baud modules
   pinMode(lcdTxPin, OUTPUT);
-  lcd.begin(9850);
+  lcd.begin(9600);
 
   lcd.print("?c0");
   Serial.println("?c0");

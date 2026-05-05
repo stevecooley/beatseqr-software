@@ -1,4 +1,4 @@
-#include <SD.h>
+#include <SdFat.h>   // SD card storage (Adafruit Fork, replaces standard SD.h)
 #include <stdlib.h>  // dtostrf()
 
 #include "Button.h"

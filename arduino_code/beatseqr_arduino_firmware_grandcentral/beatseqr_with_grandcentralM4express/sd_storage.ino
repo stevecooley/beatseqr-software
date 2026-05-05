@@ -5,11 +5,15 @@
 // Primary storage: /beatseqr/autosave.json on the SD card.
 // Fallback:        EEPROM (via storage.ino) if no SD card or file missing.
 //
+// Uses SdFat (Adafruit Fork) instead of the standard SD.h library.
+// The standard SD.h is unreliable on SAMD51 — SdFat is the correct choice.
+//
 // JSON format — per-pattern structure uses flat per-voice arrays:
 //
 //   {
 //     "version": 1,
 //     "tempo": 120.00,
+//     "swing": 0,
 //     "midi_channel": 10,
 //     "octave_shift": 0,
 //     "note_shift": 0,
@@ -31,6 +35,7 @@
 //         "velocities": [100,100,...8 values],
 //         "gates":      [1,1,...8 values],
 //         "cc_values":  [0,0,...8 values],
+//         "probabilities": [100,100,...8 values],
 //         "steps_v0": [1,0,0,...16 values],
 //         "steps_v1": [...],
 //         ...
@@ -50,19 +55,20 @@
 #define SD_AUTOSAVE_PATH "/beatseqr/autosave.json"
 #define SD_FOLDER        "/beatseqr"
 
-static bool sd_available = false;
-static File _f;  // module-level handle used by all parser helpers
+static bool    sd_available = false;
+static SdFat32 _sd;   // SdFat Adafruit Fork — replaces the standard SD global
+static File32  _f;    // module-level handle used by all parser helpers
 
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
 bool sd_init() {
-  sd_available = SD.begin(SDCARD_SS_PIN);
+  sd_available = _sd.begin(SdSpiConfig(SDCARD_SS_PIN, DEDICATED_SPI, SD_SCK_MHZ(4), &SDCARD_SPI));
   if (sd_available) {
     Serial.println("SD card init OK");
-    if (!SD.exists(SD_FOLDER)) {
-      SD.mkdir(SD_FOLDER);
+    if (!_sd.exists(SD_FOLDER)) {
+      _sd.mkdir(SD_FOLDER);
     }
   } else {
     Serial.println("SD card not found");
@@ -149,7 +155,7 @@ static bool sd_find_bounded(const char *needle, int max_bytes) {
   return false;
 }
 
-// Read an 8-element integer array from an already-opened array "[v0,v1,...v7]".
+// Read an integer array from an already-opened "[v0,v1,...]".
 // Caller must have just read past the '['.
 static void sd_read_int8_array(uint8_t *arr, int count, uint8_t lo, uint8_t hi) {
   for (int i = 0; i < count; i++) {
@@ -169,26 +175,28 @@ static void sd_read_int8_array(uint8_t *arr, int count, uint8_t lo, uint8_t hi) 
 bool save_to_sd() {
   if (!sd_available) return false;
 
-  if (SD.exists(SD_AUTOSAVE_PATH)) SD.remove(SD_AUTOSAVE_PATH);
-  _f = SD.open(SD_AUTOSAVE_PATH, FILE_WRITE);
+  if (_f) _f.close();
+  if (_sd.exists(SD_AUTOSAVE_PATH)) _sd.remove(SD_AUTOSAVE_PATH);
+  _f = _sd.open(SD_AUTOSAVE_PATH, O_WRONLY | O_CREAT | O_TRUNC);
   if (!_f) { Serial.println("SD: failed to open for write"); return false; }
 
   _f.println("{");
   _f.println("  \"version\": 1,");
-  _f.print("  \"tempo\": ");           _f.print(TEMPO, 2);                 _f.println(",");
-  _f.print("  \"midi_channel\": ");    _f.print(MIDICHANNEL);              _f.println(",");
-  _f.print("  \"octave_shift\": ");    _f.print(octave_shift);             _f.println(",");
-  _f.print("  \"note_shift\": ");      _f.print(note_shift);               _f.println(",");
-  _f.print("  \"note_range_low\": ");  _f.print(slider_map_low_value);     _f.println(",");
-  _f.print("  \"note_range_high\": "); _f.print(slider_map_high_value);    _f.println(",");
-  _f.print("  \"chain_active\": ");    _f.print(extended_step_length_mode); _f.println(",");
-  _f.print("  \"chain_start\": ");     _f.print(chain_start);              _f.println(",");
-  _f.print("  \"chain_end\": ");       _f.print(chain_end);                _f.println(",");
-  _f.print("  \"advanced_mode\": ");   _f.print(advanced_mode ? 1 : 0);    _f.println(",");
-  _f.print("  \"pattern_length\": ");  _f.print(pattern_length);           _f.println(",");
-  _f.print("  \"pattern_direction\": "); _f.print(pattern_direction);      _f.println(",");
-  _f.print("  \"scale_root\": ");      _f.print(scale_root);               _f.println(",");
-  _f.print("  \"scale_type\": ");      _f.print(scale_type);               _f.println(",");
+  _f.print("  \"tempo\": ");             _f.print(TEMPO, 2);                  _f.println(",");
+  _f.print("  \"swing\": ");             _f.print(SWING);                     _f.println(",");
+  _f.print("  \"midi_channel\": ");      _f.print(MIDICHANNEL);               _f.println(",");
+  _f.print("  \"octave_shift\": ");      _f.print(octave_shift);              _f.println(",");
+  _f.print("  \"note_shift\": ");        _f.print(note_shift);                _f.println(",");
+  _f.print("  \"note_range_low\": ");    _f.print(slider_map_low_value);      _f.println(",");
+  _f.print("  \"note_range_high\": ");   _f.print(slider_map_high_value);     _f.println(",");
+  _f.print("  \"chain_active\": ");      _f.print(extended_step_length_mode); _f.println(",");
+  _f.print("  \"chain_start\": ");       _f.print(chain_start);               _f.println(",");
+  _f.print("  \"chain_end\": ");         _f.print(chain_end);                 _f.println(",");
+  _f.print("  \"advanced_mode\": ");     _f.print(advanced_mode ? 1 : 0);     _f.println(",");
+  _f.print("  \"pattern_length\": ");    _f.print(pattern_length);            _f.println(",");
+  _f.print("  \"pattern_direction\": "); _f.print(pattern_direction);         _f.println(",");
+  _f.print("  \"scale_root\": ");        _f.print(scale_root);                _f.println(",");
+  _f.print("  \"scale_type\": ");        _f.print(scale_type);                _f.println(",");
 
   // voice_cc_enabled is per-voice (not per-pattern) — save once at top level.
   _f.print("  \"voice_cc_enabled\": [");
@@ -204,7 +212,6 @@ bool save_to_sd() {
     _f.println("    {");
     _f.print("      \"cc_number\": "); _f.print(cc_number[p]); _f.println(",");
 
-    // Per-voice scalar arrays — indexed [pattern][voice].
     _f.print("      \"pitches\": [");
     for (int v = 0; v < VOICE_COUNT; v++) {
       _f.print(voice_pitch[p][v]);
@@ -272,34 +279,40 @@ bool save_to_sd() {
 
 bool load_from_sd() {
   if (!sd_available) return false;
-  if (!SD.exists(SD_AUTOSAVE_PATH)) {
+  if (!_sd.exists(SD_AUTOSAVE_PATH)) {
     Serial.println("SD: no autosave found");
     return false;
   }
 
-  _f = SD.open(SD_AUTOSAVE_PATH, FILE_READ);
+  _f = _sd.open(SD_AUTOSAVE_PATH, O_RDONLY);
   if (!_f) { Serial.println("SD: failed to open for read"); return false; }
 
   // Scalar fields — seek back to start for each one.
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"tempo\":")) {
     float t = sd_parse_number();
     if (t >= 30.0f && t <= 250.0f) TEMPO = t;
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
+  if (sd_find("\"swing\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v <= 5) SWING = v;
+  }
+
+  _f.seekSet(0);
   if (sd_find("\"midi_channel\":")) {
     int v = (int)sd_parse_number();
     if (v >= 1 && v <= 16) MIDICHANNEL = v;
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"octave_shift\":")) {
     int v = (int)sd_parse_number();
     if (v >= -5 && v <= 5) octave_shift = (int8_t)v;
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"note_shift\":")) {
     int v = (int)sd_parse_number();
     if (v >= -12 && v <= 12) note_shift = (int8_t)v;
@@ -308,12 +321,12 @@ bool load_from_sd() {
   {
     uint8_t lo = slider_map_low_value;
     uint8_t hi = slider_map_high_value;
-    _f.seek(0);
+    _f.seekSet(0);
     if (sd_find("\"note_range_low\":")) {
       int v = (int)sd_parse_number();
       if (v >= 0 && v <= 126) lo = (uint8_t)v;
     }
-    _f.seek(0);
+    _f.seekSet(0);
     if (sd_find("\"note_range_high\":")) {
       int v = (int)sd_parse_number();
       if (v >= 1 && v <= 127) hi = (uint8_t)v;
@@ -324,54 +337,55 @@ bool load_from_sd() {
     }
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"chain_active\":")) {
     extended_step_length_mode = (uint8_t)sd_parse_number() ? 1 : 0;
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"chain_start\":")) {
     int v = (int)sd_parse_number();
     if (v >= 0 && v <= 15) chain_start = (uint8_t)v;
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"chain_end\":")) {
     int v = (int)sd_parse_number();
     if (v >= 0 && v <= 15) chain_end = (uint8_t)v;
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"advanced_mode\":")) {
-    advanced_mode = (bool)sd_parse_number();
+    int v = (int)sd_parse_number();
+    if (v == 0 || v == 1) advanced_mode = (bool)v;
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"pattern_length\":")) {
     int v = (int)sd_parse_number();
     if (v >= 1 && v <= 16) pattern_length = (uint8_t)v;
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"pattern_direction\":")) {
     int v = (int)sd_parse_number();
     if (v >= 0 && v < PATTERN_DIRECTION_COUNT) pattern_direction = (uint8_t)v;
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"scale_root\":")) {
     int v = (int)sd_parse_number();
     if (v >= 0 && v < 12) scale_root = (uint8_t)v;
   }
 
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"scale_type\":")) {
     int v = (int)sd_parse_number();
     if (v >= 0 && v < SCALE_COUNT) scale_type = (uint8_t)v;
   }
 
   // voice_cc_enabled — top-level array.
-  _f.seek(0);
+  _f.seekSet(0);
   if (sd_find("\"voice_cc_enabled\":")) {
     if (sd_read_until('[')) {
       sd_read_int8_array(voice_cc_enabled, VOICE_COUNT, 0, 1);
@@ -379,7 +393,7 @@ bool load_from_sd() {
   }
 
   // Patterns array — seek once to "patterns": then read sequentially.
-  _f.seek(0);
+  _f.seekSet(0);
   if (!sd_find("\"patterns\":")) {
     _f.close();
     Serial.println("SD: no patterns key");
@@ -397,44 +411,44 @@ bool load_from_sd() {
         int v = (int)sd_parse_number();
         if (v >= 1 && v <= 119 && v != 32 && !(v >= 96 && v <= 101))
           cc_number[p] = (uint8_t)v;
-      } else { _f.seek(pos); }
+      } else { _f.seekSet(pos); }
     }
 
-    // Per-voice scalar arrays: pitches, velocities, gates, cc_values.
+    // Per-voice scalar arrays: pitches, velocities, gates, cc_values, probabilities.
     {
       uint32_t pos = _f.position();
       if (sd_find_bounded("\"pitches\":", 300)) {
         if (sd_read_until('['))
           sd_read_int8_array(voice_pitch[p], VOICE_COUNT, 0, 127);
-      } else { _f.seek(pos); }
+      } else { _f.seekSet(pos); }
     }
     {
       uint32_t pos = _f.position();
       if (sd_find_bounded("\"velocities\":", 300)) {
         if (sd_read_until('['))
           sd_read_int8_array(voice_velocity[p], VOICE_COUNT, 0, 127);
-      } else { _f.seek(pos); }
+      } else { _f.seekSet(pos); }
     }
     {
       uint32_t pos = _f.position();
       if (sd_find_bounded("\"gates\":", 300)) {
         if (sd_read_until('['))
           sd_read_int8_array(voice_gate[p], VOICE_COUNT, 1, 8);
-      } else { _f.seek(pos); }
+      } else { _f.seekSet(pos); }
     }
     {
       uint32_t pos = _f.position();
       if (sd_find_bounded("\"cc_values\":", 300)) {
         if (sd_read_until('['))
           sd_read_int8_array(voice_cc_value[p], VOICE_COUNT, 0, 127);
-      } else { _f.seek(pos); }
+      } else { _f.seekSet(pos); }
     }
     {
       uint32_t pos = _f.position();
       if (sd_find_bounded("\"probabilities\":", 300)) {
         if (sd_read_until('['))
           sd_read_int8_array(voice_probability[p], VOICE_COUNT, 0, 100);
-      } else { _f.seek(pos); }
+      } else { _f.seekSet(pos); }
     }
 
     // Per-voice step arrays: steps_v0 through steps_v7.
@@ -453,7 +467,7 @@ bool load_from_sd() {
             if (c == ',' || c == ']') _f.read();
           }
         }
-      } else { _f.seek(pos); }
+      } else { _f.seekSet(pos); }
     }
   }
 
