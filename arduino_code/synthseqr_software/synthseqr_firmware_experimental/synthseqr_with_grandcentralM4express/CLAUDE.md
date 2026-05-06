@@ -36,7 +36,7 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 | `midi_processor.ino`                       | MIDI input: clock sync (0xF8), start (0xFA), stop (0xFC)                                                                                                                                                          |
 | `navigation.ino`                           | D-pad + enter button: adjusts tempo; enter cycles slider mode (NN/VL/GT)                                                                                                                                          |
 | `sequencer_timer.ino`                      | TC4 hardware timer driver: setup, period update, stop/start, ISR                                                                                                                                                  |
-| `step_button_routine.ino`                  | Step button presses, LED toggling, pattern clear                                                                                                                                                                  |
+| `step_button_routine.ino`                  | Step button presses, LED toggling, hold+tap gate-set gesture                                                                                                                                                      |
 | `voice_slider_routine.ino`                 | Reads 16 analog sliders in NN/VL/GT/CC/PR mode → note, velocity, gate, CC, or probability                                                                                                                         |
 | `pattern_select_routine.ino`               | Pattern switching, copy, and 4-pattern chain mode                                                                                                                                                                 |
 | `LCD.ino`                                  | LCD initialization and display updates                                                                                                                                                                            |
@@ -56,7 +56,7 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 
 **Step button / LED decoupling**: `detect_step_button_presses()` toggles `step_data[pattern_value][0][i]` directly and then calls `step_leds[i].on()` / `step_leds[i].off()` to match. It does NOT read `step_leds[i].getState()` as the source of truth. The chase light in `run_chase_lights()` inverts the current step's LED, so reading LED state would cancel out a button press on the currently-playing step. Always keep step toggle logic coupled to `step_data`, not LED state.
 
-**`isPressed()` vs `wasPressed()` for combo checks**: Each call to `isPressed()` updates internal state (PREVIOUS, CHANGED, debounce window). Calling it a second time on the same button within the same loop iteration — after `uniquePress()` already ran — can steal a CHANGED flag and cause the next loop's `uniquePress()` to miss a press. For combo checks (step-clear, chain toggle) that run after `uniquePress()` has already been called for those buttons, always use `wasPressed()` instead. `wasPressed()` reads the cached CURRENT bit with no side effects.
+**`isPressed()` vs `wasPressed()` for combo checks**: Each call to `isPressed()` updates internal state (PREVIOUS, CHANGED, debounce window). Calling it a second time on the same button within the same loop iteration — after `uniquePress()` already ran — can steal a CHANGED flag and cause the next loop's `uniquePress()` to miss a press. For combo checks (chain toggle) that run after `uniquePress()` has already been called for those buttons, always use `wasPressed()` instead. `wasPressed()` reads the cached CURRENT bit with no side effects. The gate-set gesture in `detect_step_button_presses()` uses `wasPressed()` to check the held step's state on each loop iteration for the same reason.
 
 ## Core State
 
@@ -65,7 +65,7 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 int step_data[16][1][16]              // [pattern][voice][step] — on/off for each step
 uint8_t pattern_step_pitches[16][16]  // saved pitch per pattern per step
 uint8_t pattern_step_velocities[16][16] // saved velocity per pattern per step (default 127)
-uint8_t step_gate[16][16]             // gate length per pattern per step (1–8 steps, default 1)
+uint8_t step_gate[16][16]             // gate length per pattern per step (1–16 steps, default 1)
 uint8_t voice_slider_midinotenum[16]  // MIDI note per slider (default 36–51)
 uint8_t voice_slider_midivelocity[16] // MIDI velocity per slider (default 127)
 int8_t sounding_notes[16]            // pitch currently sounding per step (-1 = silent)
@@ -196,7 +196,7 @@ The 16 voice sliders operate in one of four modes:
 | ------ | ---------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | 1 — NN | `?5?4` (note icon)     | MIDI note number (mapped to `slider_map_low_value`–`slider_map_high_value`) | `pattern_step_pitches[p][s]`, `voice_slider_midinotenum[s]`     |
 | 2 — VL | `?5?2` (velocity icon) | MIDI velocity (1–127)                                                       | `pattern_step_velocities[p][s]`, `voice_slider_midivelocity[s]` |
-| 3 — GT | `?5G`                  | Gate length (1–8 steps)                                                     | `step_gate[p][s]`                                               |
+| 3 — GT | `?5G`                  | Gate length (1–16 steps)                                                    | `step_gate[p][s]`                                               |
 | 4 — CC | `?5?3` (CC icon)       | CC value (0–127) per step; step buttons toggle `cc_step_enabled` on/off     | `cc_step_values[p][s]`, `cc_step_enabled[p][s]`                 |
 | 5 — PR | `?5P`                  | Fire probability (0–100%) per step                                          | `step_probability[p][s]`                                        |
 
@@ -217,11 +217,11 @@ The 16 voice sliders operate in one of four modes:
 
 ## Multi-Step Gate Lengths
 
-Each step has a gate length (1–8) stored in `step_gate[pattern][step]`. A gate of 1 means the note-off fires at the next step (classic behavior). A gate of N means the note rings for N steps.
+Each step has a gate length (1–16) stored in `step_gate[pattern][step]`. A gate of 1 means the note-off fires at the next step (classic behavior). A gate of N means the note rings for N steps.
 
 **Implementation**: `stepsend()` sets `sounding_note_end_step[current_step] = (current_step + gate) % 16` when a note fires. On every step advance, `stepsend()` scans all 16 `sounding_note_end_step[]` entries and sends note-off for any that match `current_step`. This allows multiple overlapping notes to ring simultaneously and expire independently.
 
-**Note**: gate lengths wrap around step 16→0, so a gate of 8 on step 15 will hold until step 7 of the next loop (or the next pattern if chained).
+**Note**: gate lengths wrap around step 16→0, so a gate of 16 on step 0 will hold until step 0 of the next loop (or the next pattern if chained).
 
 ## Swing Implementation
 
@@ -254,8 +254,7 @@ When `external_clock_mode == false` (default):
 
 ## Pattern Operations
 
-- **Clear current pattern**: Hold step button 0 + step button 15
-- **Clear all patterns**: Hold step button 0 + step button 11
+- **Set gate length (normal step-edit mode, not CC mode, not advanced nav mode)**: Hold one step button for ≥ 150 ms, then tap a second step button. The source step is turned ON and its gate is set to the forward distance between the two buttons (1–16, wrapping). The destination step does not toggle. LEDs flash the gate range (both endpoints lit) for 300 ms then restore. A plain tap (< 150 ms, released without tapping another) still toggles the step normally. Turning a step OFF (plain tap when already on) always resets its gate to 1.
 - **Copy pattern (simple mode)**: Hold a pattern select button for 2s, then press destination pattern button
 - **Copy pattern (advanced mode)**: Double-click pattern button 0 (within 400 ms) → phase 1: tap step = source pattern → phase 2: tap step = destination pattern
 - **Cancel copy (advanced mode)**: D-pad left while copy is armed
@@ -274,7 +273,7 @@ When `external_clock_mode == false` (default):
 
 **Chain toggle one-shot guard**: The `isPressed()` check for pattern buttons 0+3 fires every loop iteration while both are held. A `static bool chain_toggle_handled` in `run_pattern_select_routine()` ensures the mode flip and `go_to_pattern()` call happen only once per press. It resets when the buttons are released. Do not remove this guard — without it the mode flips back and forth on every loop frame.
 
-**`clear_pattern_memory()` clears all 16 patterns**: The step 0+11 combo calls `clear_pattern_memory()`, which loops over all 16 patterns (`p = 0..15`) and zeros every step, resets pitches to `slider_map_low_value`, resets velocities to 127, resets gates to 1, resets `step_probability` to 100, and clears CC data (enabled and values). After clearing, it calls `read_step_memory(0, pattern_value)` to refresh the LEDs for the active pattern. The step 0+15 combo calls `clear_pattern_memory_for_voice(0)`, which does the same for the current pattern only (and calls `step_leds[i].off()` directly).
+**`clear_pattern_memory()` clears all 16 patterns**: Loops over all 16 patterns (`p = 0..15`) and zeros every step, resets pitches to `slider_map_low_value`, resets velocities to 127, resets gates to 1, resets `step_probability` to 100, and clears CC data (enabled and values). After clearing, calls `read_step_memory(0, pattern_value)` to refresh the LEDs for the active pattern. `clear_pattern_memory_for_voice(0)` does the same for the current pattern only. These functions are called from the config menu — the old step-button-combo triggers (step 0+15 / step 0+11) have been removed.
 
 **Pattern chain auto-advance**: When `extended_step_length_mode == 1`, `stepsend()` calls `run_auto_pattern_select_routine()` at `current_step == pattern_length - 1`. This advances `current_pattern` within `chain_start..chain_end`. **Wrap-around chains** (where `chain_start > chain_end`, e.g. start=7, end=2 → plays 7,8,…,15,0,1,2) are fully supported. The advance happens at the start of step 15 so step 15 plays from the current pattern; the new pattern takes over from step 0.
 

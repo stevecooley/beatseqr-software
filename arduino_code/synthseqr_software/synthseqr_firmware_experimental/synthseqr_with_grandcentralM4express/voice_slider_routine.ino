@@ -81,11 +81,11 @@ void run_voice_slider_routine()
     }
     else if (slider_mode == 3)
     {
-      // GT mode: map to gate range 1-8, pickup guard prevents writes until
+      // GT mode: map to gate range 1-16, pickup guard prevents writes until
       // the slider physically reaches the stored gate value.
-      uint8_t gate = (uint8_t)map(sector, 0, 255, 1, 8);
+      uint8_t gate = (uint8_t)map(sector, 0, 255, 1, 16);
       if (gate < 1) gate = 1;
-      if (gate > 8) gate = 8;
+      if (gate > 16) gate = 16;
       if (slider_needs_pickup[j]) {
         if (gate == step_gate[pattern_value][j]) {
           slider_needs_pickup[j] = false;

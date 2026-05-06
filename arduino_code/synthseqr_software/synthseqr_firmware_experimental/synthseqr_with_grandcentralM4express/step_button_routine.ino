@@ -50,78 +50,158 @@ void run_step_button_routine()
   if (!adv_pat_nav_active) {
     detect_step_button_presses();
   }
-
-  // Clear combos must only fire when step buttons are toggling steps —
-  // not in nav mode where step buttons select patterns.
-  if (!adv_pat_nav_active) {
-    // Use wasPressed() here (not isPressed()) — uniquePress() already called
-    // isPressed() for all step buttons in detect_step_button_presses() above.
-    if (step_buttons[0].wasPressed() && step_buttons[15].wasPressed()) // clear the pattern for this voice
-    {
-      clear_pattern_memory_for_voice(0); //synthseqr configuration
-    }
-
-    if (step_buttons[0].wasPressed() && step_buttons[11].wasPressed()) // clear the entire pattern
-    {
-      clear_pattern_memory();
-    }
-  }
-  
 }
 
 
-void detect_step_button_presses()
+// Turn a step ON if it isn't already. Seeds pitch from live slider position on
+// blank patterns. Used by the gate-set gesture so the source step is guaranteed
+// to be on after the gesture completes.
+void do_step_on(int i)
 {
-  for (int i = 0; i <= 15; i++)
-  {
-    if (step_buttons[i].uniquePress())
-    {
-      if (slider_mode == 4) {
-        // CC mode: toggle CC enable for this step independently from notes.
-        cc_step_enabled[pattern_value][i] = cc_step_enabled[pattern_value][i] ? 0 : 1;
-        if (cc_step_enabled[pattern_value][i]) step_leds[i].on();
-        else                                   step_leds[i].off();
-        continue;
-      }
+  if (step_data[pattern_value][0][i] != 0) return;  // already on — nothing to do
+  step_data[pattern_value][0][i] = 1;
+  step_leds[i].on();
+  bool was_blank = true;
+  for (int s = 0; s < 16; s++) {
+    if (s != i && step_data[pattern_value][0][s] != 0) { was_blank = false; break; }
+  }
+  if (was_blank) {
+    uint8_t live_pitch = (uint8_t)raw_voice_slider_values[i];
+    voice_slider_midinotenum[i] = live_pitch;
+    pattern_step_pitches[pattern_value][i] = live_pitch;
+    slider_needs_pickup[i] = false;
+  }
+  seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[i], 127, i);
+}
 
-      // Normal mode: toggle note step_data directly — do not rely on LED
-      // state, which the chase light may have inverted for the playing step.
-      step_data[pattern_value][0][i] = step_data[pattern_value][0][i] ? 0 : 1;
+// Toggle a step on/off: flips step_data, updates the LED, seeds pitch from
+// the live slider if this is the first note in a blank pattern, and notifies
+// the sequencer library. Turning a step OFF also resets its gate to 1.
+// Called by detect_step_button_presses() for both immediate taps and
+// deferred-hold releases.
+void do_step_toggle(int i)
+{
+  step_data[pattern_value][0][i] = step_data[pattern_value][0][i] ? 0 : 1;
 
-      if (step_data[pattern_value][0][i]) {
-        step_leds[i].on();
-      } else {
-        step_leds[i].off();
-      }
-      if (step_data[pattern_value][0][i] == 1)
-      {
-        // If this is a blank pattern (all other steps still off), seed the
-        // pitch from the slider's live position rather than the stored default.
-        // This makes the note land where the slider already sits, which feels
-        // more intuitive than always starting at the low-range value.
-        bool was_blank = true;
-        for (int s = 0; s < 16; s++) {
-          if (s != i && step_data[pattern_value][0][s] != 0) {
-            was_blank = false;
-            break;
-          }
-        }
-        if (was_blank) {
-          uint8_t live_pitch = (uint8_t)raw_voice_slider_values[i];
-          voice_slider_midinotenum[i] = live_pitch;
-          pattern_step_pitches[pattern_value][i] = live_pitch;
-          slider_needs_pickup[i] = false;
-        }
-        // ex: void FifteenStep::setNote(byte channel, byte pitch, byte velocity, byte step)
-        seq.setNote(MIDICHANNEL-1, voice_slider_midinotenum[i], 127, i);
-      }
-      else
-      {
-        seq.setNote(MIDICHANNEL-1, voice_slider_midinotenum[i], 0, i);
+  if (step_data[pattern_value][0][i]) {
+    step_leds[i].on();
+  } else {
+    step_leds[i].off();
+  }
+
+  if (step_data[pattern_value][0][i] == 1) {
+    // Blank-pattern seed: if every other step is off, use the live slider
+    // position instead of the stored default so the note lands where the
+    // slider already sits.
+    bool was_blank = true;
+    for (int s = 0; s < 16; s++) {
+      if (s != i && step_data[pattern_value][0][s] != 0) {
+        was_blank = false;
+        break;
       }
     }
+    if (was_blank) {
+      uint8_t live_pitch = (uint8_t)raw_voice_slider_values[i];
+      voice_slider_midinotenum[i] = live_pitch;
+      pattern_step_pitches[pattern_value][i] = live_pitch;
+      slider_needs_pickup[i] = false;
+    }
+    seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[i], 127, i);
+  } else {
+    step_gate[pattern_value][i] = 1;  // gate resets when step is turned off
+    seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[i], 0, i);
   }
-  return;
+}
+
+// detect_step_button_presses()
+//
+// Handles step button presses in normal and gate-set gesture modes.
+//
+// Gate-set gesture: hold one step button for >= 150 ms, then tap a second
+// step button. The gate for the held step is set to the forward distance
+// between the two buttons (1–16, wrapping). The held step does NOT toggle;
+// the tapped step does NOT toggle. LEDs flash the gate range for 300 ms then
+// restore to normal step display.
+//
+// Plain tap (no gesture): toggle fires on button release (deferred up to 150 ms)
+// so the firmware has time to detect whether the press will become a hold.
+// Quick double-taps (second press < 150 ms after first) toggle both steps.
+//
+// CC mode bypasses the gesture entirely; step buttons toggle cc_step_enabled.
+void detect_step_button_presses()
+{
+  static int8_t   gate_hold_step     = -1;
+  static unsigned long gate_hold_start_ms = 0;
+  static bool     gate_gesture_fired = false;
+  static unsigned long gate_flash_end_ms  = 0;
+
+  // Restore LEDs once the gate-flash window expires.
+  if (gate_flash_end_ms != 0 && (long)(millis() - gate_flash_end_ms) >= 0) {
+    gate_flash_end_ms = 0;
+    if (slider_mode == 4) read_cc_step_memory();
+    else                  read_step_memory(0, pattern_value);
+  }
+
+  // Release check: if the tracked hold step was released, fire its deferred
+  // toggle unless a gate gesture already consumed this hold.
+  if (gate_hold_step >= 0 && !step_buttons[gate_hold_step].wasPressed()) {
+    if (!gate_gesture_fired) {
+      do_step_toggle(gate_hold_step);
+    }
+    gate_hold_step = -1;
+    gate_gesture_fired = false;
+  }
+
+  for (int i = 0; i <= 15; i++) {
+    if (!step_buttons[i].uniquePress()) continue;
+
+    if (slider_mode == 4) {
+      // CC mode: immediate toggle, no gate-set gesture.
+      cc_step_enabled[pattern_value][i] = cc_step_enabled[pattern_value][i] ? 0 : 1;
+      if (cc_step_enabled[pattern_value][i]) step_leds[i].on();
+      else                                   step_leds[i].off();
+      continue;
+    }
+
+    if (gate_hold_step >= 0 && gate_hold_step != i && !gate_gesture_fired) {
+      if ((long)(millis() - gate_hold_start_ms) >= 150) {
+        // Gate-set gesture: compute forward distance from held step to tapped step.
+        uint8_t src  = (uint8_t)gate_hold_step;
+        uint8_t gate = (uint8_t)((i - (int)src + 16) % 16);
+        if (gate == 0) gate = 16;
+        step_gate[pattern_value][src] = gate;
+        do_step_on(src);  // ensure source step is on
+
+        // Flash LEDs: light src through src+gate (inclusive) to show the range.
+        for (int s = 0; s < 16; s++) {
+          uint8_t dist = (uint8_t)((s - (int)src + 16) % 16);
+          if (dist <= gate) step_leds[s].on();
+          else              step_leds[s].off();
+        }
+        gate_flash_end_ms = millis() + 300;
+        gate_gesture_fired = true;
+
+        Serial.print("gate set: step ");
+        Serial.print(src);
+        Serial.print(" gate=");
+        Serial.println(gate);
+      } else {
+        // Two quick taps (< 150 ms): fire deferred toggle for held step, then
+        // start tracking the new step as the next potential hold source.
+        do_step_toggle(gate_hold_step);
+        gate_hold_step = i;
+        gate_hold_start_ms = millis();
+        gate_gesture_fired = false;
+        // Toggle for i is deferred until its release.
+      }
+    } else {
+      // Fresh press (or gesture already fired — treat as new hold source).
+      gate_hold_step = i;
+      gate_hold_start_ms = millis();
+      gate_gesture_fired = false;
+      // Toggle deferred until release.
+    }
+  }
 }
 
 // read_cc_step_memory()

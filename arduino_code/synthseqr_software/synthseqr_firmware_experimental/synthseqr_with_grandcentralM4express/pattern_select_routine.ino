@@ -326,6 +326,7 @@ void listen_for_copy_command() {
         told_which_pattern_to_copy_to = false;
         ended_on = copy_pattern_to;
 
+        go_to_pattern(copy_pattern_to, 0);
         lcdflag = 101;  next_lcdflag = 101;  // pattern copy to N
       }
     }

@@ -85,7 +85,7 @@ uint8_t pattern_step_velocities[16][16] = {
     {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
      127}};
 
-// Per-pattern gate lengths (1-8 steps). Sliders map 0-255 -> 1-8 in GT mode.
+// Per-pattern gate lengths (1-16 steps). Sliders map 0-255 -> 1-16 in GT mode.
 uint8_t step_gate[16][16] = {{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
                              {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
                              {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},

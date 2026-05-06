@@ -394,7 +394,7 @@ bool load_from_sd() {
       for (int s = 0; s < 16; s++) {
         sd_skip_ws();
         int v = (int)sd_parse_number();
-        if (v >= 1 && v <= 8) step_gate[p][s] = (uint8_t)v;
+        if (v >= 1 && v <= 16) step_gate[p][s] = (uint8_t)v;
         sd_skip_ws();
         char c = (char)_f.peek();
         if (c == ',' || c == ']') _f.read();
