@@ -54,7 +54,7 @@ jobs:
           arduino-cli compile \
             --fqbn adafruit:samd:adafruit_grandcentral_m4 \
             --libraries arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/libraries \
-            --build-property "build.extra_flags=-DPCB_VERSION=1" \
+            --build-property "compiler.cpp.extra_flags=-DPCB_VERSION=1" \
             --output-dir build_pcb1 \
             arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express
 
@@ -63,7 +63,7 @@ jobs:
           arduino-cli compile \
             --fqbn adafruit:samd:adafruit_grandcentral_m4 \
             --libraries arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/libraries \
-            --build-property "build.extra_flags=-DPCB_VERSION=2" \
+            --build-property "compiler.cpp.extra_flags=-DPCB_VERSION=2" \
             --output-dir build_pcb2 \
             arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express
 
