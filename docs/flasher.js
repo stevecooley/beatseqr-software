@@ -2,6 +2,7 @@
   'use strict';
 
   const VERSION_URL = './version.json';
+  const COMMITS_URL = './commits.json';
 
   const statusEl       = document.getElementById('status');
   const versionEl      = document.getElementById('version-info');
@@ -26,6 +27,28 @@
       versionEl.textContent = short && date ? `build ${short} · ${date}` : '';
     })
     .catch(() => {});
+
+  // ── Recent commits ───────────────────────────────────────────────────────
+  fetch(COMMITS_URL)
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(commits) {
+      if (!commits || !commits.length) return;
+      var list = document.getElementById('commits-list');
+      list.innerHTML = '';
+      commits.forEach(function(c) {
+        var li = document.createElement('li');
+        li.innerHTML =
+          '<span class="commit-date">' + (c.date || '') + '</span>' +
+          '<span class="commit-hash">' + (c.hash || '') + '</span>' +
+          '<span class="commit-subject">' + escapeHtml(c.subject || '') + '</span>';
+        list.appendChild(li);
+      });
+    })
+    .catch(function() {});
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
 
   // ── Status helper ────────────────────────────────────────────────────────
   function setStatus(msg, type) {

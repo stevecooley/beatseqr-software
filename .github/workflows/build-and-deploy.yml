@@ -87,6 +87,29 @@ jobs:
           echo "{\"commit\":\"${{ github.sha }}\",\"date\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
             > docs/version.json
 
+      - name: Generate commits JSON
+        run: |
+          python3 << 'EOF'
+          import subprocess, json
+          result = subprocess.run(
+              ['git', 'log', '-5', '--format=%h|SEP|%s|SEP|%ad', '--date=format:%Y-%m-%d'],
+              capture_output=True, text=True
+          )
+          commits = []
+          for line in result.stdout.strip().split('\n'):
+              if line.strip():
+                  parts = line.split('|SEP|', 2)
+                  if len(parts) == 3:
+                      commits.append({'hash': parts[0], 'subject': parts[1], 'date': parts[2]})
+          with open('docs/commits.json', 'w') as f:
+              json.dump(commits, f, ensure_ascii=False)
+          EOF
+
+      - name: Copy instructions
+        run: |
+          cp arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/instructions.md \
+             docs/instructions.md
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

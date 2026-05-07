@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synthseqr — User Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Courier New", Courier, monospace;
+      background: #0d0d0d;
+      color: #ddd;
+      min-height: 100vh;
+      padding: 48px 20px;
+    }
+
+    main {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    nav {
+      margin-bottom: 32px;
+      font-size: 0.8rem;
+    }
+
+    nav a {
+      color: #5cf;
+      text-decoration: none;
+      letter-spacing: 0.1em;
+    }
+
+    nav a:hover { text-decoration: underline; }
+
+    /* ── Markdown content ── */
+    #content h1 {
+      font-size: 1.2rem;
+      letter-spacing: 0.2em;
+      color: #5cf;
+      text-transform: uppercase;
+      margin: 0 0 4px;
+    }
+
+    #content h2 {
+      font-size: 0.9rem;
+      letter-spacing: 0.15em;
+      color: #5cf;
+      text-transform: uppercase;
+      margin: 40px 0 14px;
+      border-bottom: 1px solid #222;
+      padding-bottom: 8px;
+    }
+
+    #content h3 {
+      font-size: 0.85rem;
+      color: #aaa;
+      letter-spacing: 0.1em;
+      margin: 28px 0 10px;
+    }
+
+    #content p {
+      font-size: 0.875rem;
+      line-height: 1.75;
+      color: #bbb;
+      margin-bottom: 14px;
+    }
+
+    #content a { color: #5cf; text-decoration: none; }
+    #content a:hover { text-decoration: underline; }
+
+    #content strong { color: #ddd; }
+    #content em { color: #999; font-style: italic; }
+
+    #content hr {
+      border: none;
+      border-top: 1px solid #1e1e1e;
+      margin: 36px 0;
+    }
+
+    /* Tables */
+    #content table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 20px;
+      font-size: 0.8rem;
+    }
+
+    #content th {
+      text-align: left;
+      color: #5cf;
+      border-bottom: 1px solid #333;
+      padding: 8px 12px;
+      font-weight: normal;
+      letter-spacing: 0.08em;
+    }
+
+    #content td {
+      padding: 6px 12px;
+      border-bottom: 1px solid #1a1a1a;
+      color: #bbb;
+      vertical-align: top;
+      line-height: 1.5;
+    }
+
+    #content tr:hover td { background: #111; }
+
+    /* Code */
+    #content code {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 0.88em;
+      color: #5cf;
+      font-family: "Courier New", Courier, monospace;
+    }
+
+    #content pre {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 4px;
+      padding: 16px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+
+    #content pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #ccc;
+      font-size: 0.85rem;
+    }
+
+    /* Blockquotes */
+    #content blockquote {
+      border-left: 3px solid #333;
+      margin: 16px 0;
+      padding: 10px 18px;
+    }
+
+    #content blockquote p {
+      color: #888;
+      margin-bottom: 0;
+      font-size: 0.85rem;
+    }
+
+    /* Lists */
+    #content ul, #content ol {
+      padding-left: 1.6em;
+      margin-bottom: 14px;
+      font-size: 0.875rem;
+      color: #bbb;
+      line-height: 1.8;
+    }
+
+    #content li { margin-bottom: 4px; }
+    #content li > ul, #content li > ol { margin-top: 4px; margin-bottom: 4px; }
+
+    /* Loading / error */
+    .msg { color: #555; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="./">← Flasher</a></nav>
+    <div id="content"><p class="msg">Loading…</p></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script>
+    fetch('./instructions.md')
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
+      .then(function(md) {
+        document.getElementById('content').innerHTML = marked.parse(md);
+      })
+      .catch(function(e) {
+        document.getElementById('content').innerHTML =
+          '<p class="msg">Could not load instructions: ' + e.message + '</p>';
+      });
+  </script>
+</body>
+</html>

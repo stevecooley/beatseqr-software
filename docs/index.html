@@ -148,6 +148,49 @@
     .status.success { color: #5d5; }
     .status.error   { color: #f55; }
 
+    /* ── Recent changes ── */
+    #recent-changes {
+      margin-top: 36px;
+    }
+
+    #recent-changes h2 {
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      color: #555;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    #commits-list {
+      list-style: none;
+      padding: 0;
+      font-size: 0.8rem;
+    }
+
+    #commits-list li {
+      display: flex;
+      gap: 12px;
+      padding: 6px 0;
+      border-bottom: 1px solid #1a1a1a;
+      line-height: 1.4;
+    }
+
+    #commits-list li:last-child { border-bottom: none; }
+
+    .commit-date {
+      color: #444;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .commit-hash {
+      color: #5cf;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .commit-subject { color: #888; }
+
     /* ── Footer ── */
     footer {
       margin-top: 48px;
@@ -216,8 +259,17 @@
 
     <p id="status" class="status"></p>
 
+    <section id="recent-changes">
+      <h2>Recent changes</h2>
+      <ul id="commits-list">
+        <li><span class="commit-subject" style="color:#333">Loading…</span></li>
+      </ul>
+    </section>
+
     <footer>
       <span id="version-info"></span>
+      <a href="./instructions.html">User guide</a>
+      &nbsp;·&nbsp;
       <a href="https://github.com/stevecooley/beatseqr-software">github.com/stevecooley/beatseqr-software</a>
       &nbsp;·&nbsp; GNU GPL v3
     </footer>
