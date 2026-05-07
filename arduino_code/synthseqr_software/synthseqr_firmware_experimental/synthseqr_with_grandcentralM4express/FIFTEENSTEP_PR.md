@@ -1,16 +1,6 @@
 # FifteenStep Upstream PR
 
-Use this document when submitting improvements to https://github.com/adafruit/FifteenStep.
-
-## How to submit
-
-1. Fork https://github.com/adafruit/FifteenStep on GitHub
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/FifteenStep`
-3. Copy `libraries/FifteenStep/FifteenStep.h` and `libraries/FifteenStep/FifteenStep.cpp`
-   from this repo into the cloned fork, replacing the existing files
-4. Bump `library.properties` version to `1.3.0`
-5. Commit, push, open a PR against `adafruit/FifteenStep:master`
-6. Use the PR title and body below
+**Status: PR submitted to https://github.com/adafruit/FifteenStep — 2026-05-07**
 
 ---
 
