@@ -61,6 +61,8 @@ jobs:
         run: |
           curl -fsSL https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2conv.py \
             -o uf2conv.py
+          curl -fsSL https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2families.json \
+            -o uf2families.json
           # SAMD51 family ID: 0x55114460
           # App base address: 0x4000 (16 KB Adafruit UF2 bootloader)
           python3 uf2conv.py \
