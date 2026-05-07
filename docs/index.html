@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synthseqr Web Flasher</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Courier New", Courier, monospace;
+      background: #0d0d0d;
+      color: #ddd;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 20px;
+    }
+
+    main {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      letter-spacing: 0.25em;
+      color: #5cf;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      font-size: 0.8rem;
+      color: #666;
+      margin-top: 2px;
+      letter-spacing: 0.1em;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid #222;
+      margin: 24px 0;
+    }
+
+    /* ── Browser warning ── */
+    #browser-warning {
+      background: #1a0f00;
+      border: 1px solid #a63;
+      border-radius: 4px;
+      padding: 14px 16px;
+      color: #fa7;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    /* ── Instructions ── */
+    #instructions h2 {
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      color: #555;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    #instructions ol {
+      padding-left: 1.4em;
+      line-height: 1.8;
+      font-size: 0.9rem;
+      color: #bbb;
+    }
+
+    #instructions li { margin-bottom: 6px; }
+
+    code {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 0.9em;
+      color: #5cf;
+    }
+
+    /* ── Flash section ── */
+    #flash-section { margin-top: 28px; }
+
+    #flash-btn {
+      font-family: inherit;
+      font-size: 0.9rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: #5cf;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      padding: 12px 28px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    #flash-btn:hover:not(:disabled) { background: #7df; }
+
+    #flash-btn:disabled {
+      background: #333;
+      color: #666;
+      cursor: not-allowed;
+    }
+
+    /* ── Status ── */
+    .status {
+      margin-top: 16px;
+      font-size: 0.85rem;
+      min-height: 1.4em;
+      color: #666;
+    }
+
+    .status.info    { color: #aaa; }
+    .status.success { color: #5d5; }
+    .status.error   { color: #f55; }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 48px;
+      font-size: 0.75rem;
+      color: #444;
+      line-height: 1.8;
+    }
+
+    footer a { color: #5cf; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    #version-info { display: block; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Synthseqr</h1>
+    <p class="subtitle">Firmware Flasher</p>
+
+    <hr>
+
+    <div id="browser-warning" hidden>
+      This page requires <strong>Chrome</strong> or <strong>Edge</strong> (version 86 or later).
+      It uses the File System Access API to write directly to the board's bootloader drive.
+      Firefox and Safari do not support this API.
+    </div>
+
+    <section id="instructions">
+      <h2>How to flash</h2>
+      <ol>
+        <li>
+          <strong>Double-click</strong> the reset button on your Grand Central M4 Express
+          until the NeoPixel pulses green. A drive named <code>GRANDCNT</code> will
+          appear on your computer.
+        </li>
+        <li>
+          Click <strong>Flash Firmware</strong> below.
+        </li>
+        <li>
+          In the dialog that opens, navigate to and select the <code>GRANDCNT</code> drive,
+          then click <strong>Open</strong> (macOS) or <strong>Select Folder</strong> (Windows).
+        </li>
+        <li>
+          Wait for the confirmation message. The board reboots automatically — do not unplug it
+          while writing.
+        </li>
+      </ol>
+    </section>
+
+    <section id="flash-section">
+      <button id="flash-btn">Flash Firmware</button>
+      <p id="status" class="status"></p>
+    </section>
+
+    <footer>
+      <span id="version-info"></span>
+      <a href="https://github.com/stevecooley/beatseqr-software">github.com/stevecooley/beatseqr-software</a>
+      &nbsp;·&nbsp; GNU GPL v3
+    </footer>
+  </main>
+  <script src="flasher.js"></script>
+</body>
+</html>

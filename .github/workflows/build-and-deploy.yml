@@ -1,0 +1,82 @@
+name: Build Firmware and Deploy Web Flasher
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install arduino-cli
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Configure board manager
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls \
+            https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
+
+      - name: Install Adafruit SAMD core
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install adafruit:samd
+
+      - name: Install libraries
+        run: |
+          arduino-cli lib install "MIDIUSB"
+          arduino-cli lib install "SdFat - Adafruit Fork"
+          arduino-cli lib install "FlashStorage_SAMD"
+          # FifteenStep (modified fork) is bundled at:
+          # arduino_code/.../synthseqr_with_grandcentralM4express/libraries/FifteenStep/
+
+      - name: Compile firmware
+        run: |
+          arduino-cli compile \
+            --fqbn adafruit:samd:adafruit_grandcentral_m4 \
+            --libraries arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/libraries \
+            --output-dir build \
+            arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express
+
+      - name: Convert .bin to UF2
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2conv.py \
+            -o uf2conv.py
+          # SAMD51 family ID: 0x55114460
+          # App base address: 0x4000 (16 KB Adafruit UF2 bootloader)
+          python3 uf2conv.py \
+            -f 0x55114460 \
+            -b 0x4000 \
+            -c \
+            -o docs/firmware.uf2 \
+            build/synthseqr_with_grandcentralM4express.ino.bin
+
+      - name: Generate version stamp
+        run: |
+          echo "{\"commit\":\"${{ github.sha }}\",\"date\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+            > docs/version.json
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

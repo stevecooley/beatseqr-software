@@ -35,11 +35,15 @@ docs/
 6. Deploy docs/ to GitHub Pages
 
 ## Open questions / next steps
-- [ ] Resolve FifteenStep library path in CI
-      (`../../../libraries/FifteenStep/` won't exist in GitHub Actions checkout)
-      Options: include FifteenStep as a subfolder in this repo, or add a fetch step in the Action
-- [ ] Write the GitHub Actions workflow file
-- [ ] Write index.html + flasher.js (UF2 fetch + File System Access API write)
-- [ ] Enable GitHub Pages on this repo (Settings → Pages → source: docs/ on master)
+- [x] Resolve FifteenStep library path in CI
+      Modified fork bundled at `libraries/FifteenStep/` in this repo.
+      CI will use `arduino-cli compile --libraries ./libraries ...`
+      Upstream PR materials in `FIFTEENSTEP_PR.md`.
+- [x] Write the GitHub Actions workflow file
+      `.github/workflows/build-and-deploy.yml` at repo root
+- [x] Write index.html + flasher.js (UF2 fetch + File System Access API write)
+      `docs/index.html` and `docs/flasher.js` complete.
+      CI also generates `docs/version.json` with commit SHA + date.
+- [ ] Enable GitHub Pages on this repo (Settings → Pages → source: GitHub Actions)
 - [ ] Decide: deploy on every push to master, or only on tags?
 - [ ] Test full flow end-to-end on real hardware
