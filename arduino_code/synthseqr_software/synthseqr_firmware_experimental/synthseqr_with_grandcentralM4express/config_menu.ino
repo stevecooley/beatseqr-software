@@ -534,6 +534,13 @@ void run_config_menu() {
           break;
         case CONFIG_ITEM_RESET_SLIDERS:
           resetSliders();
+          // resetSliders() sets lcdflag=93 for a standalone "notenum reset"
+          // message, but inside the config menu case 255 suppresses LCD updates
+          // when config_menu_active is true, leaving the screen permanently stuck
+          // on "notenum reset". Reset the flags so draw_config_menu() below
+          // redraws the menu cleanly.
+          lcdflag = 255;
+          next_lcdflag = 255;
           break;
         case CONFIG_ITEM_MODE:
           advanced_mode = !advanced_mode;

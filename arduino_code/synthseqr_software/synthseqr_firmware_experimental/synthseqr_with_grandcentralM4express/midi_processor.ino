@@ -145,6 +145,8 @@ void noteOff(byte channel, byte pitch, byte velocity) {
 void clockStop() {
     midiEventPacket_t stopMsg = {0x0, 0xFC, 0x0, 0x0}; // Stop byte
     MidiUSB.sendMIDI(stopMsg);
+    midiEventPacket_t sppMsg  = {0x03, 0xF2, 0x00, 0x00}; // Song Position Pointer = 0 (rewind)
+    MidiUSB.sendMIDI(sppMsg);
     MidiUSB.flush();
 }
 
