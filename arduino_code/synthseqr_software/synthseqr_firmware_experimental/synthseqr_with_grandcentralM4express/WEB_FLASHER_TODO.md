@@ -44,6 +44,7 @@ docs/
 - [x] Write index.html + flasher.js (UF2 fetch + File System Access API write)
       `docs/index.html` and `docs/flasher.js` complete.
       CI also generates `docs/version.json` with commit SHA + date.
-- [ ] Enable GitHub Pages on this repo (Settings → Pages → source: GitHub Actions)
-- [ ] Decide: deploy on every push to master, or only on tags?
-- [ ] Test full flow end-to-end on real hardware
+- [x] Enable GitHub Pages on this repo (Settings → Pages → source: GitHub Actions)
+- [x] Decide: deploy on every push to master, or only on tags?
+      Decided: every push to master. Simple, always current.
+- [x] Test full flow end-to-end on real hardware ✓ WORKING
