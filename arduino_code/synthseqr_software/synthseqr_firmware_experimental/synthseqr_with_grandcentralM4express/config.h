@@ -1,6 +1,9 @@
 // Set to 1 for original PCB (sliders 12/13 wired A2/A3 swapped),
 // set to 2 for revised PCB (sliders 12/13 in correct A3/A2 order).
+// Guard allows CI to inject -DPCB_VERSION=N via --build-property.
+#ifndef PCB_VERSION
 #define PCB_VERSION 2
+#endif
 
 #include <SdFat.h>   // SD card storage (Adafruit Fork, replaces standard SD.h)
 #include <stdlib.h>  // because dtostrf()

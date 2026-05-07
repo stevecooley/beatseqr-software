@@ -49,15 +49,25 @@ jobs:
           # FifteenStep (modified fork) is bundled at:
           # arduino_code/.../synthseqr_with_grandcentralM4express/libraries/FifteenStep/
 
-      - name: Compile firmware
+      - name: Compile firmware (PCB v1 — original, A2/A3 swapped)
         run: |
           arduino-cli compile \
             --fqbn adafruit:samd:adafruit_grandcentral_m4 \
             --libraries arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/libraries \
-            --output-dir build \
+            --build-property "build.extra_flags=-DPCB_VERSION=1" \
+            --output-dir build_pcb1 \
             arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express
 
-      - name: Convert .bin to UF2
+      - name: Compile firmware (PCB v2 — revised, correct A2/A3 order)
+        run: |
+          arduino-cli compile \
+            --fqbn adafruit:samd:adafruit_grandcentral_m4 \
+            --libraries arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/libraries \
+            --build-property "build.extra_flags=-DPCB_VERSION=2" \
+            --output-dir build_pcb2 \
+            arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express
+
+      - name: Convert .bin files to UF2
         run: |
           curl -fsSL https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2conv.py \
             -o uf2conv.py
@@ -65,12 +75,12 @@ jobs:
             -o uf2families.json
           # SAMD51 family ID: 0x55114460
           # App base address: 0x4000 (16 KB Adafruit UF2 bootloader)
-          python3 uf2conv.py \
-            -f 0x55114460 \
-            -b 0x4000 \
-            -c \
-            -o docs/firmware.uf2 \
-            build/synthseqr_with_grandcentralM4express.ino.bin
+          python3 uf2conv.py -f 0x55114460 -b 0x4000 -c \
+            -o docs/firmware_pcb1.uf2 \
+            build_pcb1/synthseqr_with_grandcentralM4express.ino.bin
+          python3 uf2conv.py -f 0x55114460 -b 0x4000 -c \
+            -o docs/firmware_pcb2.uf2 \
+            build_pcb2/synthseqr_with_grandcentralM4express.ino.bin
 
       - name: Generate version stamp
         run: |

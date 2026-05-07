@@ -1,10 +1,8 @@
 (function () {
   'use strict';
 
-  const FIRMWARE_URL = './firmware.uf2';
-  const VERSION_URL  = './version.json';
+  const VERSION_URL = './version.json';
 
-  const btn            = document.getElementById('flash-btn');
   const statusEl       = document.getElementById('status');
   const versionEl      = document.getElementById('version-info');
   const browserWarning = document.getElementById('browser-warning');
@@ -14,11 +12,11 @@
   if (!('showDirectoryPicker' in window)) {
     browserWarning.hidden = false;
     instructions.hidden   = true;
-    btn.disabled          = true;
+    document.querySelectorAll('.flash-btn').forEach(b => b.disabled = true);
     return;
   }
 
-  // ── Version stamp (built by CI, optional — page works without it) ────────
+  // ── Version stamp ────────────────────────────────────────────────────────
   fetch(VERSION_URL)
     .then(r => r.ok ? r.json() : null)
     .then(v => {
@@ -35,20 +33,17 @@
     statusEl.className   = 'status ' + (type || '');
   }
 
-  // ── Main flash flow ──────────────────────────────────────────────────────
-  btn.addEventListener('click', async () => {
-    btn.disabled = true;
+  // ── Flash a single UF2 URL ───────────────────────────────────────────────
+  async function flash(firmwareUrl) {
+    const allBtns = document.querySelectorAll('.flash-btn');
+    allBtns.forEach(b => b.disabled = true);
 
     try {
-      // 1. Fetch the UF2 from GitHub Pages
       setStatus('Fetching firmware…', 'info');
-      const res = await fetch(FIRMWARE_URL);
+      const res = await fetch(firmwareUrl);
       if (!res.ok) throw new Error(`Firmware not found (HTTP ${res.status}). Try reloading.`);
       const firmware = await res.arrayBuffer();
 
-      // 2. Ask the user to pick the GRANDCNT drive
-      //    mode:'readwrite' requests write permission in the initial dialog
-      //    so the browser doesn't ask a second time during the write.
       setStatus('Select the GRANDCNT drive in the dialog that opens…', 'info');
       let dir;
       try {
@@ -58,9 +53,6 @@
         throw e;
       }
 
-      // 3. Write firmware.uf2 to the drive root
-      //    The Adafruit UF2 bootloader watches for any .uf2 write and
-      //    flashes it automatically, then reboots the board.
       setStatus('Writing — do not unplug…', 'info');
       const file     = await dir.getFileHandle('firmware.uf2', { create: true });
       const writable = await file.createWritable();
@@ -72,8 +64,15 @@
     } catch (e) {
       setStatus('Error: ' + e.message, 'error');
     } finally {
-      btn.disabled = false;
+      allBtns.forEach(b => b.disabled = false);
     }
-  });
+  }
+
+  // ── Wire up buttons ──────────────────────────────────────────────────────
+  document.getElementById('flash-btn-pcb1')
+    .addEventListener('click', () => flash('./firmware_pcb1.uf2'));
+
+  document.getElementById('flash-btn-pcb2')
+    .addEventListener('click', () => flash('./firmware_pcb2.uf2'));
 
 })();
