@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth *)"
+    ],
+    "additionalDirectories": [
+      "/Users/stevecooley/Documents/Arduino/libraries/FifteenStep"
+    ]
+  }
+}
