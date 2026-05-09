@@ -133,37 +133,49 @@ void noteOn(byte channel, byte pitch, byte velocity) {
     midiEventPacket_t thenote = {0x08, (uint8_t)(0x90 | channel), pitch, velocity};
     MidiUSB.sendMIDI(thenote);
     MidiUSB.flush();
+    trs_write(0x90 | channel);
+    trs_write(pitch);
+    trs_write(velocity);
 }
 
 void noteOff(byte channel, byte pitch, byte velocity) {
     midiEventPacket_t thenote = {0x08, (uint8_t)(0x80 | channel), pitch, 0};
     MidiUSB.sendMIDI(thenote);
     MidiUSB.flush();
+    trs_write(0x80 | channel);
+    trs_write(pitch);
+    trs_write(0);
 }
 
-// Update clock functions to use the correct method
 void clockStop() {
-    midiEventPacket_t stopMsg = {0x0, 0xFC, 0x0, 0x0}; // Stop byte
+    midiEventPacket_t stopMsg = {0x0, 0xFC, 0x0, 0x0};
     MidiUSB.sendMIDI(stopMsg);
-    midiEventPacket_t sppMsg  = {0x03, 0xF2, 0x00, 0x00}; // Song Position Pointer = 0 (rewind)
+    midiEventPacket_t sppMsg  = {0x03, 0xF2, 0x00, 0x00};
     MidiUSB.sendMIDI(sppMsg);
     MidiUSB.flush();
+    trs_write(0xFC);
+    trs_write(0xF2); trs_write(0x00); trs_write(0x00);
 }
 
 void clockStart() {
-    midiEventPacket_t startMsg = {0x0, 0xFA, 0x0, 0x0}; // Start byte
+    midiEventPacket_t startMsg = {0x0, 0xFA, 0x0, 0x0};
     MidiUSB.sendMIDI(startMsg);
     MidiUSB.flush();
+    trs_write(0xFA);
 }
 
 void controlChange(byte channel, byte controller, byte value) {
     midiEventPacket_t msg = {0x0B, (uint8_t)(0xB0 | channel), controller, value};
     MidiUSB.sendMIDI(msg);
     MidiUSB.flush();
+    trs_write(0xB0 | channel);
+    trs_write(controller);
+    trs_write(value);
 }
 
 void clockPulse() {
-    midiEventPacket_t pulseMsg = {0x0, 0xF8, 0x0, 0x0}; // Clock byte
+    midiEventPacket_t pulseMsg = {0x0, 0xF8, 0x0, 0x0};
     MidiUSB.sendMIDI(pulseMsg);
     MidiUSB.flush();
+    trs_write(0xF8);
 }

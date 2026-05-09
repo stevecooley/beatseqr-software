@@ -42,6 +42,7 @@ void setup() {
   // during the startup delay. Without this, pin 1 floats or sits LOW,
   // which the LCD can misinterpret as a break or garbage before init.
   lcd.begin(9850);
+  init_trs_midi();
 
   delay(500);
   run_LCD_setup_routine();
@@ -107,11 +108,6 @@ void loop() {
   if (dpad_left.uniquePress()) {
     Serial.println("listening for nav-left events");
     dpad_left_flag = true;
-  }
-
-  if (dpad_right.uniquePress()) {
-    Serial.println("listening for nav-right events");
-    dpad_right_flag = true;
   }
 
   if (dpad_up.uniquePress()) {

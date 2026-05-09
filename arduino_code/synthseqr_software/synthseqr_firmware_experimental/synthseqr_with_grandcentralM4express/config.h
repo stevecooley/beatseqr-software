@@ -224,8 +224,7 @@ uint8_t isRecordingArmed = 0;
 
 Button dpad_up = Button(19, PULLUP);
 bool dpad_up_flag = false;
-Button dpad_right = Button(16, PULLUP);
-bool dpad_right_flag = false;
+// pin 16 (PC22) is now SERCOM1 TX for TRS MIDI — dpad_right removed
 Button dpad_down = Button(18, PULLUP);
 bool dpad_down_flag = false;
 Button dpad_left = Button(17, PULLUP);

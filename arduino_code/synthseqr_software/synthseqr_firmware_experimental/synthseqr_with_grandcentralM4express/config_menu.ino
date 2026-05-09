@@ -374,7 +374,6 @@ void run_config_menu() {
   // While editing a value (e.g. octave shift), up/down adjust the value.
   // Enter or Left exit editing mode and return to normal menu scroll.
   if (config_editing_value) {
-    dpad_right_flag = false;
     if (dpad_up_flag) {
       dpad_up_flag = false;
       if (config_menu_item == CONFIG_ITEM_CHANNEL && MIDICHANNEL < 16) {
@@ -522,7 +521,6 @@ void run_config_menu() {
   if (config_confirm_pending) {
     dpad_up_flag = false;
     dpad_down_flag = false;
-    dpad_right_flag = false;
     if (enterbutton_flag) {
       enterbutton_flag = false;
       switch (config_menu_item) {
@@ -579,15 +577,6 @@ void run_config_menu() {
     dpad_down_flag = false;
     config_menu_item = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
     draw_config_menu();
-  }
-
-  // D-pad right exits only when cursor is on Exit item.
-  if (dpad_right_flag) {
-    dpad_right_flag = false;
-    if (config_menu_item == CONFIG_ITEM_EXIT) {
-      exit_config_menu();
-    }
-    // Right is a no-op on all other items to avoid accidental actions.
   }
 
   // Enter selects the current item.

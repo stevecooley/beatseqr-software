@@ -1,10 +1,27 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "Bash(cat .gitignore)",
+      "Bash(ls arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/LICENSE)",
+      "Bash(ssh -T git@github.com)",
+      "Bash(grep -v \"^--$\")",
+      "Bash(grep -n -B10 'pinref part=\"R1\" gate=\"G\\\\$1\" pin=\"1\"' /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/pcb/synthseqr_v20.sch)",
+      "Bash(grep -n -A20 '\"N\\\\$5[6-9]\\\\|N\\\\$6[0-9]\"' /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/pcb/synthseqr_v20.sch)",
+      "Bash(grep -n -A5 '\"N\\\\$5[6-9]\\\\|N\\\\$6[0-2]\"' /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/pcb/synthseqr_v20.sch)",
+      "Bash(awk '/const PinDescription g_APinDescription/,/^}/ {print NR\": \"$0}' /Users/stevecooley/Library/Arduino15/packages/adafruit/hardware/samd/1.7.17/variants/grand_central_m4/variant.cpp)",
+      "Bash(find /Users/stevecooley -name \"*.h\" -path \"*SAMD51*\" -o -path \"*samd51*\" 2>/dev/null | head -5)",
+      "Read(//Users/stevecooley/**)",
+      "Bash(sed -n '40,60p' /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/navigation.ino)",
+      "Bash(sed -n '108,120p' /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/navigation.ino)",
+      "Bash(sed -n '108,120p' /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/synthseqr_with_grandcentralM4express.ino)",
+      "Bash(sed -n '370,395p' /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/config_menu.ino)",
+      "Bash(sed -n '520,590p' /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/config_menu.ino)"
     ],
     "additionalDirectories": [
-      "/Users/stevecooley/Documents/Arduino/libraries/FifteenStep"
+      "/Users/stevecooley/Documents/Arduino/libraries/FifteenStep",
+      "/Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/docs",
+      "/Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/.github/workflows"
     ]
   }
 }

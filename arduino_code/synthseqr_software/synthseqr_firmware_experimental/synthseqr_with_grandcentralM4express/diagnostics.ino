@@ -169,7 +169,7 @@ void run_diagnostics_display()
     } else {
       // Any other button press exits back to idle.
       bool exit_sf = false;
-      if (enterbutton.uniquePress() || dpad_left.uniquePress() || dpad_right.uniquePress()) {
+      if (enterbutton.uniquePress() || dpad_left.uniquePress()) {
         exit_sf = true;
       }
       if (play_button_isr_fired) { play_button_isr_fired = false; exit_sf = true; }
@@ -194,7 +194,7 @@ void run_diagnostics_display()
   if (dpad_up.uniquePress())    { diag_write_button("DPAD-UP",  19); activity = true; }
   if (dpad_down.uniquePress())  { diag_write_button("DPAD-DN",  18); activity = true; }
   if (dpad_left.uniquePress())  { diag_write_button("DPAD-LT",  17); activity = true; }
-  if (dpad_right.uniquePress()) { diag_write_button("DPAD-RT",  16); activity = true; }
+  // pin 16 is now TRS MIDI TX — no dpad_right button
 
   // --- Enter: single tap shows button, double-tap exits diagnostics ---
   if (enterbutton.uniquePress()) {

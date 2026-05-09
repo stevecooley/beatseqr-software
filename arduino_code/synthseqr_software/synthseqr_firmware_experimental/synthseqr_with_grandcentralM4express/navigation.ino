@@ -43,15 +43,6 @@ void listen_for_navigation_events() {
         }
         switch_timing_mode_events();
       }
-      // mode switching
-      if (dpad_right_flag == true) {
-        dpad_right_flag = false;
-        if (timing_mode < 4) {
-          timing_mode++;
-        }
-        switch_timing_mode_events();
-      }
-
       if (enterbutton_flag == true) {
         enterbutton_flag = false;
         // Simple mode: cycle slider mode NN → VL → GT → NN.
@@ -106,25 +97,6 @@ void listen_for_navigation_events() {
         for (uint8_t i = 0; i < 15; i++) {
           if (voice_slider_midinotenum[i] <= midinn_sliderrangelow) {
             voice_slider_midinotenum[i] = midinn_sliderrangelow;
-          }
-        }
-      }
-      // high range is set with right d-pad and enter
-      if (dpad_right.uniquePress()) {
-        slider_map_high_value =
-            map(voice_sliders[0].getValue(), 0, 255, 0, 128);
-
-        // begin display the high and low values for the sliders
-
-        // parked in lcdflag = 92!
-
-        // end display the high and low values for the sliders
-
-        midinn_sliderrangehigh = slider_map_high_value;
-
-        for (int i = 0; i < 15; i++) {
-          if (voice_slider_midinotenum[i] != midinn_sliderrangehigh) {
-            voice_slider_midinotenum[i] = midinn_sliderrangehigh;
           }
         }
       }
