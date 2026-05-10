@@ -208,6 +208,61 @@ void print_config_label(uint8_t item) {
 
 // ---------------------------------------------------------------------------
 
+// config_menu_next()
+//
+// Advance the menu cursor by dir (+1 = down, -1 = up), wrapping around, and
+// skip any items whose feature is compiled out.  Returns `from` unchanged if
+// every item is disabled (prevents an infinite loop when all features are off,
+// though in practice at least Exit/Save/Channel are always enabled).
+//
+static uint8_t config_menu_next(uint8_t from, int dir) {
+  uint8_t cur = from;
+  do {
+    cur = (uint8_t)((cur + CONFIG_MENU_ITEM_COUNT + dir) % CONFIG_MENU_ITEM_COUNT);
+    bool enabled = true;
+    switch (cur) {
+#if !FEATURE_ADVANCED_MODE
+      case CONFIG_ITEM_MODE:        enabled = false; break;
+#endif
+#if !FEATURE_EXTERNAL_CLOCK
+      case CONFIG_ITEM_CLOCK:       enabled = false; break;
+#endif
+#if !FEATURE_SWING
+      case CONFIG_ITEM_SWING:       enabled = false; break;
+#endif
+#if !FEATURE_DIAGNOSTICS
+      case CONFIG_ITEM_DIAGNOSTICS: enabled = false; break;
+#endif
+#if !FEATURE_OCTAVE_NOTE_SHIFT
+      case CONFIG_ITEM_OCTAVE_SHIFT: enabled = false; break;
+      case CONFIG_ITEM_NOTE_SHIFT:   enabled = false; break;
+#endif
+#if !FEATURE_SCALE_QUANTIZATION
+      case CONFIG_ITEM_NOTE_RANGE:  enabled = false; break;
+      case CONFIG_ITEM_NOTE_SCALES: enabled = false; break;
+#endif
+#if !FEATURE_VARIABLE_PATTERN_LENGTH
+      case CONFIG_ITEM_PAT_LENGTH:  enabled = false; break;
+#endif
+#if !FEATURE_PATTERN_DIRECTION
+      case CONFIG_ITEM_PAT_DIR:     enabled = false; break;
+#endif
+#if !FEATURE_CC_MODE
+      case CONFIG_ITEM_CC_NUMBER:   enabled = false; break;
+#endif
+#if !FEATURE_PROBABILITY
+      case CONFIG_ITEM_STEP_PROB:   enabled = false; break;
+#endif
+#if !FEATURE_PITCH_DRIFT
+      case CONFIG_ITEM_PITCH_DRIFT: enabled = false; break;
+#endif
+      default: break;
+    }
+    if (enabled) return cur;
+  } while (cur != from);
+  return from;
+}
+
 void draw_config_menu() {
   // Line 1: "> {current item label}" — 16 chars total
   lcd.print("?x00?y0");
@@ -310,7 +365,7 @@ void draw_config_menu() {
     line2[16] = '\0';
     lcd.print(line2);
   } else {
-    uint8_t next = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
+    uint8_t next = config_menu_next(config_menu_item, 1);
     lcd.print("  ");
     print_config_label(next);
   }
@@ -577,17 +632,17 @@ void run_config_menu() {
     return;
   }
 
-  // Scroll up (wraps).
+  // Scroll up (wraps, skips disabled items).
   if (dpad_up_flag) {
     dpad_up_flag = false;
-    config_menu_item = (config_menu_item + CONFIG_MENU_ITEM_COUNT - 1) % CONFIG_MENU_ITEM_COUNT;
+    config_menu_item = config_menu_next(config_menu_item, -1);
     draw_config_menu();
   }
 
-  // Scroll down (wraps).
+  // Scroll down (wraps, skips disabled items).
   if (dpad_down_flag) {
     dpad_down_flag = false;
-    config_menu_item = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
+    config_menu_item = config_menu_next(config_menu_item, 1);
     draw_config_menu();
   }
 
