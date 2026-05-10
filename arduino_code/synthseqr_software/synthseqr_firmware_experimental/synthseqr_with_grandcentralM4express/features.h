@@ -54,3 +54,11 @@
 #ifndef FEATURE_DIAGNOSTICS
 #define FEATURE_DIAGNOSTICS 1
 #endif
+
+// STEPS_IN_PATTERN: resolves to pattern_length when variable-length is on,
+// or the constant 16 when that feature is compiled out.
+#if FEATURE_VARIABLE_PATTERN_LENGTH
+  #define STEPS_IN_PATTERN pattern_length
+#else
+  #define STEPS_IN_PATTERN 16
+#endif

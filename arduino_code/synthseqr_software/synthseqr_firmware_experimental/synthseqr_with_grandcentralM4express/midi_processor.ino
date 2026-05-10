@@ -66,6 +66,7 @@ void read_midi()
             }
           }
 
+#if FEATURE_SWING
           if (is_step_pulse && SWING > 0 && (seq.getPosition() % 2 == 0)) {
             // Transitioning to an odd step with swing — defer this pulse.
             ext_swing_pulse_pending = true;
@@ -73,6 +74,9 @@ void read_midi()
           } else {
             seq.hardwareClockPulse();
           }
+#else
+          seq.hardwareClockPulse();
+#endif
           // Refresh LCD tempo field with newly-averaged BPM on each step pulse.
           if (is_step_pulse) update_line1 = true;
         }

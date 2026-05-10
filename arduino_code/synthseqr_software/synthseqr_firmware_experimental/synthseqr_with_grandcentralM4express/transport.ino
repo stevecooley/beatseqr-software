@@ -193,6 +193,7 @@ void stepsend(int current_step, int last_step) {
   // Compute play_step: the data index to read notes/velocities/gates from.
   // current_step is always 0..(pattern_length-1) from FifteenStep.
   // play_step maps that to the actual step position based on direction.
+#if FEATURE_PATTERN_DIRECTION
   uint8_t play_step;
   switch (pattern_direction) {
     case 1: // Reverse
@@ -253,6 +254,9 @@ void stepsend(int current_step, int last_step) {
       play_step = (uint8_t)current_step;
       break;
   }
+#else
+  uint8_t play_step = (uint8_t)current_step;
+#endif  // FEATURE_PATTERN_DIRECTION
 
   run_chase_lights(play_step);
 
@@ -272,8 +276,12 @@ void stepsend(int current_step, int last_step) {
   }
 
   if (step_data[pattern_value][0][play_step] == 1) {
+#if FEATURE_PROBABILITY
     bool fires = (step_probability[pattern_value][play_step] >= 100)
                  || ((uint8_t)random(100) < step_probability[pattern_value][play_step]);
+#else
+    bool fires = true;
+#endif
     if (fires) {
       // If this slot is still sounding (e.g. random mode re-triggered it),
       // send note-off before the new note-on.
@@ -282,33 +290,49 @@ void stepsend(int current_step, int last_step) {
         sounding_notes[play_step] = -1;
         sounding_note_end_step[play_step] = -1;
       }
+#if FEATURE_OCTAVE_NOTE_SHIFT
       int16_t shifted = (int16_t)voice_slider_midinotenum[play_step]
                       + (int16_t)(octave_shift * 12) + (int16_t)note_shift;
+#else
+      int16_t shifted = (int16_t)voice_slider_midinotenum[play_step];
+#endif
       // Apply scale quantization to the base pitch (non-destructive: raw stored
       // values are preserved; the scale is always applied fresh at playback time).
+#if FEATURE_SCALE_QUANTIZATION
       if (scale_type != 0 && scale_note_count > 0) {
         if (shifted < 0)   shifted = 0;
         if (shifted > 127) shifted = 127;
         shifted = (int16_t)quantize_to_scale((uint8_t)shifted);
       }
+#endif
       // Apply pitch drift: random wander ±pitch_drift semitones, then clamp
       // to note range and re-quantize to the active scale.
+#if FEATURE_PITCH_DRIFT
       if (pitch_drift > 0) {
         shifted += (int16_t)random(-(long)pitch_drift, (long)pitch_drift + 1);
         if (shifted < (int16_t)slider_map_low_value)  shifted = (int16_t)slider_map_low_value;
         if (shifted > (int16_t)slider_map_high_value) shifted = (int16_t)slider_map_high_value;
+#if FEATURE_SCALE_QUANTIZATION
         if (scale_type != 0 && scale_note_count > 0)
           shifted = (int16_t)quantize_to_scale((uint8_t)shifted);
+#endif
       }
+#endif
       if (shifted < 0)   shifted = 0;
       if (shifted > 127) shifted = 127;
       uint8_t pitch = (uint8_t)shifted;
       uint8_t vel = voice_slider_midivelocity[play_step];
       noteOn(MIDICHANNEL - 1, pitch, vel);
       sounding_notes[play_step] = (int8_t)pitch;  // store actual pitch for correct note-off
-      // Schedule note-off: gate steps later in hardware clock time
+      // Schedule note-off: gate steps later in hardware clock time.
+      // Without gate mode, notes always end on the next step.
+#if FEATURE_GATE_MODE
       sounding_note_end_step[play_step] =
           (int8_t)((current_step + step_gate[pattern_value][play_step]) % pattern_length);
+#else
+      sounding_note_end_step[play_step] =
+          (int8_t)((current_step + 1) % pattern_length);
+#endif
       // Update LCD lines with this step's trigger info —
       // but only when the config menu isn't using line 2.
       if (!config_menu_active) {
@@ -342,7 +366,8 @@ void stepsend(int current_step, int last_step) {
   // FifteenStep's setShuffle() is a no-op in hardware timer mode, so we
   // implement swing here: even steps get a longer gap to the next (odd) step,
   // odd steps get a shorter gap back. Total time per pair stays the same.
-  // SWING=0 → straight (both multipliers = 6/6 = 1). SWING=6 → extreme.
+  // SWING=0 → straight (both multipliers = 6/6 = 1).
+#if FEATURE_SWING
   if (!external_clock_mode) {
     unsigned long base_us = 60000000UL / (unsigned long)TEMPO / 24UL;
     if (current_step % 2 == 0) {
@@ -351,4 +376,9 @@ void stepsend(int current_step, int last_step) {
       setSequencerTimerPeriod(base_us * (6 - SWING) / 6);
     }
   }
+#else
+  if (!external_clock_mode) {
+    setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
+  }
+#endif
 }

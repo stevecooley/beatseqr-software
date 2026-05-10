@@ -84,10 +84,12 @@ void loop() {
 
   // Fire any swing-delayed external clock pulse. Must run before seq.run()
   // so the deferred hardwareClockPulse is processed in the same frame.
+#if FEATURE_SWING
   if (ext_swing_pulse_pending && (long)(micros() - ext_swing_pulse_fire_us) >= 0) {
     ext_swing_pulse_pending = false;
     seq.hardwareClockPulse();
   }
+#endif
 
   seq.run();
 
