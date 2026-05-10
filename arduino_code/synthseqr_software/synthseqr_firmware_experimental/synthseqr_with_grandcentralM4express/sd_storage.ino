@@ -168,8 +168,10 @@ bool save_to_sd() {
   _f.print("  \"advanced_mode\": "); _f.print(advanced_mode ? 1 : 0); _f.println(",");
   _f.print("  \"pattern_length\": ");   _f.print(pattern_length);        _f.println(",");
   _f.print("  \"pattern_direction\": "); _f.print(pattern_direction);    _f.println(",");
+#if FEATURE_SCALE_QUANTIZATION
   _f.print("  \"scale_root\": ");        _f.print(scale_root);           _f.println(",");
   _f.print("  \"scale_type\": ");        _f.print(scale_type);           _f.println(",");
+#endif  // FEATURE_SCALE_QUANTIZATION
   _f.print("  \"pitch_drift\": ");       _f.print(pitch_drift);          _f.println(",");
   _f.println("  \"patterns\": [");
 
@@ -327,6 +329,7 @@ bool load_from_sd() {
     if (v >= 0 && v < PATTERN_DIRECTION_COUNT) pattern_direction = (uint8_t)v;
   }
 
+#if FEATURE_SCALE_QUANTIZATION
   _f.seekSet(0);
   if (sd_find("\"scale_root\":")) {
     int v = (int)sd_parse_number();
@@ -338,6 +341,7 @@ bool load_from_sd() {
     int v = (int)sd_parse_number();
     if (v >= 0 && v < SCALE_COUNT) scale_type = (uint8_t)v;
   }
+#endif  // FEATURE_SCALE_QUANTIZATION
 
   _f.seekSet(0);
   if (sd_find("\"pitch_drift\":")) {
@@ -479,7 +483,9 @@ bool load_from_sd() {
   ping_pong_going_forward = true;
 
   // Rebuild scale note pool from loaded settings.
+#if FEATURE_SCALE_QUANTIZATION
   build_scale_notes();
+#endif
 
   Serial.println("loaded from SD");
   return true;

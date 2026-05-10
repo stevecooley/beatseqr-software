@@ -92,8 +92,13 @@ void save_to_eeprom() {
   EEPROM.write(EEPROM_NOTE_RANGE_HIGH_ADDR, slider_map_high_value);
   EEPROM.write(EEPROM_PAT_LENGTH_ADDR, pattern_length);
   EEPROM.write(EEPROM_PAT_DIR_ADDR, pattern_direction);
+#if FEATURE_SCALE_QUANTIZATION
   EEPROM.write(EEPROM_SCALE_ROOT_ADDR, scale_root);
   EEPROM.write(EEPROM_SCALE_TYPE_ADDR, scale_type);
+#else
+  EEPROM.write(EEPROM_SCALE_ROOT_ADDR, 0);  // safe default: C / Chromatic
+  EEPROM.write(EEPROM_SCALE_TYPE_ADDR, 0);
+#endif
 
 #if FEATURE_CC_MODE
   {
@@ -195,6 +200,7 @@ bool load_from_eeprom() {
     if (pd < PATTERN_DIRECTION_COUNT) pattern_direction = pd;
   }
 
+#if FEATURE_SCALE_QUANTIZATION
   {
     uint8_t sr = EEPROM.read(EEPROM_SCALE_ROOT_ADDR);
     if (sr < 12) scale_root = sr;
@@ -203,6 +209,7 @@ bool load_from_eeprom() {
     uint8_t st = EEPROM.read(EEPROM_SCALE_TYPE_ADDR);
     if (st < SCALE_COUNT) scale_type = st;
   }
+#endif  // FEATURE_SCALE_QUANTIZATION
 
 #if FEATURE_CC_MODE
   {
@@ -251,7 +258,9 @@ bool load_from_eeprom() {
   }
 
   // Rebuild scale note pool from loaded settings.
+#if FEATURE_SCALE_QUANTIZATION
   build_scale_notes();
+#endif
 
   Serial.println("loaded from EEPROM");
   return true;

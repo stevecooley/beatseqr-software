@@ -62,3 +62,12 @@
 #else
   #define STEPS_IN_PATTERN 16
 #endif
+
+// Inline stubs for scale functions when FEATURE_SCALE_QUANTIZATION is off.
+// Allows call sites in storage and config_menu to compile without guarding
+// every individual call.
+#if !FEATURE_SCALE_QUANTIZATION
+  inline void build_scale_notes() {}
+  inline void apply_scale_to_all_patterns() {}
+  inline uint8_t quantize_to_scale(uint8_t n) { return n; }
+#endif

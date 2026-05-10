@@ -1,3 +1,4 @@
+#if FEATURE_SCALE_QUANTIZATION
 // scales.ino
 //
 // Musical scale support for synthseqr.
@@ -85,3 +86,5 @@ void apply_scale_to_all_patterns() {
     slider_needs_pickup[s] = true;
   }
 }
+
+#endif  // FEATURE_SCALE_QUANTIZATION

@@ -351,6 +351,7 @@ void draw_config_menu() {
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
+#if FEATURE_SCALE_QUANTIZATION
   } else if (config_editing_value && config_menu_item == CONFIG_ITEM_NOTE_SCALES) {
     char line2[17];
     int len;
@@ -364,6 +365,7 @@ void draw_config_menu() {
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
+#endif  // FEATURE_SCALE_QUANTIZATION
   } else {
     uint8_t next = config_menu_next(config_menu_item, 1);
     lcd.print("  ");

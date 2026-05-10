@@ -498,9 +498,11 @@ uint8_t scale_note_count = 0;
 
 // Declared in scales.ino; forward-declared here so config_menu.ino can use
 // them. (Arduino merges .ino files alphabetically; config_menu.ino precedes
-// scales.ino.)
+// scales.ino.) Only needed when scale quantization is compiled in.
+#if FEATURE_SCALE_QUANTIZATION
 extern const char* SCALE_NAMES[SCALE_COUNT];
 extern const char* ROOT_NAMES[12];
+#endif
 
 // Pattern playback settings — global, applies to all patterns.
 // pattern_direction: 0=Fwd 1=Rev 2=Pong 3=Rand 4=Shuf 5=E/O 6=In 7=Quad
