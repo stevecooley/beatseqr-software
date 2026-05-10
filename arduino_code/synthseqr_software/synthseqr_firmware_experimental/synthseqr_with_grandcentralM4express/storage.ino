@@ -95,18 +95,20 @@ void save_to_eeprom() {
   EEPROM.write(EEPROM_SCALE_ROOT_ADDR, scale_root);
   EEPROM.write(EEPROM_SCALE_TYPE_ADDR, scale_type);
 
-  int cc_addr = EEPROM_CC_NUMBERS_ADDR;
-  for (int p = 0; p < 16; p++) EEPROM.write(cc_addr++, cc_number[p]);
-
-  cc_addr = EEPROM_CC_ENABLED_ADDR;
-  for (int p = 0; p < 16; p++)
-    for (int s = 0; s < 16; s++)
-      EEPROM.write(cc_addr++, cc_step_enabled[p][s]);
-
-  cc_addr = EEPROM_CC_VALUES_ADDR;
-  for (int p = 0; p < 16; p++)
-    for (int s = 0; s < 16; s++)
-      EEPROM.write(cc_addr++, cc_step_values[p][s]);
+#if FEATURE_CC_MODE
+  {
+    int cc_addr = EEPROM_CC_NUMBERS_ADDR;
+    for (int p = 0; p < 16; p++) EEPROM.write(cc_addr++, cc_number[p]);
+    cc_addr = EEPROM_CC_ENABLED_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int s = 0; s < 16; s++)
+        EEPROM.write(cc_addr++, cc_step_enabled[p][s]);
+    cc_addr = EEPROM_CC_VALUES_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int s = 0; s < 16; s++)
+        EEPROM.write(cc_addr++, cc_step_values[p][s]);
+  }
+#endif  // FEATURE_CC_MODE
 
   EEPROM.write(EEPROM_PITCH_DRIFT_ADDR, pitch_drift);
 
@@ -202,6 +204,7 @@ bool load_from_eeprom() {
     if (st < SCALE_COUNT) scale_type = st;
   }
 
+#if FEATURE_CC_MODE
   {
     int cc_addr = EEPROM_CC_NUMBERS_ADDR;
     for (int p = 0; p < 16; p++) {
@@ -224,6 +227,7 @@ bool load_from_eeprom() {
         if (v <= 127) cc_step_values[p][s] = v;
       }
   }
+#endif  // FEATURE_CC_MODE
 
   {
     uint8_t v = EEPROM.read(EEPROM_PITCH_DRIFT_ADDR);

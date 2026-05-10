@@ -135,16 +135,24 @@ void run_chase_lights(unsigned int this_step) {
         }
       } else {
         // clear the LEDs back to their data (mode-aware)
+#if FEATURE_CC_MODE
         if (slider_mode == 4) read_cc_step_memory();
         else                  read_step_memory(0, pattern_value);
+#else
+        read_step_memory(0, pattern_value);
+#endif
       }
       step_leds[this_step].toggle();  // chase lights!
       last_step = this_step;
     }
   } else {
     if (!editing_pat_len) {
+#if FEATURE_CC_MODE
       if (slider_mode == 4) read_cc_step_memory();
       else                  read_step_memory(0, pattern_value);
+#else
+      read_step_memory(0, pattern_value);
+#endif
     }
   }
 }
@@ -312,6 +320,7 @@ void stepsend(int current_step, int last_step) {
     }
   }
 
+#if FEATURE_CC_MODE
   // CC send: fire CC on this step if enabled (independent from notes).
   if (cc_step_enabled[pattern_value][play_step]) {
     controlChange(MIDICHANNEL - 1, cc_number[pattern_value], cc_step_values[pattern_value][play_step]);
@@ -321,6 +330,7 @@ void stepsend(int current_step, int last_step) {
       update_line2 = true;
     }
   }
+#endif  // FEATURE_CC_MODE
 
   // Auto-advance to the next pattern at the last step of the pattern when
   // chain mode is active. Uses pattern_length instead of the hard-coded 15.

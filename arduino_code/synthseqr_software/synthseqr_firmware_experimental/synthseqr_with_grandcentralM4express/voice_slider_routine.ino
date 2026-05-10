@@ -14,11 +14,13 @@ void set_slider_mode(uint8_t mode) {
   update_line1 = true;
   update_line2 = true;
   // Update step LEDs to reflect the data type for the new mode.
+#if FEATURE_CC_MODE
   if (mode == 4) {
     read_cc_step_memory();
   } else if (old_mode == 4) {
     read_step_memory(0, pattern_value);
   }
+#endif
 }
 
 void run_voice_slider_routine()
@@ -94,6 +96,7 @@ void run_voice_slider_routine()
         step_gate[pattern_value][j] = gate;
       }
     }
+#if FEATURE_CC_MODE
     else if (slider_mode == 4)
     {
       // CC mode: map to CC value range 0-127, pickup guard prevents writes
@@ -107,6 +110,7 @@ void run_voice_slider_routine()
         cc_step_values[pattern_value][j] = ccval;
       }
     }
+#endif  // FEATURE_CC_MODE
     else if (slider_mode == 5)
     {
       // PR mode: map to probability range 0-100, pickup guard prevents writes

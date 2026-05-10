@@ -194,7 +194,9 @@ bool save_to_sd() {
       _f.print(step_gate[p][s]);
       if (s < 15) _f.print(",");
     }
-    _f.print("],\"cc_number\":");
+    _f.print("]");  // close gates array
+#if FEATURE_CC_MODE
+    _f.print(",\"cc_number\":");
     _f.print(cc_number[p]);
     _f.print(",\"cc_enabled\":[");
     for (int s = 0; s < 16; s++) {
@@ -206,7 +208,9 @@ bool save_to_sd() {
       _f.print(cc_step_values[p][s]);
       if (s < 15) _f.print(",");
     }
-    _f.print("],\"probabilities\":[");
+    _f.print("]");
+#endif  // FEATURE_CC_MODE
+    _f.print(",\"probabilities\":[");
     for (int s = 0; s < 16; s++) {
       _f.print(step_probability[p][s]);
       if (s < 15) _f.print(",");
@@ -401,6 +405,7 @@ bool load_from_sd() {
       }
     }
 
+#if FEATURE_CC_MODE
     // CC fields — optional (new files only). Use bounded search so missing
     // keys in old files don't consume content from subsequent patterns.
     {
@@ -441,6 +446,7 @@ bool load_from_sd() {
         }
       } else { _f.seekSet(pos); }
     }
+#endif  // FEATURE_CC_MODE
     {
       uint32_t pos = _f.position();
       if (sd_find_bounded("\"probabilities\":", 400)) {

@@ -1,3 +1,5 @@
+#if FEATURE_CC_MODE
+
 // cc_name()
 //
 // Returns a 7-char (max) display name for a MIDI CC number.
@@ -70,6 +72,8 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
     return (uint8_t)n;
   }
 }
+
+#endif  // FEATURE_CC_MODE
 
 // config_menu.ino
 //
@@ -183,10 +187,12 @@ void print_config_label(uint8_t item) {
     // 14 chars: "Pat dir:Fwd   " etc.
     snprintf(_buf, sizeof(_buf), "Pat dir:%-6s", dname);
     lcd.print(_buf);
+#if FEATURE_CC_MODE
   } else if (item == CONFIG_ITEM_CC_NUMBER) {
     // "CC:%03d %-7s" = 3+3+1+7 = 14 chars
     snprintf(_buf, sizeof(_buf), "CC:%03d %-7s", cc_number[pattern_value], cc_name(cc_number[pattern_value]));
     lcd.print(_buf);
+#endif  // FEATURE_CC_MODE
   } else if (item == CONFIG_ITEM_STEP_PROB) {
     bool non_default = false;
     for (int s = 0; s < 16; s++) {
@@ -275,6 +281,7 @@ void draw_config_menu() {
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
+#if FEATURE_CC_MODE
   } else if (config_editing_value && config_menu_item == CONFIG_ITEM_CC_NUMBER) {
     char line2[17];
     // "CC: 001 Mod Whl " — 4+3+1+7+1 = 16 chars
@@ -282,6 +289,7 @@ void draw_config_menu() {
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
+#endif  // FEATURE_CC_MODE
   } else if (config_editing_value && config_menu_item == CONFIG_ITEM_PITCH_DRIFT) {
     char line2[17];
     int len = snprintf(line2, sizeof(line2), "  Drift: %d", pitch_drift);
@@ -419,9 +427,11 @@ void run_config_menu() {
         }
         apply_scale_to_all_patterns();
         draw_config_menu();
+#if FEATURE_CC_MODE
       } else if (config_menu_item == CONFIG_ITEM_CC_NUMBER) {
         cc_number[pattern_value] = next_valid_cc(cc_number[pattern_value], +1);
         draw_config_menu();
+#endif  // FEATURE_CC_MODE
       } else if (config_menu_item == CONFIG_ITEM_PITCH_DRIFT && pitch_drift < 7) {
         pitch_drift++;
         draw_config_menu();
@@ -473,9 +483,11 @@ void run_config_menu() {
         }
         apply_scale_to_all_patterns();
         draw_config_menu();
+#if FEATURE_CC_MODE
       } else if (config_menu_item == CONFIG_ITEM_CC_NUMBER) {
         cc_number[pattern_value] = next_valid_cc(cc_number[pattern_value], -1);
         draw_config_menu();
+#endif  // FEATURE_CC_MODE
       } else if (config_menu_item == CONFIG_ITEM_PITCH_DRIFT && pitch_drift > 0) {
         pitch_drift--;
         draw_config_menu();
@@ -623,10 +635,12 @@ void run_config_menu() {
         Serial.println(external_clock_mode ? "ext" : "int");
         draw_config_menu();
         break;
+#if FEATURE_DIAGNOSTICS
       case CONFIG_ITEM_DIAGNOSTICS:
         exit_config_menu();
         enter_diagnostics();
         break;
+#endif  // FEATURE_DIAGNOSTICS
       case CONFIG_ITEM_CHANNEL:
         config_editing_value = true;
         draw_config_menu();
@@ -661,10 +675,12 @@ void run_config_menu() {
         config_editing_value = true;
         draw_config_menu();
         break;
+#if FEATURE_CC_MODE
       case CONFIG_ITEM_CC_NUMBER:
         config_editing_value = true;
         draw_config_menu();
         break;
+#endif  // FEATURE_CC_MODE
       case CONFIG_ITEM_STEP_PROB:
         // Exit menu and activate PR slider mode so sliders control probability.
         exit_config_menu();

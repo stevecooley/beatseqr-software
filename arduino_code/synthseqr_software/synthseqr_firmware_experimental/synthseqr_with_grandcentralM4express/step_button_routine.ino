@@ -29,11 +29,15 @@ void run_step_button_routine()
           pattern_step_pitches[i][s] = pattern_step_pitches[current_pattern][s];
           pattern_step_velocities[i][s] = pattern_step_velocities[current_pattern][s];
           step_gate[i][s] = step_gate[current_pattern][s];
+#if FEATURE_CC_MODE
           cc_step_enabled[i][s] = cc_step_enabled[current_pattern][s];
           cc_step_values[i][s] = cc_step_values[current_pattern][s];
+#endif
           step_probability[i][s] = step_probability[current_pattern][s];
         }
+#if FEATURE_CC_MODE
         cc_number[i] = cc_number[current_pattern];
+#endif
         copy_pattern_to = i;
         adv_copy_armed = false;
         lcdflag = 101;  next_lcdflag = 101;  // "Copy {n}-> done" then back to main
@@ -138,8 +142,12 @@ void detect_step_button_presses()
   // Restore LEDs once the gate-flash window expires.
   if (gate_flash_end_ms != 0 && (long)(millis() - gate_flash_end_ms) >= 0) {
     gate_flash_end_ms = 0;
+#if FEATURE_CC_MODE
     if (slider_mode == 4) read_cc_step_memory();
     else                  read_step_memory(0, pattern_value);
+#else
+    read_step_memory(0, pattern_value);
+#endif
   }
 
   // Release check: if the tracked hold step was released, fire its deferred
@@ -155,6 +163,7 @@ void detect_step_button_presses()
   for (int i = 0; i <= 15; i++) {
     if (!step_buttons[i].uniquePress()) continue;
 
+#if FEATURE_CC_MODE
     if (slider_mode == 4) {
       // CC mode: immediate toggle, no gate-set gesture.
       cc_step_enabled[pattern_value][i] = cc_step_enabled[pattern_value][i] ? 0 : 1;
@@ -162,6 +171,7 @@ void detect_step_button_presses()
       else                                   step_leds[i].off();
       continue;
     }
+#endif  // FEATURE_CC_MODE
 
     if (gate_hold_step >= 0 && gate_hold_step != i && !gate_gesture_fired) {
       if ((long)(millis() - gate_hold_start_ms) >= 150) {
@@ -204,6 +214,7 @@ void detect_step_button_presses()
   }
 }
 
+#if FEATURE_CC_MODE
 // read_cc_step_memory()
 //
 // Sets step LEDs to reflect cc_step_enabled[] for the current pattern.
@@ -215,6 +226,7 @@ void read_cc_step_memory() {
     else                                   step_leds[i].off();
   }
 }
+#endif  // FEATURE_CC_MODE
 
 void read_step_memory(int voice, int pattern)
 {
@@ -276,8 +288,10 @@ void clear_pattern_memory_for_voice(int voice)
     pattern_step_pitches[pattern_value][i] = slider_map_low_value;
     pattern_step_velocities[pattern_value][i] = 127;
     step_gate[pattern_value][i] = 1;
+#if FEATURE_CC_MODE
     cc_step_enabled[pattern_value][i] = 0;
     cc_step_values[pattern_value][i] = 0;
+#endif
     step_probability[pattern_value][i] = 100;
     step_leds[i].off();
   }
@@ -296,8 +310,10 @@ void clear_pattern_memory()
         pattern_step_pitches[p][i] = slider_map_low_value;
         pattern_step_velocities[p][i] = 127;
         step_gate[p][i] = 1;
+#if FEATURE_CC_MODE
         cc_step_enabled[p][i] = 0;
         cc_step_values[p][i] = 0;
+#endif
         step_probability[p][i] = 100;
       }
     }

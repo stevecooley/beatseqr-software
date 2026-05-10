@@ -263,9 +263,12 @@ void go_to_pattern(int pattern, int silent) {
   // In pattern nav mode the step LEDs display pattern/chain selection,
   // not step on/off data. The nav routine redraws them each frame.
   if (!adv_pat_nav_active) {
+#if FEATURE_CC_MODE
     if (slider_mode == 4) {
       read_cc_step_memory();
-    } else {
+    } else
+#endif
+    {
       for (int voice = 0; voice < 1; voice++)  // synthseqr configuration
       {
         for (int step = 0; step <= 15; step++) {
@@ -314,15 +317,19 @@ void listen_for_copy_command() {
                 pattern_step_velocities[current_pattern][step];
             step_gate[copy_pattern_to][step] =
                 step_gate[current_pattern][step];
+#if FEATURE_CC_MODE
             cc_step_enabled[copy_pattern_to][step] =
                 cc_step_enabled[current_pattern][step];
             cc_step_values[copy_pattern_to][step] =
                 cc_step_values[current_pattern][step];
+#endif
             step_probability[copy_pattern_to][step] =
                 step_probability[current_pattern][step];
           }
         }
+#if FEATURE_CC_MODE
         cc_number[copy_pattern_to] = cc_number[current_pattern];
+#endif
         told_which_pattern_to_copy_to = false;
         ended_on = copy_pattern_to;
 

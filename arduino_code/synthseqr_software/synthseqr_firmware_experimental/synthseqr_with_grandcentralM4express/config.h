@@ -5,6 +5,8 @@
 #define PCB_VERSION 2
 #endif
 
+#include "features.h"
+
 #include <SdFat.h>   // SD card storage (Adafruit Fork, replaces standard SD.h)
 #include <stdlib.h>  // because dtostrf()
 
@@ -105,6 +107,7 @@ uint8_t step_gate[16][16] = {{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
                              {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
                              {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
                              {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
+#if FEATURE_CC_MODE
 // CC sequencing data — per-pattern, per-step
 uint8_t cc_step_values[16][16];   // CC value (0–127) per pattern per step;
                                   // defaults to 0
@@ -116,6 +119,7 @@ uint8_t cc_number[16] =
         1, 1, 1, 1,  // default: CC 1 (Mod Wheel) for all 16 patterns
         1, 1, 1, 1,
         1, 1, 1, 1};
+#endif  // FEATURE_CC_MODE
 
 // Per-step fire probability (0–100; 100 = always fires, 0 = never).
 // Applied in stepsend() before sending note-on.
@@ -528,4 +532,6 @@ extern volatile bool play_button_isr_fired;
 
 // Declared in diagnostics.ino; forward-declared here so loop() and LCD.ino
 // can suppress normal subsystems while diagnostics mode is active.
+#if FEATURE_DIAGNOSTICS
 extern bool diag_mode;
+#endif
