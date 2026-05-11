@@ -14,13 +14,13 @@ void set_slider_mode(uint8_t mode) {
   update_line1 = true;
   update_line2 = true;
   // Update step LEDs to reflect the data type for the new mode.
-#if FEATURE_CC_MODE
-  if (mode == 4) {
-    read_cc_step_memory();
-  } else if (old_mode == 4) {
-    read_step_memory(0, pattern_value);
+  if (ft_cc_mode) {
+    if (mode == 4) {
+      read_cc_step_memory();
+    } else if (old_mode == 4) {
+      read_step_memory(0, pattern_value);
+    }
   }
-#endif
 }
 
 void run_voice_slider_routine()
@@ -67,7 +67,7 @@ void run_voice_slider_routine()
         pattern_step_pitches[pattern_value][j] = (uint8_t)raw_voice_slider_values[j];
       }
     }
-    else if (slider_mode == 2)
+    else if (slider_mode == 2 && ft_velocity_mode)
     {
       // VL mode: map to velocity range 1-127, pickup guard prevents writes
       // until the slider physically reaches the stored velocity.
@@ -81,7 +81,7 @@ void run_voice_slider_routine()
         pattern_step_velocities[pattern_value][j] = vel;
       }
     }
-    else if (slider_mode == 3)
+    else if (slider_mode == 3 && ft_gate_mode)
     {
       // GT mode: map to gate range 1-16, pickup guard prevents writes until
       // the slider physically reaches the stored gate value.
@@ -96,8 +96,7 @@ void run_voice_slider_routine()
         step_gate[pattern_value][j] = gate;
       }
     }
-#if FEATURE_CC_MODE
-    else if (slider_mode == 4)
+    else if (slider_mode == 4 && ft_cc_mode)
     {
       // CC mode: map to CC value range 0-127, pickup guard prevents writes
       // until the slider physically reaches the stored CC value.
@@ -110,7 +109,6 @@ void run_voice_slider_routine()
         cc_step_values[pattern_value][j] = ccval;
       }
     }
-#endif  // FEATURE_CC_MODE
     else if (slider_mode == 5)
     {
       // PR mode: map to probability range 0-100, pickup guard prevents writes

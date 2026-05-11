@@ -84,12 +84,10 @@ void loop() {
 
   // Fire any swing-delayed external clock pulse. Must run before seq.run()
   // so the deferred hardwareClockPulse is processed in the same frame.
-#if FEATURE_SWING
-  if (ext_swing_pulse_pending && (long)(micros() - ext_swing_pulse_fire_us) >= 0) {
+  if (ft_swing && ext_swing_pulse_pending && (long)(micros() - ext_swing_pulse_fire_us) >= 0) {
     ext_swing_pulse_pending = false;
     seq.hardwareClockPulse();
   }
-#endif
 
   seq.run();
 
@@ -102,14 +100,12 @@ void loop() {
   if (diag_mode) return;
 #endif
 
-#if FEATURE_ADVANCED_MODE
   // Consistency guard: nav mode is only valid in advanced mode.
   if (!advanced_mode && adv_pat_nav_active) {
     adv_pat_nav_active = false;
     adv_chain_hold_step = -1;
     read_step_memory(0, pattern_value);
   }
-#endif
 
   if (dpad_left.uniquePress()) {
     Serial.println("listening for nav-left events");
@@ -217,7 +213,6 @@ void loop() {
     }
   }
 
-#if FEATURE_ADVANCED_MODE
   // Advanced mode: pattern button 0 single/double-click detection.
   //   Single click (400 ms timeout with no second press) → toggle pattern-nav mode.
   //   Double click (second press within 400 ms) → enter pattern copy mode:
@@ -258,7 +253,6 @@ void loop() {
       }
     }
   }
-#endif  // FEATURE_ADVANCED_MODE
 
   run_pattern_select_routine();
 

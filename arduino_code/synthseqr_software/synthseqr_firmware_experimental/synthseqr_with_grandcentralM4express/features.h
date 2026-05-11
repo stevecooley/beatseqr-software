@@ -55,19 +55,5 @@
 #define FEATURE_DIAGNOSTICS 1
 #endif
 
-// STEPS_IN_PATTERN: resolves to pattern_length when variable-length is on,
-// or the constant 16 when that feature is compiled out.
-#if FEATURE_VARIABLE_PATTERN_LENGTH
-  #define STEPS_IN_PATTERN pattern_length
-#else
-  #define STEPS_IN_PATTERN 16
-#endif
-
-// Inline stubs for scale functions when FEATURE_SCALE_QUANTIZATION is off.
-// Allows call sites in storage and config_menu to compile without guarding
-// every individual call.
-#if !FEATURE_SCALE_QUANTIZATION
-  inline void build_scale_notes() {}
-  inline void apply_scale_to_all_patterns() {}
-  inline uint8_t quantize_to_scale(uint8_t n) { return n; }
-#endif
+// All feature code is always compiled. Feature flags control runtime behaviour
+// only — toggled from the Features submenu in the device config menu.

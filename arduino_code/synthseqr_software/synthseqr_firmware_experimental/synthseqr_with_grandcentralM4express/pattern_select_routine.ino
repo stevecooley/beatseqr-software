@@ -40,7 +40,6 @@ void run_pattern_select_routine() {
   // Pattern button 1 click = toggle pattern-nav mode (step buttons become
   // pattern selectors / chain definers instead of step editors).
   // -----------------------------------------------------------------------
-#if FEATURE_ADVANCED_MODE
   if (advanced_mode) {
     // --- Slider mode selection: buttons 1=NN, 2=GT, 3=VL ---
     // set_slider_mode() arms pickup guards so physical positions can't
@@ -55,7 +54,7 @@ void run_pattern_select_routine() {
     }
     if (pattern_select_button_flags[3]) {
       pattern_select_button_flags[3] = false;
-      set_slider_mode(2);  // VL
+      if (ft_velocity_mode) set_slider_mode(2);  // VL
     }
 
     // LED 0: nav mode active indicator.
@@ -114,7 +113,6 @@ void run_pattern_select_routine() {
       return;
     }
   }
-#endif  // FEATURE_ADVANCED_MODE
 
   // -----------------------------------------------------------------------
   // Simple mode: pattern buttons 0–3 select patterns 0–3 directly.

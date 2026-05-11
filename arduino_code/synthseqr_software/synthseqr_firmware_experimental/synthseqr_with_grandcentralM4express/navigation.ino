@@ -1,3 +1,18 @@
+// next_slider_mode()
+//
+// Cycles slider mode forward from current, skipping CC (4) if ft_cc_mode is
+// off and PR (5) if ft_probability is off.
+//
+static uint8_t next_slider_mode(uint8_t current) {
+  uint8_t next = (current % slider_mode_total) + 1;
+  if (next == 2 && !ft_velocity_mode) next++;
+  if (next == 3 && !ft_gate_mode)  next++;
+  if (next == 4 && !ft_cc_mode)   next++;
+  if (next == 5 && !ft_probability) next = 1;
+  if (next > slider_mode_total)   next = 1;
+  return next;
+}
+
 void listen_for_navigation_events() {
   // D-pad left exits advanced pattern-nav mode and clears chain mode.
   if (adv_pat_nav_active && dpad_left_flag) {
@@ -33,48 +48,22 @@ void listen_for_navigation_events() {
 
   // Serial.println("listening for navigation events");
   switch (navmode) {
-    case 100:  // default to tempo and swing adjustments
+    case 100:  // main screen navigation
     {
-      // mode switching
-      if (dpad_left_flag == true) {
-        dpad_left_flag = false;
-        if (timing_mode > 1) {
-          timing_mode--;
-        }
-        switch_timing_mode_events();
-      }
+      // Consume d-pad left here — no timing modes to cycle on main screen.
+      if (dpad_left_flag) dpad_left_flag = false;
+
       if (enterbutton_flag == true) {
         enterbutton_flag = false;
-        // Simple mode: cycle slider mode NN → VL → GT → NN.
-        // Advanced mode uses pattern buttons 1/2/3 instead.
+        // Simple mode: cycle slider mode NN → VL → GT → (CC) → (PR) → NN,
+        // skipping disabled features. Advanced mode uses pattern buttons 1/2/3.
         if (!advanced_mode) {
-          set_slider_mode((slider_mode % slider_mode_total) + 1);
+          set_slider_mode(next_slider_mode(slider_mode));
         }
       }
 
       if ((dpad_up_flag == true) || (dpad_down_flag == true)) {
-        switch (timing_mode) {
-          case 1: {  // pattern select
-            pattern_select_events();
-            break;
-          }
-          case 2:  // ±10 BPM
-          case 3:  // ±1 BPM
-          case 4: {  // ±0.1 BPM
-            switch_timing_mode_events();
-            set_timing_resolution();
-            break;
-          }
-        }
-        Serial.print(" getTempo : ");
-        Serial.print(seq.getTempo());
-        Serial.print(" getShuffle : ");
-        Serial.print(seq.getShuffle());
-        Serial.print(" getbeatlength : ");
-        Serial.print(seq.getbeatlength());
-        Serial.print(" getPosition : ");
-        Serial.print(seq.getPosition());
-        Serial.println();
+        pattern_select_events();
       }
 
       break;
@@ -102,56 +91,6 @@ void listen_for_navigation_events() {
       }
       break;
     }
-  }
-}
-
-void switch_timing_mode_events() {
-  switch (timing_mode) {
-    case 1:  // pattern select — cursor on pattern digit
-      cursor_x = LCD_L1_X_PATTERN;
-      cursor_y = 0;
-      break;
-    case 2:  // ±10 BPM
-      timing_resolution = 10.0;
-      cursor_x = LCD_L1_X_TEMPO_10;
-      cursor_y = 0;
-      break;
-    case 3:  // ±1 BPM
-      timing_resolution = 1.0;
-      cursor_x = LCD_L1_X_TEMPO_1;
-      cursor_y = 0;
-      break;
-    case 4:  // ±0.1 BPM
-      timing_resolution = 0.1;
-      cursor_x = LCD_L1_X_TEMPO_01;
-      cursor_y = 0;
-      break;
-  }
-  // update the cursor position
-  cursor_flag = true;
-}
-
-void set_timing_resolution() {
-  if (dpad_up_flag == true) {
-    dpad_up_flag = false;
-
-    TEMPO = TEMPO + timing_resolution;
-    seq.setTempo(TEMPO);
-    // Keep the hardware timer aligned with the new tempo.
-    setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
-    update_line1 = true;
-    Serial.println(TEMPO);
-  }
-
-  if (dpad_down_flag == true) {
-    dpad_down_flag = false;
-
-    TEMPO = TEMPO - timing_resolution;
-    seq.setTempo(TEMPO);
-    // Keep the hardware timer aligned with the new tempo.
-    setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
-    update_line1 = true;
-    Serial.println(TEMPO);
   }
 }
 

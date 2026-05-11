@@ -66,17 +66,13 @@ void read_midi()
             }
           }
 
-#if FEATURE_SWING
-          if (is_step_pulse && SWING > 0 && (seq.getPosition() % 2 == 0)) {
+          if (ft_swing && is_step_pulse && SWING > 0 && (seq.getPosition() % 2 == 0)) {
             // Transitioning to an odd step with swing — defer this pulse.
             ext_swing_pulse_pending = true;
             ext_swing_pulse_fire_us = now_us + ext_clk_avg_interval_us * (unsigned long)SWING;
           } else {
             seq.hardwareClockPulse();
           }
-#else
-          seq.hardwareClockPulse();
-#endif
           // Refresh LCD tempo field with newly-averaged BPM on each step pulse.
           if (is_step_pulse) update_line1 = true;
         }

@@ -1,6 +1,4 @@
 
-#if FEATURE_DIAGNOSTICS
-
 bool diag_mode = false;
 
 // File-scope state so it survives multiple sessions and can be reset on entry.
@@ -308,4 +306,3 @@ void run_diagnostics_display()
   }
 }
 
-#endif  // FEATURE_DIAGNOSTICS

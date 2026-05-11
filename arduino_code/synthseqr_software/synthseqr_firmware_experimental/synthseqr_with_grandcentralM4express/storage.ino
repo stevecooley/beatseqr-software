@@ -59,8 +59,9 @@
 #define EEPROM_CC_VALUES_ADDR         803   // 256 bytes: cc_step_values[16][16]
 #define EEPROM_PITCH_DRIFT_ADDR      1059   // 1 byte: pitch_drift
 #define EEPROM_STEP_PROB_ADDR        1060   // 256 bytes: step_probability[16][16]
+#define EEPROM_FEATURE_FLAGS_ADDR    1316   // 13 bytes: runtime feature flags (ft_*)
 
-#define EEPROM_MAGIC_VALUE  0xC9  // bumped: advanced_mode now persisted
+#define EEPROM_MAGIC_VALUE  0xCB  // bumped: ft_velocity_mode added
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -92,15 +93,9 @@ void save_to_eeprom() {
   EEPROM.write(EEPROM_NOTE_RANGE_HIGH_ADDR, slider_map_high_value);
   EEPROM.write(EEPROM_PAT_LENGTH_ADDR, pattern_length);
   EEPROM.write(EEPROM_PAT_DIR_ADDR, pattern_direction);
-#if FEATURE_SCALE_QUANTIZATION
   EEPROM.write(EEPROM_SCALE_ROOT_ADDR, scale_root);
   EEPROM.write(EEPROM_SCALE_TYPE_ADDR, scale_type);
-#else
-  EEPROM.write(EEPROM_SCALE_ROOT_ADDR, 0);  // safe default: C / Chromatic
-  EEPROM.write(EEPROM_SCALE_TYPE_ADDR, 0);
-#endif
 
-#if FEATURE_CC_MODE
   {
     int cc_addr = EEPROM_CC_NUMBERS_ADDR;
     for (int p = 0; p < 16; p++) EEPROM.write(cc_addr++, cc_number[p]);
@@ -113,7 +108,6 @@ void save_to_eeprom() {
       for (int s = 0; s < 16; s++)
         EEPROM.write(cc_addr++, cc_step_values[p][s]);
   }
-#endif  // FEATURE_CC_MODE
 
   EEPROM.write(EEPROM_PITCH_DRIFT_ADDR, pitch_drift);
 
@@ -122,6 +116,23 @@ void save_to_eeprom() {
     for (int p = 0; p < 16; p++)
       for (int s = 0; s < 16; s++)
         EEPROM.write(addr++, step_probability[p][s]);
+  }
+
+  {
+    int fa = EEPROM_FEATURE_FLAGS_ADDR;
+    EEPROM.write(fa++, (uint8_t)ft_advanced_mode);
+    EEPROM.write(fa++, (uint8_t)ft_cc_mode);
+    EEPROM.write(fa++, (uint8_t)ft_probability);
+    EEPROM.write(fa++, (uint8_t)ft_gate_mode);
+    EEPROM.write(fa++, (uint8_t)ft_scale_quantization);
+    EEPROM.write(fa++, (uint8_t)ft_pitch_drift);
+    EEPROM.write(fa++, (uint8_t)ft_pattern_direction);
+    EEPROM.write(fa++, (uint8_t)ft_variable_pat_length);
+    EEPROM.write(fa++, (uint8_t)ft_swing);
+    EEPROM.write(fa++, (uint8_t)ft_external_clock);
+    EEPROM.write(fa++, (uint8_t)ft_octave_note_shift);
+    EEPROM.write(fa++, (uint8_t)ft_diagnostics);
+    EEPROM.write(fa++, (uint8_t)ft_velocity_mode);
   }
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
@@ -200,7 +211,6 @@ bool load_from_eeprom() {
     if (pd < PATTERN_DIRECTION_COUNT) pattern_direction = pd;
   }
 
-#if FEATURE_SCALE_QUANTIZATION
   {
     uint8_t sr = EEPROM.read(EEPROM_SCALE_ROOT_ADDR);
     if (sr < 12) scale_root = sr;
@@ -209,9 +219,7 @@ bool load_from_eeprom() {
     uint8_t st = EEPROM.read(EEPROM_SCALE_TYPE_ADDR);
     if (st < SCALE_COUNT) scale_type = st;
   }
-#endif  // FEATURE_SCALE_QUANTIZATION
 
-#if FEATURE_CC_MODE
   {
     int cc_addr = EEPROM_CC_NUMBERS_ADDR;
     for (int p = 0; p < 16; p++) {
@@ -234,7 +242,6 @@ bool load_from_eeprom() {
         if (v <= 127) cc_step_values[p][s] = v;
       }
   }
-#endif  // FEATURE_CC_MODE
 
   {
     uint8_t v = EEPROM.read(EEPROM_PITCH_DRIFT_ADDR);
@@ -250,6 +257,24 @@ bool load_from_eeprom() {
       }
   }
 
+  {
+    int fa = EEPROM_FEATURE_FLAGS_ADDR;
+    uint8_t v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_advanced_mode       = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_cc_mode             = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_probability         = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_gate_mode           = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_scale_quantization  = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_pitch_drift         = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_pattern_direction   = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_variable_pat_length = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_swing               = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_external_clock      = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_octave_note_shift   = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_diagnostics         = (bool)v;
+    v = EEPROM.read(fa++); if (v <= 1) ft_velocity_mode       = (bool)v;
+  }
+
   // Sync the active voice array to the loaded pattern's pitches, and arm
   // pickup so sliders don't immediately overwrite them.
   for (int s = 0; s < 16; s++) {
@@ -258,9 +283,7 @@ bool load_from_eeprom() {
   }
 
   // Rebuild scale note pool from loaded settings.
-#if FEATURE_SCALE_QUANTIZATION
   build_scale_notes();
-#endif
 
   Serial.println("loaded from EEPROM");
   return true;
