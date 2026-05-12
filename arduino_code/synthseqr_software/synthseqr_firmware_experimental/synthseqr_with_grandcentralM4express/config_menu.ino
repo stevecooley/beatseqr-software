@@ -91,30 +91,33 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 
 #define CONFIG_ITEM_EXIT          0
 #define CONFIG_ITEM_SAVE          1
-#define CONFIG_ITEM_CLEAR_PAT     2
-#define CONFIG_ITEM_CLEAR_ALL     3
-#define CONFIG_ITEM_RESET_SLIDERS 4
-#define CONFIG_ITEM_MODE          5
-#define CONFIG_ITEM_CLOCK         6
-#define CONFIG_ITEM_CHANNEL       7
-#define CONFIG_ITEM_SWING         8
-#define CONFIG_ITEM_DIAGNOSTICS   9
-#define CONFIG_ITEM_OCTAVE_SHIFT  10
-#define CONFIG_ITEM_NOTE_SHIFT    11
-#define CONFIG_ITEM_NOTE_RANGE    12
-#define CONFIG_ITEM_NOTE_SCALES   13
-#define CONFIG_ITEM_PAT_LENGTH    14
-#define CONFIG_ITEM_PAT_DIR       15
-#define CONFIG_ITEM_CC_NUMBER     16
-#define CONFIG_ITEM_STEP_PROB     17
-#define CONFIG_ITEM_PITCH_DRIFT   18
-#define CONFIG_MENU_ITEM_COUNT    19
+#define CONFIG_ITEM_TEMPO         2
+#define CONFIG_ITEM_CLEAR_PAT     3
+#define CONFIG_ITEM_CLEAR_ALL     4
+#define CONFIG_ITEM_RESET_SLIDERS 5
+#define CONFIG_ITEM_MODE          6
+#define CONFIG_ITEM_CLOCK         7
+#define CONFIG_ITEM_CHANNEL       8
+#define CONFIG_ITEM_SWING         9
+#define CONFIG_ITEM_DIAGNOSTICS   10
+#define CONFIG_ITEM_OCTAVE_SHIFT  11
+#define CONFIG_ITEM_NOTE_SHIFT    12
+#define CONFIG_ITEM_NOTE_RANGE    13
+#define CONFIG_ITEM_NOTE_SCALES   14
+#define CONFIG_ITEM_PAT_LENGTH    15
+#define CONFIG_ITEM_PAT_DIR       16
+#define CONFIG_ITEM_CC_NUMBER     17
+#define CONFIG_ITEM_STEP_PROB     18
+#define CONFIG_ITEM_PITCH_DRIFT   19
+#define CONFIG_ITEM_FEATURES      20
+#define CONFIG_MENU_ITEM_COUNT    21
 
 // line1_label: 14 chars printed after "> " on line 1.
 // Items with inline values are rendered dynamically in print_config_label().
 static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Exit          ",   // 14 chars
   "Save          ",
+  "Tempo         ",   // value overwritten at draw time; disabled when ext clock
   "Clear pattern ",
   "Clear all pats",
   "Reset sliders ",
@@ -131,14 +134,21 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Pat dir:      ",   // value overwritten at draw time
   "CC num:       ",   // value overwritten at draw time
   "Step prob     ",   // * appended if any step < 100 in current pattern
-  "Pitch drift   "    // * appended if non-zero
+  "Pitch drift   ",   // * appended if non-zero
+  "Features      "
 };
+
+// Tempo resolution index while editing: 0=±10, 1=±1, 2=±0.1.
+static uint8_t config_tempo_res = 0;
 
 // Build the 14-char label for a given item index.
 // For MODE, replaces trailing spaces with the current value.
 void print_config_label(uint8_t item) {
   char _buf[15];
-  if (item == CONFIG_ITEM_MODE) {
+  if (item == CONFIG_ITEM_TEMPO) {
+    snprintf(_buf, sizeof(_buf), "Tempo: %5.1f  ", TEMPO);
+    lcd.print(_buf);
+  } else if (item == CONFIG_ITEM_MODE) {
     if (config_confirm_pending) {
       // Show target mode so it's clear what Enter will do
       lcd.print(advanced_mode ? "Mode:->Simple " : "Mode:->Advancd");
@@ -202,6 +212,40 @@ void print_config_label(uint8_t item) {
 
 // ---------------------------------------------------------------------------
 
+// config_menu_next()
+//
+// Advance the menu cursor by dir (+1 = down, -1 = up), wrapping around, and
+// skip any items whose feature is compiled out.  Returns `from` unchanged if
+// every item is disabled (prevents an infinite loop when all features are off,
+// though in practice at least Exit/Save/Channel are always enabled).
+//
+static uint8_t config_menu_next(uint8_t from, int dir) {
+  uint8_t cur = from;
+  do {
+    cur = (uint8_t)((cur + CONFIG_MENU_ITEM_COUNT + dir) % CONFIG_MENU_ITEM_COUNT);
+    bool enabled = true;
+    switch (cur) {
+      case CONFIG_ITEM_TEMPO:        if (external_clock_mode)     enabled = false; break;
+      case CONFIG_ITEM_MODE:         if (!ft_advanced_mode)       enabled = false; break;
+      case CONFIG_ITEM_CLOCK:        if (!ft_external_clock)      enabled = false; break;
+      case CONFIG_ITEM_SWING:        if (!ft_swing)               enabled = false; break;
+      case CONFIG_ITEM_DIAGNOSTICS:  if (!ft_diagnostics)         enabled = false; break;
+      case CONFIG_ITEM_OCTAVE_SHIFT: if (!ft_octave_note_shift)   enabled = false; break;
+      case CONFIG_ITEM_NOTE_SHIFT:   if (!ft_octave_note_shift)   enabled = false; break;
+      case CONFIG_ITEM_NOTE_RANGE:   if (!ft_scale_quantization)  enabled = false; break;
+      case CONFIG_ITEM_NOTE_SCALES:  if (!ft_scale_quantization)  enabled = false; break;
+      case CONFIG_ITEM_PAT_LENGTH:   if (!ft_variable_pat_length) enabled = false; break;
+      case CONFIG_ITEM_PAT_DIR:      if (!ft_pattern_direction)   enabled = false; break;
+      case CONFIG_ITEM_CC_NUMBER:    if (!ft_cc_mode)             enabled = false; break;
+      case CONFIG_ITEM_STEP_PROB:    if (!ft_probability)         enabled = false; break;
+      case CONFIG_ITEM_PITCH_DRIFT:  if (!ft_pitch_drift)         enabled = false; break;
+      default: break;
+    }
+    if (enabled) return cur;
+  } while (cur != from);
+  return from;
+}
+
 void draw_config_menu() {
   // Line 1: "> {current item label}" — 16 chars total
   lcd.print("?x00?y0");
@@ -212,6 +256,13 @@ void draw_config_menu() {
   lcd.print("?x00?y1");
   if (config_confirm_pending) {
     lcd.print("Entr=ok  Lft=no ");
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_TEMPO) {
+    static const char* res_labels[] = {"+/-10 BPM", "+/-1 BPM", "+/-0.1 BPM"};
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  %s", res_labels[config_tempo_res]);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
   } else if (config_editing_value && config_menu_item == CONFIG_ITEM_CHANNEL) {
     char line2[17];
     int len = snprintf(line2, sizeof(line2), "  Channel: %d", MIDICHANNEL);
@@ -302,7 +353,7 @@ void draw_config_menu() {
     line2[16] = '\0';
     lcd.print(line2);
   } else {
-    uint8_t next = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
+    uint8_t next = config_menu_next(config_menu_item, 1);
     lcd.print("  ");
     print_config_label(next);
   }
@@ -326,6 +377,8 @@ void exit_config_menu() {
   config_editing_value = false;
   config_note_range_phase = 0;
   config_scale_phase = 0;
+  config_tempo_res = 0;
+  config_features_active = false;
   // Drop any pattern-button state that may have been accumulated while the
   // menu was open. Without this, a stray uniquePress() during menu navigation
   // can fire nav-mode toggle right after exit — visually indistinguishable
@@ -353,6 +406,12 @@ void exit_config_menu() {
 void run_config_menu() {
   if (!config_menu_active) return;
 
+  // Features submenu is modal within the config menu.
+  if (config_features_active) {
+    run_features_submenu();
+    return;
+  }
+
   // D-pad left: exits editing/confirmation mode first, then exits menu.
   if (dpad_left_flag) {
     dpad_left_flag = false;
@@ -361,6 +420,7 @@ void run_config_menu() {
       config_editing_value = false;
       config_note_range_phase = 0;
       config_scale_phase = 0;
+      config_tempo_res = 0;
       draw_config_menu();
     } else if (config_confirm_pending) {
       config_confirm_pending = false;
@@ -376,7 +436,14 @@ void run_config_menu() {
   if (config_editing_value) {
     if (dpad_up_flag) {
       dpad_up_flag = false;
-      if (config_menu_item == CONFIG_ITEM_CHANNEL && MIDICHANNEL < 16) {
+      if (config_menu_item == CONFIG_ITEM_TEMPO) {
+        float res = (config_tempo_res == 0) ? 10.0f : (config_tempo_res == 1) ? 1.0f : 0.1f;
+        TEMPO += res;
+        if (TEMPO > 250.0f) TEMPO = 250.0f;
+        seq.setTempo(TEMPO);
+        setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_CHANNEL && MIDICHANNEL < 16) {
         MIDICHANNEL++;
         draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_SWING && SWING < 5) {
@@ -429,7 +496,14 @@ void run_config_menu() {
     }
     if (dpad_down_flag) {
       dpad_down_flag = false;
-      if (config_menu_item == CONFIG_ITEM_CHANNEL && MIDICHANNEL > 1) {
+      if (config_menu_item == CONFIG_ITEM_TEMPO) {
+        float res = (config_tempo_res == 0) ? 10.0f : (config_tempo_res == 1) ? 1.0f : 0.1f;
+        TEMPO -= res;
+        if (TEMPO < 10.0f) TEMPO = 10.0f;
+        seq.setTempo(TEMPO);
+        setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_CHANNEL && MIDICHANNEL > 1) {
         MIDICHANNEL--;
         draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_SWING && SWING > 0) {
@@ -497,7 +571,11 @@ void run_config_menu() {
     }
     if (enterbutton_flag) {
       enterbutton_flag = false;
-      if (config_menu_item == CONFIG_ITEM_NOTE_RANGE && config_note_range_phase == 0) {
+      if (config_menu_item == CONFIG_ITEM_TEMPO) {
+        // Cycle resolution: ±10 → ±1 → ±0.1 → ±10
+        config_tempo_res = (config_tempo_res + 1) % 3;
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_NOTE_RANGE && config_note_range_phase == 0) {
         config_note_range_phase = 1;
         draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_NOTE_SCALES && config_scale_phase == 0) {
@@ -550,6 +628,9 @@ void run_config_menu() {
             read_step_memory(0, pattern_value);
           } else {
             adv_pat0_press_ms = 0;
+            // Buttons 2 (VL) and 3 (PR) must work in advanced mode.
+            ft_velocity_mode = true;
+            ft_probability   = true;
           }
           // Repaint pattern LEDs for the new mode. Without this, e.g. LED 1
           // stays lit after Advanced→Simple because the Advanced-mode slider-
@@ -565,17 +646,17 @@ void run_config_menu() {
     return;
   }
 
-  // Scroll up (wraps).
+  // Scroll up (wraps, skips disabled items).
   if (dpad_up_flag) {
     dpad_up_flag = false;
-    config_menu_item = (config_menu_item + CONFIG_MENU_ITEM_COUNT - 1) % CONFIG_MENU_ITEM_COUNT;
+    config_menu_item = config_menu_next(config_menu_item, -1);
     draw_config_menu();
   }
 
-  // Scroll down (wraps).
+  // Scroll down (wraps, skips disabled items).
   if (dpad_down_flag) {
     dpad_down_flag = false;
-    config_menu_item = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
+    config_menu_item = config_menu_next(config_menu_item, 1);
     draw_config_menu();
   }
 
@@ -605,6 +686,11 @@ void run_config_menu() {
           lcdflag      = sd_ok ? 202 : 203;
           next_lcdflag = sd_ok ? 202 : 203;
         }
+        break;
+      case CONFIG_ITEM_TEMPO:
+        config_editing_value = true;
+        config_tempo_res = 0;
+        draw_config_menu();
         break;
       case CONFIG_ITEM_CLEAR_PAT:
       case CONFIG_ITEM_CLEAR_ALL:
@@ -674,6 +760,115 @@ void run_config_menu() {
         config_editing_value = true;
         draw_config_menu();
         break;
+      case CONFIG_ITEM_FEATURES:
+        config_features_active = true;
+        config_feature_item = 0;
+        draw_features_submenu();
+        break;
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Features submenu
+// ---------------------------------------------------------------------------
+
+#define FEATURE_COUNT 13
+
+static const char* _feature_names[FEATURE_COUNT] = {
+  "Advanced mode   ",
+  "CC mode         ",
+  "Probability     ",
+  "Gate sliders    ",
+  "Note scales     ",
+  "Pitch drift     ",
+  "Pat direction   ",
+  "Pat length      ",
+  "Swing           ",
+  "Ext clock       ",
+  "Oct/note shift  ",
+  "Diagnostics     ",
+  "Velocity sliders"
+};
+
+static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
+  &ft_advanced_mode,
+  &ft_cc_mode,
+  &ft_probability,
+  &ft_gate_mode,
+  &ft_scale_quantization,
+  &ft_pitch_drift,
+  &ft_pattern_direction,
+  &ft_variable_pat_length,
+  &ft_swing,
+  &ft_external_clock,
+  &ft_octave_note_shift,
+  &ft_diagnostics,
+  &ft_velocity_mode
+};
+
+void draw_features_submenu() {
+  lcd.print("?x00?y0");
+  lcd.print(_feature_names[config_feature_item]);
+  lcd.print("?x00?y1");
+  if (*_feature_flag_ptrs[config_feature_item]) {
+    lcd.print("  active        ");
+  } else {
+    lcd.print("  inactive      ");
+  }
+}
+
+// Apply side-effects when a feature is toggled off.
+static void _apply_feature_disable(uint8_t idx) {
+  switch (idx) {
+    case 0:  // advanced mode
+      if (advanced_mode) {
+        advanced_mode = false;
+        adv_pat_nav_active = false;
+        adv_copy_waiting_source = false;
+        adv_copy_armed = false;
+        adv_chain_hold_step = -1;
+        read_step_memory(0, pattern_value);
+        go_to_pattern(current_pattern, 1);
+      }
+      break;
+    case 9:  // external clock
+      if (external_clock_mode) setExternalClockMode(false);
+      break;
+    case 12:  // velocity sliders — if currently in VL mode, drop back to NN
+      if (slider_mode == 2) set_slider_mode(1);
+      break;
+    default: break;
+  }
+}
+
+void run_features_submenu() {
+  if (!config_features_active) return;
+
+  if (dpad_left_flag) {
+    dpad_left_flag = false;
+    config_features_active = false;
+    draw_config_menu();
+    return;
+  }
+
+  if (dpad_up_flag) {
+    dpad_up_flag = false;
+    config_feature_item = (uint8_t)((config_feature_item + FEATURE_COUNT - 1) % FEATURE_COUNT);
+    draw_features_submenu();
+  }
+
+  if (dpad_down_flag) {
+    dpad_down_flag = false;
+    config_feature_item = (uint8_t)((config_feature_item + 1) % FEATURE_COUNT);
+    draw_features_submenu();
+  }
+
+  if (enterbutton_flag) {
+    enterbutton_flag = false;
+    bool* flag = _feature_flag_ptrs[config_feature_item];
+    *flag = !(*flag);
+    if (!(*flag)) _apply_feature_disable(config_feature_item);
+    draw_features_submenu();
   }
 }

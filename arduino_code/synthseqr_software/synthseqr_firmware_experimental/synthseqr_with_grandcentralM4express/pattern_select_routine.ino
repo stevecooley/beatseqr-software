@@ -41,7 +41,7 @@ void run_pattern_select_routine() {
   // pattern selectors / chain definers instead of step editors).
   // -----------------------------------------------------------------------
   if (advanced_mode) {
-    // --- Slider mode selection: buttons 1=NN, 2=GT, 3=VL ---
+    // --- Slider mode selection: buttons 1=NN, 2=VL, 3=PR ---
     // set_slider_mode() arms pickup guards so physical positions can't
     // silently overwrite pattern data when switching modes.
     if (pattern_select_button_flags[1]) {
@@ -50,11 +50,11 @@ void run_pattern_select_routine() {
     }
     if (pattern_select_button_flags[2]) {
       pattern_select_button_flags[2] = false;
-      set_slider_mode(3);  // GT
+      set_slider_mode(2);  // VL
     }
     if (pattern_select_button_flags[3]) {
       pattern_select_button_flags[3] = false;
-      set_slider_mode(2);  // VL
+      set_slider_mode(5);  // PR
     }
 
     // LED 0: nav mode active indicator.
@@ -62,8 +62,8 @@ void run_pattern_select_routine() {
     if (adv_pat_nav_active) pattern_select_leds[0].on();
     else                    pattern_select_leds[0].off();
     if (slider_mode == 1) pattern_select_leds[1].on(); else pattern_select_leds[1].off();
-    if (slider_mode == 3) pattern_select_leds[2].on(); else pattern_select_leds[2].off();
-    if (slider_mode == 2) pattern_select_leds[3].on(); else pattern_select_leds[3].off();
+    if (slider_mode == 2) pattern_select_leds[2].on(); else pattern_select_leds[2].off();
+    if (slider_mode == 5) pattern_select_leds[3].on(); else pattern_select_leds[3].off();
 
     // --- Pattern-nav mode: step buttons select/chain patterns ---
     if (adv_pat_nav_active) {
@@ -263,9 +263,12 @@ void go_to_pattern(int pattern, int silent) {
   // In pattern nav mode the step LEDs display pattern/chain selection,
   // not step on/off data. The nav routine redraws them each frame.
   if (!adv_pat_nav_active) {
+#if FEATURE_CC_MODE
     if (slider_mode == 4) {
       read_cc_step_memory();
-    } else {
+    } else
+#endif
+    {
       for (int voice = 0; voice < 1; voice++)  // synthseqr configuration
       {
         for (int step = 0; step <= 15; step++) {
@@ -314,15 +317,19 @@ void listen_for_copy_command() {
                 pattern_step_velocities[current_pattern][step];
             step_gate[copy_pattern_to][step] =
                 step_gate[current_pattern][step];
+#if FEATURE_CC_MODE
             cc_step_enabled[copy_pattern_to][step] =
                 cc_step_enabled[current_pattern][step];
             cc_step_values[copy_pattern_to][step] =
                 cc_step_values[current_pattern][step];
+#endif
             step_probability[copy_pattern_to][step] =
                 step_probability[current_pattern][step];
           }
         }
+#if FEATURE_CC_MODE
         cc_number[copy_pattern_to] = cc_number[current_pattern];
+#endif
         told_which_pattern_to_copy_to = false;
         ended_on = copy_pattern_to;
 

@@ -5,6 +5,8 @@
 #define PCB_VERSION 2
 #endif
 
+#include "features.h"
+
 #include <SdFat.h>   // SD card storage (Adafruit Fork, replaces standard SD.h)
 #include <stdlib.h>  // because dtostrf()
 
@@ -106,16 +108,13 @@ uint8_t step_gate[16][16] = {{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
                              {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
                              {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
 // CC sequencing data — per-pattern, per-step
-uint8_t cc_step_values[16][16];   // CC value (0–127) per pattern per step;
-                                  // defaults to 0
-uint8_t cc_step_enabled[16][16];  // 1=fire CC on this step, 0=skip; independent
-                                  // from notes
-uint8_t cc_number[16] =
-    {  // CC controller number per pattern (1–119, safe range)
-        1, 1, 1, 1,
-        1, 1, 1, 1,  // default: CC 1 (Mod Wheel) for all 16 patterns
-        1, 1, 1, 1,
-        1, 1, 1, 1};
+uint8_t cc_step_values[16][16];   // CC value (0–127) per pattern per step; defaults to 0
+uint8_t cc_step_enabled[16][16];  // 1=fire CC on this step, 0=skip; independent from notes
+uint8_t cc_number[16] = {         // CC controller number per pattern (1–119, safe range)
+    1, 1, 1, 1,
+    1, 1, 1, 1,  // default: CC 1 (Mod Wheel) for all 16 patterns
+    1, 1, 1, 1,
+    1, 1, 1, 1};
 
 // Per-step fire probability (0–100; 100 = always fires, 0 = never).
 // Applied in stepsend() before sending note-on.
@@ -380,8 +379,6 @@ byte last_pitch;
 // sequencer init
 FifteenStep seq = FifteenStep(1024);
 float TEMPO = 120.0;
-float timing_resolution = 1.0;
-uint8_t timing_mode = 2;  // default: ±10 BPM (mode 2 in new visual order)
 uint8_t SWING = 0;
 uint8_t pitch_drift = 0;  // semitones of random pitch wander at send time (0=off, 1–7)
 uint8_t MIDICHANNEL = 2;
@@ -529,3 +526,25 @@ extern volatile bool play_button_isr_fired;
 // Declared in diagnostics.ino; forward-declared here so loop() and LCD.ino
 // can suppress normal subsystems while diagnostics mode is active.
 extern bool diag_mode;
+
+// ---------------------------------------------------------------------------
+// Runtime feature flags — toggled from the Features submenu in config menu.
+// All default to true (all features active on first boot).
+// ---------------------------------------------------------------------------
+bool ft_advanced_mode       = true;
+bool ft_cc_mode             = true;
+bool ft_probability         = true;
+bool ft_gate_mode           = true;
+bool ft_scale_quantization  = true;
+bool ft_pitch_drift         = true;
+bool ft_pattern_direction   = true;
+bool ft_variable_pat_length = true;
+bool ft_swing               = true;
+bool ft_external_clock      = true;
+bool ft_octave_note_shift   = true;
+bool ft_diagnostics         = true;
+bool ft_velocity_mode       = true;
+
+// Features submenu state.
+bool    config_features_active = false;
+uint8_t config_feature_item    = 0;

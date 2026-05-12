@@ -203,7 +203,7 @@ The 16 voice sliders operate in one of four modes:
 **Switching modes:**
 
 - **Simple mode**: Enter single-tap cycles NN → VL → GT → CC → NN. PR mode is accessed via config menu → **Step prob** (exits menu and sets mode 5). The Enter single-tap cycle skips PR.
-- **Advanced mode**: Pattern button 1 = NN, button 2 = GT, button 3 = VL. CC and PR modes accessed via Enter single-tap continuation or config menu.
+- **Advanced mode**: Pattern button 1 = NN, button 2 = VL, button 3 = PR. CC and GT slider modes accessed via config menu. Gate lengths are set via the hold-step + tap-step key-combo regardless of ft_gate_mode.
 
 **`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders, sets `update_line1 = update_line2 = true`, and switches step LED display: entering CC mode calls `read_cc_step_memory()` (LEDs show `cc_step_enabled`); leaving CC mode calls `read_step_memory()` (LEDs show `step_data`). Always call this function — never set `slider_mode` directly — so pickup guards and LED display are always updated on transition.
 
@@ -300,8 +300,9 @@ When `external_clock_mode == false` (default):
   - Phase 1: LCD `copy which pat?` → tap step = source; Phase 2: LCD `Copy N->where?` → tap step = destination
   - D-pad left cancels either phase
 - **Pattern button 1** → slider mode NN (note number); LED 1 stays lit
-- **Pattern button 2** → slider mode GT (gate); LED 2 stays lit
-- **Pattern button 3** → slider mode VL (velocity); LED 3 stays lit
+- **Pattern button 2** → slider mode VL (velocity); LED 2 stays lit
+- **Pattern button 3** → slider mode PR (probability); LED 3 stays lit
+- Activating advanced mode force-enables `ft_velocity_mode` and `ft_probability` so buttons 2 and 3 always work
 - Pattern LEDs: LED 0 = nav mode active; LEDs 1/2/3 = active slider mode indicator
 - D-pad mode 1 navigates patterns 1–16
 - Hold-for-2s pattern copy is disabled in advanced mode

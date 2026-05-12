@@ -85,3 +85,4 @@ void apply_scale_to_all_patterns() {
     slider_needs_pickup[s] = true;
   }
 }
+

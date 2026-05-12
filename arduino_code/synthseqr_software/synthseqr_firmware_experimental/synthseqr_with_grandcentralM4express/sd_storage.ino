@@ -171,6 +171,19 @@ bool save_to_sd() {
   _f.print("  \"scale_root\": ");        _f.print(scale_root);           _f.println(",");
   _f.print("  \"scale_type\": ");        _f.print(scale_type);           _f.println(",");
   _f.print("  \"pitch_drift\": ");       _f.print(pitch_drift);          _f.println(",");
+  _f.print("  \"ft_advanced_mode\": ");       _f.print(ft_advanced_mode ? 1 : 0);       _f.println(",");
+  _f.print("  \"ft_cc_mode\": ");             _f.print(ft_cc_mode ? 1 : 0);             _f.println(",");
+  _f.print("  \"ft_probability\": ");         _f.print(ft_probability ? 1 : 0);         _f.println(",");
+  _f.print("  \"ft_gate_mode\": ");           _f.print(ft_gate_mode ? 1 : 0);           _f.println(",");
+  _f.print("  \"ft_scale_quantization\": ");  _f.print(ft_scale_quantization ? 1 : 0);  _f.println(",");
+  _f.print("  \"ft_pitch_drift\": ");         _f.print(ft_pitch_drift ? 1 : 0);         _f.println(",");
+  _f.print("  \"ft_pattern_direction\": ");   _f.print(ft_pattern_direction ? 1 : 0);   _f.println(",");
+  _f.print("  \"ft_variable_pat_length\": "); _f.print(ft_variable_pat_length ? 1 : 0); _f.println(",");
+  _f.print("  \"ft_swing\": ");               _f.print(ft_swing ? 1 : 0);               _f.println(",");
+  _f.print("  \"ft_external_clock\": ");      _f.print(ft_external_clock ? 1 : 0);      _f.println(",");
+  _f.print("  \"ft_octave_note_shift\": ");   _f.print(ft_octave_note_shift ? 1 : 0);   _f.println(",");
+  _f.print("  \"ft_diagnostics\": ");         _f.print(ft_diagnostics ? 1 : 0);         _f.println(",");
+  _f.print("  \"ft_velocity_mode\": ");       _f.print(ft_velocity_mode ? 1 : 0);       _f.println(",");
   _f.println("  \"patterns\": [");
 
   for (int p = 0; p < 16; p++) {
@@ -194,7 +207,8 @@ bool save_to_sd() {
       _f.print(step_gate[p][s]);
       if (s < 15) _f.print(",");
     }
-    _f.print("],\"cc_number\":");
+    _f.print("]");  // close gates array
+    _f.print(",\"cc_number\":");
     _f.print(cc_number[p]);
     _f.print(",\"cc_enabled\":[");
     for (int s = 0; s < 16; s++) {
@@ -206,7 +220,8 @@ bool save_to_sd() {
       _f.print(cc_step_values[p][s]);
       if (s < 15) _f.print(",");
     }
-    _f.print("],\"probabilities\":[");
+    _f.print("]");
+    _f.print(",\"probabilities\":[");
     for (int s = 0; s < 16; s++) {
       _f.print(step_probability[p][s]);
       if (s < 15) _f.print(",");
@@ -339,6 +354,24 @@ bool load_from_sd() {
   if (sd_find("\"pitch_drift\":")) {
     int v = (int)sd_parse_number();
     if (v >= 0 && v <= 7) pitch_drift = (uint8_t)v;
+  }
+
+  // Feature flags — optional keys; old files without them default to true.
+  {
+    int v;
+    _f.seekSet(0); if (sd_find("\"ft_advanced_mode\":"))       { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_advanced_mode       = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_cc_mode\":"))             { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_cc_mode             = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_probability\":"))         { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_probability         = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_gate_mode\":"))           { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_gate_mode           = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_scale_quantization\":"))  { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_scale_quantization  = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_pitch_drift\":"))         { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_pitch_drift         = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_pattern_direction\":"))   { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_pattern_direction   = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_variable_pat_length\":")) { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_variable_pat_length = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_swing\":"))               { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_swing               = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_external_clock\":"))      { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_external_clock      = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_octave_note_shift\":"))   { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_octave_note_shift   = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_diagnostics\":"))         { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_diagnostics         = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_velocity_mode\":"))       { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_velocity_mode       = (bool)v; }
   }
 
   // Parse patterns array — seek once to "patterns": then read sequentially.

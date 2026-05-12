@@ -89,7 +89,9 @@ void run_LCD_setup_routine() {
 
 void run_LCD_update() {
   // Diagnostics mode writes directly to the LCD — suppress normal updates.
+#if FEATURE_DIAGNOSTICS
   if (diag_mode) return;
+#endif
 
   // Rate-limit all LCD writes to ~15 fps (every 66 ms).
   // The LCD serial port is only 9850 baud (~985 bytes/sec). Without this gate
@@ -411,11 +413,15 @@ void run_LCD_update() {
           lcd.print(_s);  Serial.print(_s);
           // CC icon + value or "---" (1+3 = 4 chars)
           lcd.print("?3");  Serial.print("?3");
+#if FEATURE_CC_MODE
           if (cc_step_enabled[pattern_value][last_triggered_step]) {
             sprintf(_s, "%03d", cc_step_values[pattern_value][last_triggered_step]);
           } else {
             strcpy(_s, "---");
           }
+#else
+          strcpy(_s, "---");
+#endif
           lcd.print(_s);  Serial.println(_s);
         } else {
           lcd.print("                ");   // 16 spaces until first step fires

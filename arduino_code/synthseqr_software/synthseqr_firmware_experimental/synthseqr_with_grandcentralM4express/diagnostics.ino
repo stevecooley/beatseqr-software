@@ -305,3 +305,4 @@ void run_diagnostics_display()
     diag_showing_idle = true;
   }
 }
+

@@ -134,17 +134,16 @@ void run_chase_lights(unsigned int this_step) {
           else                    step_leds[i].off();
         }
       } else {
-        // clear the LEDs back to their data (mode-aware)
-        if (slider_mode == 4) read_cc_step_memory();
-        else                  read_step_memory(0, pattern_value);
+        if (ft_cc_mode && slider_mode == 4) read_cc_step_memory();
+        else                                read_step_memory(0, pattern_value);
       }
       step_leds[this_step].toggle();  // chase lights!
       last_step = this_step;
     }
   } else {
     if (!editing_pat_len) {
-      if (slider_mode == 4) read_cc_step_memory();
-      else                  read_step_memory(0, pattern_value);
+      if (ft_cc_mode && slider_mode == 4) read_cc_step_memory();
+      else                                read_step_memory(0, pattern_value);
     }
   }
 }
@@ -185,65 +184,67 @@ void stepsend(int current_step, int last_step) {
   // Compute play_step: the data index to read notes/velocities/gates from.
   // current_step is always 0..(pattern_length-1) from FifteenStep.
   // play_step maps that to the actual step position based on direction.
-  uint8_t play_step;
-  switch (pattern_direction) {
-    case 1: // Reverse
-      play_step = (uint8_t)((pattern_length - 1) - current_step);
-      break;
-    case 2: // Ping-pong — use the maintained virtual position
-      play_step = ping_pong_step;
-      if (pattern_length <= 1) {
-        ping_pong_step = 0;
-      } else if (ping_pong_going_forward) {
-        if (ping_pong_step >= pattern_length - 1) {
-          ping_pong_going_forward = false;
-          ping_pong_step = pattern_length - 2;
+  uint8_t play_step = (uint8_t)current_step;  // default: forward
+  if (ft_pattern_direction) {
+    switch (pattern_direction) {
+      case 1: // Reverse
+        play_step = (uint8_t)((pattern_length - 1) - current_step);
+        break;
+      case 2: // Ping-pong — use the maintained virtual position
+        play_step = ping_pong_step;
+        if (pattern_length <= 1) {
+          ping_pong_step = 0;
+        } else if (ping_pong_going_forward) {
+          if (ping_pong_step >= pattern_length - 1) {
+            ping_pong_going_forward = false;
+            ping_pong_step = pattern_length - 2;
+          } else {
+            ping_pong_step++;
+          }
         } else {
-          ping_pong_step++;
+          if (ping_pong_step == 0) {
+            ping_pong_going_forward = true;
+            ping_pong_step = 1;
+          } else {
+            ping_pong_step--;
+          }
         }
-      } else {
-        if (ping_pong_step == 0) {
-          ping_pong_going_forward = true;
-          ping_pong_step = 1;
-        } else {
-          ping_pong_step--;
-        }
+        break;
+      case 3: // Random — independent random step each tick
+        play_step = (uint8_t)random(0, pattern_length);
+        break;
+      case 4: // Shuffle — random permutation; each step plays once before reshuffling
+        play_step = shuffle_order[shuffle_pos];
+        shuffle_pos++;
+        if (shuffle_pos >= pattern_length) init_shuffle();
+        break;
+      case 5: { // Even/Odd — all even-indexed steps then all odd-indexed steps
+        uint8_t half = (uint8_t)((pattern_length + 1) / 2);
+        if ((uint8_t)current_step < half)
+          play_step = (uint8_t)(current_step * 2);
+        else
+          play_step = (uint8_t)((current_step - half) * 2 + 1);
+        break;
       }
-      break;
-    case 3: // Random — independent random step each tick
-      play_step = (uint8_t)random(0, pattern_length);
-      break;
-    case 4: // Shuffle — random permutation; each step plays once before reshuffling
-      play_step = shuffle_order[shuffle_pos];
-      shuffle_pos++;
-      if (shuffle_pos >= pattern_length) init_shuffle();
-      break;
-    case 5: { // Even/Odd — all even-indexed steps then all odd-indexed steps
-      uint8_t half = (uint8_t)((pattern_length + 1) / 2);  // ceil(N/2) even steps first
-      if ((uint8_t)current_step < half)
-        play_step = (uint8_t)(current_step * 2);
-      else
-        play_step = (uint8_t)((current_step - half) * 2 + 1);
-      break;
+      case 6: // Inward — outside-in: 0, N-1, 1, N-2, 2, N-3, ...
+        if (current_step % 2 == 0)
+          play_step = (uint8_t)(current_step / 2);
+        else
+          play_step = (uint8_t)(pattern_length - 1 - current_step / 2);
+        break;
+      case 7: { // Quad — plays Q1, Q3, Q2, Q4 (quarter-groups reordered)
+        static const uint8_t qord[4] = {0, 2, 1, 3};
+        uint8_t gsz = (pattern_length >= 4) ? pattern_length / 4 : 1;
+        uint8_t gi  = (uint8_t)(current_step / gsz);
+        if (gi > 3) gi = 3;
+        play_step = (uint8_t)(qord[gi] * gsz + current_step % gsz);
+        if (play_step >= pattern_length) play_step = (uint8_t)current_step;
+        break;
+      }
+      default: // Forward
+        play_step = (uint8_t)current_step;
+        break;
     }
-    case 6: // Inward — outside-in: 0, N-1, 1, N-2, 2, N-3, ...
-      if (current_step % 2 == 0)
-        play_step = (uint8_t)(current_step / 2);
-      else
-        play_step = (uint8_t)(pattern_length - 1 - current_step / 2);
-      break;
-    case 7: { // Quad — plays Q1, Q3, Q2, Q4 (quarter-groups reordered)
-      static const uint8_t qord[4] = {0, 2, 1, 3};
-      uint8_t gsz = (pattern_length >= 4) ? pattern_length / 4 : 1;
-      uint8_t gi  = (uint8_t)(current_step / gsz);
-      if (gi > 3) gi = 3;
-      play_step = (uint8_t)(qord[gi] * gsz + current_step % gsz);
-      if (play_step >= pattern_length) play_step = (uint8_t)current_step;
-      break;
-    }
-    default: // Forward
-      play_step = (uint8_t)current_step;
-      break;
   }
 
   run_chase_lights(play_step);
@@ -264,8 +265,11 @@ void stepsend(int current_step, int last_step) {
   }
 
   if (step_data[pattern_value][0][play_step] == 1) {
-    bool fires = (step_probability[pattern_value][play_step] >= 100)
-                 || ((uint8_t)random(100) < step_probability[pattern_value][play_step]);
+    bool fires = true;
+    if (ft_probability) {
+      fires = (step_probability[pattern_value][play_step] >= 100)
+              || ((uint8_t)random(100) < step_probability[pattern_value][play_step]);
+    }
     if (fires) {
       // If this slot is still sounding (e.g. random mode re-triggered it),
       // send note-off before the new note-on.
@@ -274,22 +278,24 @@ void stepsend(int current_step, int last_step) {
         sounding_notes[play_step] = -1;
         sounding_note_end_step[play_step] = -1;
       }
-      int16_t shifted = (int16_t)voice_slider_midinotenum[play_step]
-                      + (int16_t)(octave_shift * 12) + (int16_t)note_shift;
+      int16_t shifted = (int16_t)voice_slider_midinotenum[play_step];
+      if (ft_octave_note_shift) {
+        shifted += (int16_t)(octave_shift * 12) + (int16_t)note_shift;
+      }
       // Apply scale quantization to the base pitch (non-destructive: raw stored
       // values are preserved; the scale is always applied fresh at playback time).
-      if (scale_type != 0 && scale_note_count > 0) {
+      if (ft_scale_quantization && scale_type != 0 && scale_note_count > 0) {
         if (shifted < 0)   shifted = 0;
         if (shifted > 127) shifted = 127;
         shifted = (int16_t)quantize_to_scale((uint8_t)shifted);
       }
       // Apply pitch drift: random wander ±pitch_drift semitones, then clamp
       // to note range and re-quantize to the active scale.
-      if (pitch_drift > 0) {
+      if (ft_pitch_drift && pitch_drift > 0) {
         shifted += (int16_t)random(-(long)pitch_drift, (long)pitch_drift + 1);
         if (shifted < (int16_t)slider_map_low_value)  shifted = (int16_t)slider_map_low_value;
         if (shifted > (int16_t)slider_map_high_value) shifted = (int16_t)slider_map_high_value;
-        if (scale_type != 0 && scale_note_count > 0)
+        if (ft_scale_quantization && scale_type != 0 && scale_note_count > 0)
           shifted = (int16_t)quantize_to_scale((uint8_t)shifted);
       }
       if (shifted < 0)   shifted = 0;
@@ -298,7 +304,9 @@ void stepsend(int current_step, int last_step) {
       uint8_t vel = voice_slider_midivelocity[play_step];
       noteOn(MIDICHANNEL - 1, pitch, vel);
       sounding_notes[play_step] = (int8_t)pitch;  // store actual pitch for correct note-off
-      // Schedule note-off: gate steps later in hardware clock time
+      // Schedule note-off: gate steps later in hardware clock time.
+      // step_gate defaults to 1, so this is always correct whether gates were
+      // set via key-combo or slider mode.
       sounding_note_end_step[play_step] =
           (int8_t)((current_step + step_gate[pattern_value][play_step]) % pattern_length);
       // Update LCD lines with this step's trigger info —
@@ -313,7 +321,7 @@ void stepsend(int current_step, int last_step) {
   }
 
   // CC send: fire CC on this step if enabled (independent from notes).
-  if (cc_step_enabled[pattern_value][play_step]) {
+  if (ft_cc_mode && cc_step_enabled[pattern_value][play_step]) {
     controlChange(MIDICHANNEL - 1, cc_number[pattern_value], cc_step_values[pattern_value][play_step]);
     if (!config_menu_active) {
       last_triggered_step = (int8_t)play_step;
@@ -332,13 +340,17 @@ void stepsend(int current_step, int last_step) {
   // FifteenStep's setShuffle() is a no-op in hardware timer mode, so we
   // implement swing here: even steps get a longer gap to the next (odd) step,
   // odd steps get a shorter gap back. Total time per pair stays the same.
-  // SWING=0 → straight (both multipliers = 6/6 = 1). SWING=6 → extreme.
+  // SWING=0 or swing disabled → straight timing.
   if (!external_clock_mode) {
     unsigned long base_us = 60000000UL / (unsigned long)TEMPO / 24UL;
-    if (current_step % 2 == 0) {
-      setSequencerTimerPeriod(base_us * (6 + SWING) / 6);
+    if (ft_swing && SWING > 0) {
+      if (current_step % 2 == 0) {
+        setSequencerTimerPeriod(base_us * (6 + SWING) / 6);
+      } else {
+        setSequencerTimerPeriod(base_us * (6 - SWING) / 6);
+      }
     } else {
-      setSequencerTimerPeriod(base_us * (6 - SWING) / 6);
+      setSequencerTimerPeriod(base_us);
     }
   }
 }

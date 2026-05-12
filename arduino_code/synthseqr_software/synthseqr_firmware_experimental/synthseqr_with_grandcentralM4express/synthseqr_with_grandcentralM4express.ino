@@ -84,7 +84,7 @@ void loop() {
 
   // Fire any swing-delayed external clock pulse. Must run before seq.run()
   // so the deferred hardwareClockPulse is processed in the same frame.
-  if (ext_swing_pulse_pending && (long)(micros() - ext_swing_pulse_fire_us) >= 0) {
+  if (ft_swing && ext_swing_pulse_pending && (long)(micros() - ext_swing_pulse_fire_us) >= 0) {
     ext_swing_pulse_pending = false;
     seq.hardwareClockPulse();
   }
@@ -95,8 +95,10 @@ void loop() {
 
   // Diagnostics mode: polls all inputs directly and writes to LCD.
   // When active, all normal subsystems are skipped via the early return below.
+#if FEATURE_DIAGNOSTICS
   run_diagnostics();
   if (diag_mode) return;
+#endif
 
   // Consistency guard: nav mode is only valid in advanced mode.
   if (!advanced_mode && adv_pat_nav_active) {
