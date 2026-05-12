@@ -153,20 +153,13 @@ The play button (pin 21) is attached to a SAMD51 EIC external interrupt (FALLING
 - `playbutton.isPressed()` is still called each loop to keep `heldFor()` state current for diagnostics combo detection
 - Do NOT increase debounce beyond ~150 ms or quick tap-to-stop will feel sluggish
 
-## Navigation / Timing Modes
+## Navigation
 
-D-pad left/right cycles through 4 `timing_mode` values controlling what up/down adjusts, in visual left-to-right order matching the LCD layout:
+D-pad up/down on the main screen selects the active pattern (wraps within 1–4 simple / 1–16 advanced). D-pad left is a no-op on the main screen (consumed). Timing modes and tempo editing via d-pad have been removed — tempo is now in the config menu.
 
-| Mode | Up/Down adjusts                             | LCD location      |
-| ---- | ------------------------------------------- | ----------------- |
-| 1    | Pattern (1–4 simple / 1–16 advanced, wraps) | Line 1, column 1  |
-| 2    | Tempo ±10 BPM                               | Line 1, column 9  |
-| 3    | Tempo ±1 BPM                                | Line 1, column 10 |
-| 4    | Tempo ±0.1 BPM                              | Line 1, column 12 |
+**Enter button** (single tap, simple mode only) cycles the active slider mode, skipping any modes whose feature flag is off: NN → VL → GT → CC → PR → NN (only enabled modes appear). In advanced mode the enter button opens the config menu on double-tap; single-tap has no function. The enter LED is not toggled by the enter button.
 
-Default `timing_mode = 2` (±10 BPM). Timing mode 5 (±0.01 BPM) was removed. Swing, clock source, and MIDI channel have moved to the config menu (double-tap Enter).
-
-**Enter button** (single tap, simple mode only) cycles the slider mode: NN → VL → GT → CC → NN via `set_slider_mode()`. In advanced mode the enter button has no slider-mode function (pattern buttons 1/2/3 handle it). The enter LED is no longer toggled by the enter button.
+**`timing_mode` variable has been removed.** `switch_timing_mode_events()` and `set_timing_resolution()` no longer exist. Swing, clock source, MIDI channel, and tempo have all moved to the config menu (double-tap Enter).
 
 **LCD line 1 format** (case 255): `P{pat:02u} >{step:02d} {tempo:05.1f} [?5][mode]` — 16 chars total. No play/stop icon. Pattern is 2 digits `P01`–`P16` (cols 0–2); step counter `>{01–16}` at cols 4–6, or `>--` when stopped/no step fired; tempo is `%05.1f` (zero-padded, 1 decimal) at cols 8–12; cols 14–15 show slider mode indicator: custom char `?5` + mode char (`?4`=NN, `?2`=VL, `G`=GT, `?3`=CC). Example: `P01 >03 120.0 ♪N`. `go_to_pattern()` sets `update_line1 = true` so the pattern number refreshes on every pattern switch.
 
@@ -316,24 +309,47 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 
 **Menu items (in order)**:
 
+Items whose feature flag is disabled are skipped during d-pad scrolling (`config_menu_next()` handles this). Disabled items still exist in the item list — they just become invisible until their feature is re-enabled.
+
 1. **Exit** — Enter, left, or right all exit
 2. **Save** — saves to SD (primary) + EEPROM (backup); blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
-3. **Clear pattern** — confirmation required (line 2: `Entr=ok  Lft=no`)
-4. **Clear all pats** — confirmation required
-5. **Reset sliders** — confirmation required
-6. **Clock: int/ext** — toggles immediately via `setExternalClockMode(!external_clock_mode)`; value shown inline on line 1
-7. **Channel** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing
-8. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing
-9. **Mode: Simple/Advanced** — confirmation required (line 2: `Entr=ok  Lft=no`); Enter toggles Simple↔Advanced; line 1 shows target (`Mode:->Simple ` or `Mode:->Advancd`); Left cancels. Menu cursor always resets to Exit (item 0) on open
-10. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); Enter or Left exits editing; label shows `Octave shift *` when non-zero
-11. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); Enter or Left exits editing; label shows `Note shift   *` when non-zero
-12. **Note range** — two-phase editor: Enter starts editing low value (`Edit Lo: N`), Enter again switches to high value (`Edit Hi: N`), Enter again exits; Left exits either phase; low range 0–(high-1), high range (low+1)–127; defaults 36/52; label shows `Note range   *` when non-default
-13. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; Left exits either phase; changing scale type or root immediately calls `apply_scale_to_all_patterns()` which retroactively quantizes all stored pitches across all 16 patterns to the nearest in-scale note and re-arms all pickup guards; scale pool is also rebuilt on note range changes; label shows `Note scales  *` when scale is non-default (not Chromatic/C). Scales: 0=Chromatic 1=Major 2=NatMinor 3=PentMaj 4=PentMin 5=Dorian 6=Mixolydian 7=HarmMinor 8=Blues. Scale tables and helpers live in `scales.ino`; `SCALE_COUNT` and `extern` declarations for `SCALE_NAMES`/`ROOT_NAMES` are in `config.h` so `config_menu.ino` (compiled before `scales.ino` alphabetically) can see them.
-14. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button to set length to N+1 (step buttons are consumed before `detect_step_button_presses()` runs); step LEDs 0..length-1 light up while editing, restored via `read_step_memory()` on exit; `seq.setSteps(pattern_length)` called on every change; `init_shuffle()` called if direction is Shuf; label shows `Pat length   *` when not 16
-15. **Pat dir** — enter editing sub-state; up/down cycles 0–7 (`PATTERN_DIRECTION_COUNT`); entering Pong resets `ping_pong_step=0`/`ping_pong_going_forward=true`; entering Shuf calls `init_shuffle()`; direction names: `Fwd`/`Rev`/`Pong`/`Rand`/`Shuf`/`E/O`/`In`/`Quad`
-16. **CC number** — enter editing sub-state; up/down cycles through valid CC numbers (1–119, skipping 32 and 96–101) via `next_valid_cc(current, dir)`; Enter or Left exits editing; label shows `CC:{number} {name}` (7-char LCD name for well-known CCs); line 2 shows `CC: {number} {name}` while editing. One CC number per pattern, shared across all 16 steps of that pattern. Safe CC range: 1–119, forbidden: 32 (Bank LSB), 96–101 (RPN/NRPN data), 120–127 (Channel Mode Messages, not in menu range)
-17. **Step prob** — exits the config menu immediately and calls `set_slider_mode(5)`, activating PR mode; no value editor. The label shows `*` if any step in the current pattern has probability < 100.
-18. **Pitch drift** — enter editing sub-state; up/down adjust 0–7 (semitones of random drift applied at note-send time); Enter or Left exits; label shows `Drift: N` on line 2 while editing; label shows `*` when non-zero. Applied per note-on: a random offset in `[-pitch_drift, +pitch_drift]` is added to the post-octave/note-shift pitch, clamped to `[slider_map_low_value, slider_map_high_value]`, then quantized to the active scale.
+3. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
+4. **Clear pattern** — confirmation required (line 2: `Entr=ok  Lft=no`)
+5. **Clear all pats** — confirmation required
+6. **Reset sliders** — confirmation required
+7. **Mode: Simple/Advanced** — confirmation required; Enter toggles Simple↔Advanced; line 1 shows target (`Mode:->Simple ` or `Mode:->Advancd`); Left cancels. Enabling Advanced also force-enables `ft_velocity_mode` and `ft_probability`. Hidden when `ft_advanced_mode` is off
+8. **Clock: int/ext** — toggles immediately via `setExternalClockMode()`; value shown inline on line 1. Hidden when `ft_external_clock` is off
+9. **Channel** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing
+10. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing. Hidden when `ft_swing` is off
+11. **Diagnostics** — confirmation required; toggles hardware test mode on next boot. Hidden when `ft_diagnostics` is off
+12. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
+13. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
+14. **Note range** — two-phase editor: Enter starts editing low value (`Edit Lo: N`), Enter again switches to high value (`Edit Hi: N`), Enter again exits; defaults 36/52; label shows `*` when non-default. Hidden when `ft_scale_quantization` is off
+15. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; changing scale or root calls `apply_scale_to_all_patterns()` which quantizes all stored pitches immediately; label shows `*` when non-Chromatic/C. Scales: Chromatic Major NatMinor PentMaj PentMin Dorian Mixolydian HarmMinor Blues. Hidden when `ft_scale_quantization` is off
+16. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button sets length to N+1; step LEDs show active length while editing; `seq.setSteps()` called on every change; label shows `*` when not 16. Hidden when `ft_variable_pat_length` is off
+17. **Pat dir** — enter editing sub-state; up/down cycles 0–7; names: Fwd/Rev/Pong/Rand/Shuf/E·O/In/Quad. Hidden when `ft_pattern_direction` is off
+18. **CC number** — enter editing sub-state; up/down cycles valid CC numbers (1–119, skipping 32 and 96–101); label shows `CC:{number} {name}`. Hidden when `ft_cc_mode` is off
+19. **Step prob** — exits menu immediately and activates PR slider mode; label shows `*` if any step probability < 100. Hidden when `ft_probability` is off
+20. **Pitch drift** — enter editing sub-state; up/down adjust 0–7 semitones; label shows `*` when non-zero. Hidden when `ft_pitch_drift` is off
+21. **Features** — enters the Features submenu (see below)
+
+**Features submenu**: Scrolled with up/down, Enter toggles on/off, Left exits. Shows all 13 `ft_*` flags by name. Toggling a flag off has side effects via `_apply_feature_disable()`: switching slider mode off while active falls back to NN mode; disabling advanced mode resets nav state. Flags are NOT saved automatically — use Save after making changes.
+
+| Feature name      | Flag                  | What it enables                                      |
+|-------------------|-----------------------|------------------------------------------------------|
+| Advanced mode     | `ft_advanced_mode`    | 16 patterns, pattern-nav/copy/chain, adv button layout |
+| CC mode           | `ft_cc_mode`          | Slider mode 4 (CC), CC number menu item              |
+| Probability       | `ft_probability`      | Slider mode 5 (PR), Step prob menu item              |
+| Gate sliders      | `ft_gate_mode`        | Slider mode 3 (GT) — key-combo gate always works     |
+| Note scales       | `ft_scale_quantization` | Scale quantization, Note range + Note scales items |
+| Pitch drift       | `ft_pitch_drift`      | Pitch drift menu item                                |
+| Pat direction     | `ft_pattern_direction`| Pattern direction menu item                          |
+| Pat length        | `ft_variable_pat_length` | Variable pattern length menu item                 |
+| Swing             | `ft_swing`            | Swing menu item                                      |
+| Ext clock         | `ft_external_clock`   | External clock menu item                             |
+| Oct/note shift    | `ft_octave_note_shift`| Octave shift + Note shift menu items                 |
+| Diagnostics       | `ft_diagnostics`      | Diagnostics menu item + hardware test mode           |
+| Velocity sliders  | `ft_velocity_mode`    | Slider mode 2 (VL)                                   |
 
 **Double-tap detection**: implemented in the main `loop()` with `last_enter_ms` and `enter_tap_pending` statics. The first tap starts a 400 ms window without immediately setting `enterbutton_flag` — this prevents the first press of a double-tap from accidentally triggering a slider mode change. If a second `uniquePress()` arrives within the window, `enter_config_menu()` fires. If the window expires without a second tap, `enterbutton_flag` is set as a normal single-tap. Single-tap actions are therefore delayed by up to 400 ms, which is imperceptible for mode-cycling use.
 
