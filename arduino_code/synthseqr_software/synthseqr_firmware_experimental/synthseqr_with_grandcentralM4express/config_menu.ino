@@ -628,6 +628,9 @@ void run_config_menu() {
             read_step_memory(0, pattern_value);
           } else {
             adv_pat0_press_ms = 0;
+            // Buttons 2 (VL) and 3 (PR) must work in advanced mode.
+            ft_velocity_mode = true;
+            ft_probability   = true;
           }
           // Repaint pattern LEDs for the new mode. Without this, e.g. LED 1
           // stays lit after Advanced→Simple because the Advanced-mode slider-
