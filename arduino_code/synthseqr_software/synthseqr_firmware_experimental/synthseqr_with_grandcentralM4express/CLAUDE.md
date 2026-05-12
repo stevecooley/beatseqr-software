@@ -324,7 +324,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 11. **Diagnostics** — confirmation required; toggles hardware test mode on next boot. Hidden when `ft_diagnostics` is off
 12. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
 13. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
-14. **Note range** — two-phase editor: Enter starts editing low value (`Edit Lo: N`), Enter again switches to high value (`Edit Hi: N`), Enter again exits; defaults 36/52; label shows `*` when non-default. Hidden when `ft_scale_quantization` is off
+14. **Note range** — two-phase editor: Enter starts editing low value (`Edit Lo: N`), Enter again switches to high value (`Edit Hi: N`), Enter again exits; defaults 36/52; label shows `*` when non-default. Always visible (not gated by any feature flag)
 15. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; changing scale or root calls `apply_scale_to_all_patterns()` which quantizes all stored pitches immediately; label shows `*` when non-Chromatic/C. Scales: Chromatic Major NatMinor PentMaj PentMin Dorian Mixolydian HarmMinor Blues. Hidden when `ft_scale_quantization` is off
 16. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button sets length to N+1; step LEDs show active length while editing; `seq.setSteps()` called on every change; label shows `*` when not 16. Hidden when `ft_variable_pat_length` is off
 17. **Pat dir** — enter editing sub-state; up/down cycles 0–7; names: Fwd/Rev/Pong/Rand/Shuf/E·O/In/Quad. Hidden when `ft_pattern_direction` is off
@@ -341,7 +341,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 | CC mode           | `ft_cc_mode`          | Slider mode 4 (CC), CC number menu item              |
 | Probability       | `ft_probability`      | Slider mode 5 (PR), Step prob menu item              |
 | Gate sliders      | `ft_gate_mode`        | Slider mode 3 (GT) — key-combo gate always works     |
-| Note scales       | `ft_scale_quantization` | Scale quantization, Note range + Note scales items |
+| Note scales       | `ft_scale_quantization` | Scale quantization, Note scales menu item (Note range is always visible) |
 | Pitch drift       | `ft_pitch_drift`      | Pitch drift menu item                                |
 | Pat direction     | `ft_pattern_direction`| Pattern direction menu item                          |
 | Pat length        | `ft_variable_pat_length` | Variable pattern length menu item                 |

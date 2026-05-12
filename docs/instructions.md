@@ -102,7 +102,7 @@ Only items whose feature is active appear in the list. Disabled features hide th
 | Diagnostics | Toggle hardware test mode on next boot |
 | Octave shift | Shift all notes ±5 octaves at send time |
 | Note shift | Shift all notes ±12 semitones at send time |
-| Note range | Set low and high MIDI note limits for the sliders (defaults: 36–52) |
+| Note range | Set low and high MIDI note limits for the sliders (defaults: 36–52, always accessible) |
 | Note scales | Set scale type and root note; all stored pitches are quantized immediately |
 | Pat length | Set pattern length 1–16 steps |
 | Pat dir | Set playback direction: Fwd / Rev / Pong / Rand / Shuf / E·O / In / Quad |
@@ -125,7 +125,7 @@ Turning a feature off hides its menu items and disables the associated slider mo
 | CC mode | Slider mode CC, CC number menu item |
 | Probability | Slider mode PR, Step prob menu item |
 | Gate sliders | Slider mode GT (the hold+tap key-combo for gates always works regardless) |
-| Note scales | Scale quantization, Note range and Note scales menu items |
+| Note scales | Scale quantization, Note scales menu item (Note range is always accessible) |
 | Pitch drift | Pitch drift menu item |
 | Pat direction | Pattern direction menu item |
 | Pat length | Variable pattern length menu item |

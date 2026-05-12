@@ -232,7 +232,6 @@ static uint8_t config_menu_next(uint8_t from, int dir) {
       case CONFIG_ITEM_DIAGNOSTICS:  if (!ft_diagnostics)         enabled = false; break;
       case CONFIG_ITEM_OCTAVE_SHIFT: if (!ft_octave_note_shift)   enabled = false; break;
       case CONFIG_ITEM_NOTE_SHIFT:   if (!ft_octave_note_shift)   enabled = false; break;
-      case CONFIG_ITEM_NOTE_RANGE:   if (!ft_scale_quantization)  enabled = false; break;
       case CONFIG_ITEM_NOTE_SCALES:  if (!ft_scale_quantization)  enabled = false; break;
       case CONFIG_ITEM_PAT_LENGTH:   if (!ft_variable_pat_length) enabled = false; break;
       case CONFIG_ITEM_PAT_DIR:      if (!ft_pattern_direction)   enabled = false; break;
