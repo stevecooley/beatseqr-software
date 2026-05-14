@@ -93,7 +93,7 @@ unsigned long adv_blink_last_ms       // last blink toggle timestamp in nav mode
 bool adv_blink_state                  // current blink state for the playing pattern's LED in nav mode
 int8_t octave_shift                   // semitone offset applied at MIDI send time; range -5 to +5 octaves
 int8_t note_shift                     // additional semitone offset applied at MIDI send time; range -12 to +12
-uint8_t scale_type                    // 0=Chromatic 1=Major 2=NatMinor 3=PentMaj 4=PentMin 5=Dorian 6=Mixolydian 7=HarmMinor 8=Blues; default 0
+uint8_t scale_type                    // 0=Chromatic 1=Blues 2=Dorian 3=HarmMinor 4=Major 5=Mixolydian 6=NatMinor 7=PentMaj 8=PentMin 9=Phrygian; default 0
 uint8_t scale_root                    // 0=C … 11=B; default 0 (C)
 uint8_t scale_note_pool[128]          // in-scale MIDI notes within the note range; rebuilt by build_scale_notes()
 uint8_t scale_note_count              // number of valid entries in scale_note_pool[]
@@ -307,31 +307,31 @@ Entered by **double-tapping Enter** (two presses within 400 ms). The menu is mod
 
 **Navigation**: d-pad up/down scrolls. Line 1 shows `> {current item}`, line 2 shows the next item (no cursor). D-pad left exits from anywhere (also cancels a pending confirmation). Enter selects.
 
-**Menu items (in order)**:
+**Menu items (alphabetical order)**:
 
 Items whose feature flag is disabled are skipped during d-pad scrolling (`config_menu_next()` handles this). Disabled items still exist in the item list — they just become invisible until their feature is re-enabled.
 
-1. **Exit** — Enter, left, or right all exit
-2. **Save** — saves to SD (primary) + EEPROM (backup); blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
-3. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
-4. **Clear pattern** — confirmation required (line 2: `Entr=ok  Lft=no`)
-5. **Clear all pats** — confirmation required
-6. **Reset sliders** — confirmation required
-7. **Mode: Simple/Advanced** — confirmation required; Enter toggles Simple↔Advanced; line 1 shows target (`Mode:->Simple ` or `Mode:->Advancd`); Left cancels. Enabling Advanced also force-enables `ft_velocity_mode` and `ft_probability`. Hidden when `ft_advanced_mode` is off
-8. **Clock: int/ext** — toggles immediately via `setExternalClockMode()`; value shown inline on line 1. Hidden when `ft_external_clock` is off
-9. **Channel** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing
-10. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing. Hidden when `ft_swing` is off
-11. **Diagnostics** — confirmation required; toggles hardware test mode on next boot. Hidden when `ft_diagnostics` is off
+1. **CC number** — enter editing sub-state; up/down cycles valid CC numbers (1–119, skipping 32 and 96–101); label shows `CC:{number} {name}`. Hidden when `ft_cc_mode` is off
+2. **Channel** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing
+3. **Clear/Reset** — enters the Reset/Clear submenu (see below)
+4. **Clock: int/ext** — toggles immediately via `setExternalClockMode()`; value shown inline on line 1. Hidden when `ft_external_clock` is off
+5. **Diagnostics** — confirmation required; toggles hardware test mode on next boot. Hidden when `ft_diagnostics` is off
+6. **Exit** — Enter, left, or right all exit
+7. **Features** — enters the Features submenu (see below)
+8. **Mode: Simple/Advanced** — confirmation required; Enter toggles Simple↔Advanced; line 1 shows target (`Mode:->Simple ` or `Mode:->Advancd`); Left cancels. Enabling Advanced also force-enables `ft_velocity_mode` and `ft_probability`. Hidden when `ft_advanced_mode` is off
+9. **Note range** — two-phase editor: Enter starts editing low value (`Edit Lo: N`), Enter again switches to high value (`Edit Hi: N`), Enter again exits; defaults 36/52; label shows `*` when non-default. Always visible (not gated by any feature flag)
+10. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; changing scale or root calls `apply_scale_to_all_patterns()` which quantizes all stored pitches immediately; label shows `*` when non-Chromatic/C. Scales: Chromatic Blues Dorian HarmMinor Major Mixolydian NatMinor PentMaj PentMin Phrygian. Hidden when `ft_scale_quantization` is off
+11. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
 12. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
-13. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
-14. **Note range** — two-phase editor: Enter starts editing low value (`Edit Lo: N`), Enter again switches to high value (`Edit Hi: N`), Enter again exits; defaults 36/52; label shows `*` when non-default. Always visible (not gated by any feature flag)
-15. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; changing scale or root calls `apply_scale_to_all_patterns()` which quantizes all stored pitches immediately; label shows `*` when non-Chromatic/C. Scales: Chromatic Major NatMinor PentMaj PentMin Dorian Mixolydian HarmMinor Blues. Hidden when `ft_scale_quantization` is off
-16. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button sets length to N+1; step LEDs show active length while editing; `seq.setSteps()` called on every change; label shows `*` when not 16. Hidden when `ft_variable_pat_length` is off
-17. **Pat dir** — enter editing sub-state; up/down cycles 0–7; names: Fwd/Rev/Pong/Rand/Shuf/E·O/In/Quad. Hidden when `ft_pattern_direction` is off
-18. **CC number** — enter editing sub-state; up/down cycles valid CC numbers (1–119, skipping 32 and 96–101); label shows `CC:{number} {name}`. Hidden when `ft_cc_mode` is off
-19. **Step prob** — exits menu immediately and activates PR slider mode; label shows `*` if any step probability < 100. Hidden when `ft_probability` is off
-20. **Pitch drift** — enter editing sub-state; up/down adjust 0–7 semitones; label shows `*` when non-zero. Hidden when `ft_pitch_drift` is off
-21. **Features** — enters the Features submenu (see below)
+13. **Pat dir** — enter editing sub-state; up/down cycles 0–7; names: Fwd/Rev/Pong/Rand/Shuf/E·O/In/Quad. Hidden when `ft_pattern_direction` is off
+14. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button sets length to N+1; step LEDs show active length while editing; `seq.setSteps()` called on every change; label shows `*` when not 16. Hidden when `ft_variable_pat_length` is off
+15. **Pitch drift** — enter editing sub-state; up/down adjust 0–7 semitones; label shows `*` when non-zero. Hidden when `ft_pitch_drift` is off
+16. **Save** — saves to SD (primary) + EEPROM (backup); blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
+17. **Step prob** — exits menu immediately and activates PR slider mode; label shows `*` if any step probability < 100. Hidden when `ft_probability` is off
+18. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing. Hidden when `ft_swing` is off
+19. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
+
+**Reset/Clear submenu**: Scrolled with up/down, Enter shows confirmation (`Entr=ok  Lft=no`), Enter again executes, Left cancels confirmation or exits submenu back to main menu. Items: Clear all pats, Clear pattern, Reset sliders.
 
 **Features submenu**: Scrolled with up/down, Enter toggles on/off, Left exits. Shows all 13 `ft_*` flags by name. Toggling a flag off has side effects via `_apply_feature_disable()`: switching slider mode off while active falls back to NN mode; disabling advanced mode resets nav state. Flags are NOT saved automatically — use Save after making changes.
 

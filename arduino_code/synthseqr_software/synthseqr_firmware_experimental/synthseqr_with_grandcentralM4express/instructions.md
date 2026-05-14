@@ -351,7 +351,7 @@ Open the **Config Menu** (double-tap Enter), scroll to **Note scales**, and pres
 
 The editor has two phases:
 
-1. **Scale type** — line 2 shows `Sc: Major` (or whichever scale is active). D-pad up/down cycles through the 9 available scales. Press Enter to move to the root note editor.
+1. **Scale type** — line 2 shows `Sc: Major` (or whichever scale is active). D-pad up/down cycles through the 10 available scales. Press Enter to move to the root note editor.
 2. **Root note** — line 2 shows `Root: C#` (or current root). D-pad up/down cycles C → C# → D → D# → E → F → F# → G → G# → A → A# → B. Press Enter to confirm and exit.
 
 D-pad left exits either phase immediately.
@@ -362,17 +362,18 @@ The label shows `Note scales  *` in the menu when the scale is not Chromatic/C.
 
 ### Available Scales
 
-| Name           | Notes (intervals from root)                             |
-| -------------- | ------------------------------------------------------- |
-| **Chromatic**  | All 12 semitones — no constraint (default behavior)     |
-| **Major**      | W-W-H-W-W-W-H (e.g. C D E F G A B)                      |
-| **NatMinor**   | W-H-W-W-H-W-W (e.g. A B C D E F G)                      |
-| **PentMaj**    | Major pentatonic — 5 notes (e.g. C D E G A)             |
-| **PentMin**    | Minor pentatonic — 5 notes (e.g. A C D E G)             |
-| **Dorian**     | Like natural minor with raised 6th (e.g. D E F G A B C) |
-| **Mixolydian** | Like major with lowered 7th (e.g. G A B C D E F)        |
-| **HarmMinor**  | Natural minor with raised 7th (e.g. A B C D E F G#)     |
-| **Blues**      | Minor pentatonic + blue note (e.g. A C D D# E G)        |
+| Name           | Notes (intervals from root)                                      |
+| -------------- | ---------------------------------------------------------------- |
+| **Chromatic**  | All 12 semitones — no constraint (default behavior)              |
+| **Blues**      | Minor pentatonic + blue note (e.g. A C D D# E G)                |
+| **Dorian**     | Like natural minor with raised 6th (e.g. D E F G A B C)         |
+| **HarmMinor**  | Natural minor with raised 7th (e.g. A B C D E F G#)             |
+| **Major**      | W-W-H-W-W-W-H (e.g. C D E F G A B)                              |
+| **Mixolydian** | Like major with lowered 7th (e.g. G A B C D E F)                |
+| **NatMinor**   | W-H-W-W-H-W-W (e.g. A B C D E F G)                              |
+| **PentMaj**    | Major pentatonic — 5 notes (e.g. C D E G A)                     |
+| **PentMin**    | Minor pentatonic — 5 notes (e.g. A C D E G)                     |
+| **Phrygian**   | H-W-W-W-H-W-W — dark, Spanish flavor (e.g. E F G A B C D)      |
 
 ### How It Works With Sliders
 
@@ -443,24 +444,25 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 
 | Item                  | Action                                                                                                                                                                                                                    |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Exit                  | Leave the config menu                                                                                                                                                                                                     |
-| Save                  | Save to SD card (primary) + EEPROM (backup); sequencer must be stopped                                                                                                                                                    |
-| Clear pattern         | Clear current pattern (confirmation required)                                                                                                                                                                             |
-| Clear all pats        | Clear all 16 patterns (confirmation required)                                                                                                                                                                             |
-| Reset sliders         | Reset all pitches, velocities, and gates to defaults (confirmation required)                                                                                                                                              |
-| Clock: int/ext        | Toggle internal clock / external USB-MIDI clock                                                                                                                                                                           |
+| CC number             | CC controller number for the current pattern (1–119, skipping reserved CCs); up/down cycles; Enter or Left exits; line 2 shows name of selected CC                                                                        |
 | Channel               | MIDI output channel 1–16; up/down to change, Enter or Left to exit                                                                                                                                                        |
-| Swing                 | Swing amount 0–5; up/down to change, Enter or Left to exit                                                                                                                                                                |
-| Mode: Simple/Advanced | Toggle between Simple and Advanced mode                                                                                                                                                                                   |
-| Octave shift          | Adjust octave offset ±5; up/down to change, Enter or Left to exit; label shows * when non-zero                                                                                                                            |
-| Note shift            | Adjust semitone offset ±12; up/down to change, Enter or Left to exit; label shows * when non-zero                                                                                                                         |
+| Clear/Reset           | Opens the Reset/Clear submenu — Clear all pats, Clear pattern, Reset sliders (all require confirmation)                                                                                                                   |
+| Clock: int/ext        | Toggle internal clock / external USB-MIDI clock                                                                                                                                                                           |
+| Diagnostics           | Enter hardware diagnostics mode (confirmation required)                                                                                                                                                                   |
+| Exit                  | Leave the config menu                                                                                                                                                                                                     |
+| Features              | Enter the Features submenu to toggle individual feature flags on/off                                                                                                                                                      |
+| Mode: Simple/Advanced | Toggle between Simple and Advanced mode (confirmation required)                                                                                                                                                           |
 | Note range            | Two-phase editor: Enter to edit low note, Enter again to edit high note, Enter to exit; Left exits either phase; label shows * when non-default (36/52)                                                                   |
 | Note scales           | Two-phase editor: Enter to choose scale type, Enter again to choose root note, Enter to exit; changing either value immediately quantizes all stored pitches to the nearest in-scale note; label shows * when non-default |
-| Pat length            | Step count 1–16; up/down or tap a step button; step LEDs show current length; label shows * when not 16                                                                                                                   |
+| Note shift            | Adjust semitone offset ±12; up/down to change, Enter or Left to exit; label shows * when non-zero                                                                                                                         |
+| Octave shift          | Adjust octave offset ±5; up/down to change, Enter or Left to exit; label shows * when non-zero                                                                                                                            |
 | Pat dir               | Playback direction; up/down cycles Fwd/Rev/Pong/Rand/Shuf/E/O/In/Quad                                                                                                                                                     |
-| CC number             | CC controller number for the current pattern (1–119, skipping reserved CCs); up/down cycles; Enter or Left exits; line 2 shows name of selected CC                                                                        |
-| Step prob             | Exits the menu immediately and activates PR slider mode — sliders set per-step fire probability 0–100%; label shows * when any step is below 100%                                                                         |
+| Pat length            | Step count 1–16; up/down or tap a step button; step LEDs show current length; label shows * when not 16                                                                                                                   |
 | Pitch drift           | Semitones of random pitch wander applied at note-send time (0=off, 1–7); up/down to adjust; Enter or Left exits; label shows * when non-zero                                                                              |
+| Save                  | Save to SD card (primary) + EEPROM (backup); sequencer must be stopped                                                                                                                                                    |
+| Step prob             | Exits the menu immediately and activates PR slider mode — sliders set per-step fire probability 0–100%; label shows * when any step is below 100%                                                                         |
+| Swing                 | Swing amount 0–5; up/down to change, Enter or Left to exit                                                                                                                                                                |
+| Tempo                 | BPM editor (hidden when external clock is on); Enter starts editing; Enter again cycles resolution ±10/±1/±0.1 BPM; up/down adjusts; Left exits                                                                          |
 
 **Confirmation prompt**: for destructive actions, line 2 shows `Entr=ok  Lft=no`. Press Enter to confirm or D-pad left to cancel.
 

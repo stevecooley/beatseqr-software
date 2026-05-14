@@ -2,8 +2,8 @@
 //
 // Musical scale support for synthseqr.
 //
-// scale_type: 0=Chromatic 1=Major 2=NatMinor 3=PentMaj 4=PentMin
-//             5=Dorian 6=Mixolydian 7=HarmMinor 8=Blues
+// scale_type: 0=Chromatic 1=Blues 2=Dorian 3=HarmMinor 4=Major
+//             5=Mixolydian 6=NatMinor 7=PentMaj 8=PentMin 9=Phrygian
 // scale_root: 0=C 1=C# 2=D 3=D# 4=E 5=F 6=F# 7=G 8=G# 9=A 10=A# 11=B
 //
 // build_scale_notes()          — fills scale_note_pool[] from current settings
@@ -15,27 +15,29 @@
 // Intervals from root (semitones within one octave). 0xFF = end-of-list.
 static const uint8_t SCALE_INTERVALS[SCALE_COUNT][13] = {
   {0,1,2,3,4,5,6,7,8,9,10,11,0xFF},  // 0 Chromatic
-  {0,2,4,5,7,9,11,0xFF,0,0,0,0,0},   // 1 Major
-  {0,2,3,5,7,8,10,0xFF,0,0,0,0,0},   // 2 Natural Minor
-  {0,2,4,7,9,0xFF,0,0,0,0,0,0,0},    // 3 Pentatonic Major
-  {0,3,5,7,10,0xFF,0,0,0,0,0,0,0},   // 4 Pentatonic Minor
-  {0,2,3,5,7,9,10,0xFF,0,0,0,0,0},   // 5 Dorian
-  {0,2,4,5,7,9,10,0xFF,0,0,0,0,0},   // 6 Mixolydian
-  {0,2,3,5,7,8,11,0xFF,0,0,0,0,0},   // 7 Harmonic Minor
-  {0,3,5,6,7,10,0xFF,0,0,0,0,0,0}    // 8 Blues
+  {0,3,5,6,7,10,0xFF,0,0,0,0,0,0},   // 1 Blues
+  {0,2,3,5,7,9,10,0xFF,0,0,0,0,0},   // 2 Dorian
+  {0,2,3,5,7,8,11,0xFF,0,0,0,0,0},   // 3 Harmonic Minor
+  {0,2,4,5,7,9,11,0xFF,0,0,0,0,0},   // 4 Major
+  {0,2,4,5,7,9,10,0xFF,0,0,0,0,0},   // 5 Mixolydian
+  {0,2,3,5,7,8,10,0xFF,0,0,0,0,0},   // 6 Natural Minor
+  {0,2,4,7,9,0xFF,0,0,0,0,0,0,0},    // 7 Pentatonic Major
+  {0,3,5,7,10,0xFF,0,0,0,0,0,0,0},   // 8 Pentatonic Minor
+  {0,1,3,5,7,8,10,0xFF,0,0,0,0,0}    // 9 Phrygian
 };
 
 // LCD display names — max 10 chars to fit "  Sc: %-10s" (16 chars total on line 2)
 const char* SCALE_NAMES[SCALE_COUNT] = {
   "Chromatic",
+  "Blues",
+  "Dorian",
+  "HarmMinor",
   "Major",
+  "Mixolydian",
   "NatMinor",
   "PentMaj",
   "PentMin",
-  "Dorian",
-  "Mixolydian",
-  "HarmMinor",
-  "Blues"
+  "Phrygian"
 };
 
 // Root note names — max 2 chars each

@@ -475,9 +475,9 @@ int8_t note_shift = 0;
 // note scales
 /////////////////////////////////
 
-// 0=Chromatic 1=Major 2=NatMinor 3=PentMaj 4=PentMin
-// 5=Dorian 6=Mixolydian 7=HarmMinor 8=Blues
-#define SCALE_COUNT 9
+// 0=Chromatic 1=Blues 2=Dorian 3=HarmMinor 4=Major
+// 5=Mixolydian 6=NatMinor 7=PentMaj 8=PentMin 9=Phrygian
+#define SCALE_COUNT 10
 #define SD_DIAG_FIELD_COUNT 16
 uint8_t scale_type = 0;
 
@@ -542,9 +542,14 @@ bool ft_variable_pat_length = true;
 bool ft_swing               = true;
 bool ft_external_clock      = true;
 bool ft_octave_note_shift   = true;
-bool ft_diagnostics         = true;
+bool ft_diagnostics         = false;
 bool ft_velocity_mode       = true;
 
 // Features submenu state.
 bool    config_features_active = false;
 uint8_t config_feature_item    = 0;
+
+// Reset/Clear submenu state.
+bool    config_reset_active  = false;
+uint8_t config_reset_item    = 0;
+bool    config_reset_confirm = false;

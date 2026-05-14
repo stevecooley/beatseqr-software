@@ -29,7 +29,7 @@
 //  527     1      pattern_length (uint8_t, 1–16)
 //  528     1      pattern_direction (uint8_t, 0–7)
 //  529     1      scale_root (uint8_t, 0–11)
-//  530     1      scale_type (uint8_t, 0–8)
+//  530     1      scale_type (uint8_t, 0–9)
 //  531     16     cc_number[16]
 //  547     256    cc_step_enabled[16][16]
 //  803     256    cc_step_values[16][16]
@@ -61,7 +61,7 @@
 #define EEPROM_STEP_PROB_ADDR        1060   // 256 bytes: step_probability[16][16]
 #define EEPROM_FEATURE_FLAGS_ADDR    1316   // 13 bytes: runtime feature flags (ft_*)
 
-#define EEPROM_MAGIC_VALUE  0xCB  // bumped: ft_velocity_mode added
+#define EEPROM_MAGIC_VALUE  0xCC  // bumped: scale reorder + Phrygian added
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);

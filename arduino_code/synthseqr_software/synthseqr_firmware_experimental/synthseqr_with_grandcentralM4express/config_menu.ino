@@ -82,60 +82,80 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 //   Enter           — select item; on "Exit" exits; on destructive items shows
 //                     confirmation on line 2; on Mode item toggles immediately
 //
-// Menu items (in order):
-//   0  Exit
-//   1  Clear pattern   (confirmation required)
-//   2  Clear all pats  (confirmation required)
-//   3  Reset sliders   (confirmation required)
-//   4  Mode            (toggles Simple / Advanced immediately)
+// Menu items (alphabetical order):
+//   0  CC num
+//   1  Channel
+//   2  Clear/Reset     (opens Reset/Clear submenu)
+//   3  Clock
+//   4  Diagnostics
+//   5  Exit
+//   6  Features
+//   7  Mode            (toggles Simple / Advanced; confirmation required)
+//   8  Note range
+//   9  Note scales
+//  10  Note shift
+//  11  Octave shift
+//  12  Pat dir
+//  13  Pat length
+//  14  Pitch drift
+//  15  Save
+//  16  Step prob
+//  17  Swing
+//  18  Tempo
 
-#define CONFIG_ITEM_EXIT          0
-#define CONFIG_ITEM_SAVE          1
-#define CONFIG_ITEM_TEMPO         2
-#define CONFIG_ITEM_CLEAR_PAT     3
-#define CONFIG_ITEM_CLEAR_ALL     4
-#define CONFIG_ITEM_RESET_SLIDERS 5
-#define CONFIG_ITEM_MODE          6
-#define CONFIG_ITEM_CLOCK         7
-#define CONFIG_ITEM_CHANNEL       8
-#define CONFIG_ITEM_SWING         9
-#define CONFIG_ITEM_DIAGNOSTICS   10
+// Reset/Clear submenu items (alphabetical):
+//   0  Clear all pats  (confirmation required)
+//   1  Clear pattern   (confirmation required)
+//   2  Reset sliders   (confirmation required)
+
+#define CONFIG_ITEM_CC_NUMBER     0
+#define CONFIG_ITEM_CHANNEL       1
+#define CONFIG_ITEM_CLEAR_RESET   2
+#define CONFIG_ITEM_CLOCK         3
+#define CONFIG_ITEM_DIAGNOSTICS   4
+#define CONFIG_ITEM_EXIT          5
+#define CONFIG_ITEM_FEATURES      6
+#define CONFIG_ITEM_MODE          7
+#define CONFIG_ITEM_NOTE_RANGE    8
+#define CONFIG_ITEM_NOTE_SCALES   9
+#define CONFIG_ITEM_NOTE_SHIFT    10
 #define CONFIG_ITEM_OCTAVE_SHIFT  11
-#define CONFIG_ITEM_NOTE_SHIFT    12
-#define CONFIG_ITEM_NOTE_RANGE    13
-#define CONFIG_ITEM_NOTE_SCALES   14
-#define CONFIG_ITEM_PAT_LENGTH    15
-#define CONFIG_ITEM_PAT_DIR       16
-#define CONFIG_ITEM_CC_NUMBER     17
-#define CONFIG_ITEM_STEP_PROB     18
-#define CONFIG_ITEM_PITCH_DRIFT   19
-#define CONFIG_ITEM_FEATURES      20
-#define CONFIG_MENU_ITEM_COUNT    21
+#define CONFIG_ITEM_PAT_DIR       12
+#define CONFIG_ITEM_PAT_LENGTH    13
+#define CONFIG_ITEM_PITCH_DRIFT   14
+#define CONFIG_ITEM_SAVE          15
+#define CONFIG_ITEM_STEP_PROB     16
+#define CONFIG_ITEM_SWING         17
+#define CONFIG_ITEM_TEMPO         18
+#define CONFIG_MENU_ITEM_COUNT    19
+
+#define RESET_ITEM_CLEAR_ALL  0
+#define RESET_ITEM_CLEAR_PAT  1
+#define RESET_ITEM_SLIDERS    2
+#define RESET_ITEM_COUNT      3
 
 // line1_label: 14 chars printed after "> " on line 1.
 // Items with inline values are rendered dynamically in print_config_label().
 static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
-  "Exit          ",   // 14 chars
-  "Save          ",
-  "Tempo         ",   // value overwritten at draw time; disabled when ext clock
-  "Clear pattern ",
-  "Clear all pats",
-  "Reset sliders ",
-  "Mode:         ",   // value overwritten at draw time
-  "Clock:        ",   // value overwritten at draw time
-  "Channel:      ",   // value overwritten at draw time
-  "Swing:        ",   // value overwritten at draw time
-  "Diagnostics   ",
-  "Octave shift  ",
-  "Note shift    ",
-  "Note range    ",
-  "Note scales   ",   // placeholder
-  "Pat length    ",
-  "Pat dir:      ",   // value overwritten at draw time
-  "CC num:       ",   // value overwritten at draw time
-  "Step prob     ",   // * appended if any step < 100 in current pattern
-  "Pitch drift   ",   // * appended if non-zero
-  "Features      "
+  "CC num:       ",   //  0 CC_NUMBER     — value overwritten at draw time
+  "Channel:      ",   //  1 CHANNEL       — value overwritten at draw time
+  "Clear/Reset   ",   //  2 CLEAR_RESET   — opens Reset/Clear submenu
+  "Clock:        ",   //  3 CLOCK         — value overwritten at draw time
+  "Diagnostics   ",   //  4 DIAGNOSTICS
+  "Exit          ",   //  5 EXIT
+  "Features      ",   //  6 FEATURES
+  "Mode:         ",   //  7 MODE          — value overwritten at draw time
+  "Note range    ",   //  8 NOTE_RANGE
+  "Note scales   ",   //  9 NOTE_SCALES   — * appended when non-default
+  "Note shift    ",   // 10 NOTE_SHIFT    — * appended when non-zero
+  "Octave shift  ",   // 11 OCTAVE_SHIFT  — * appended when non-zero
+  "Pat dir:      ",   // 12 PAT_DIR       — value overwritten at draw time
+  "Pat length    ",   // 13 PAT_LENGTH    — * appended when not 16
+  "Pitch drift   ",   // 14 PITCH_DRIFT   — * appended when non-zero
+  "Save          ",   // 15 SAVE
+  "Step prob     ",   // 16 STEP_PROB     — * appended if any step < 100
+  "Swing:        ",   // 17 SWING         — value overwritten at draw time
+  "Tempo         "    // 18 TEMPO         — value overwritten at draw time; hidden when ext clock
 };
 
 // Tempo resolution index while editing: 0=±10, 1=±1, 2=±0.1.
@@ -378,6 +398,9 @@ void exit_config_menu() {
   config_scale_phase = 0;
   config_tempo_res = 0;
   config_features_active = false;
+  config_reset_active    = false;
+  config_reset_item      = 0;
+  config_reset_confirm   = false;
   // Drop any pattern-button state that may have been accumulated while the
   // menu was open. Without this, a stray uniquePress() during menu navigation
   // can fire nav-mode toggle right after exit — visually indistinguishable
@@ -405,9 +428,13 @@ void exit_config_menu() {
 void run_config_menu() {
   if (!config_menu_active) return;
 
-  // Features submenu is modal within the config menu.
+  // Submenus are modal within the config menu.
   if (config_features_active) {
     run_features_submenu();
+    return;
+  }
+  if (config_reset_active) {
+    run_reset_submenu();
     return;
   }
 
@@ -601,22 +628,6 @@ void run_config_menu() {
     if (enterbutton_flag) {
       enterbutton_flag = false;
       switch (config_menu_item) {
-        case CONFIG_ITEM_CLEAR_PAT:
-          clear_pattern_memory_for_voice(0);
-          break;
-        case CONFIG_ITEM_CLEAR_ALL:
-          clear_pattern_memory();
-          break;
-        case CONFIG_ITEM_RESET_SLIDERS:
-          resetSliders();
-          // resetSliders() sets lcdflag=93 for a standalone "notenum reset"
-          // message, but inside the config menu case 255 suppresses LCD updates
-          // when config_menu_active is true, leaving the screen permanently stuck
-          // on "notenum reset". Reset the flags so draw_config_menu() below
-          // redraws the menu cleanly.
-          lcdflag = 255;
-          next_lcdflag = 255;
-          break;
         case CONFIG_ITEM_MODE:
           advanced_mode = !advanced_mode;
           if (!advanced_mode) {
@@ -691,11 +702,11 @@ void run_config_menu() {
         config_tempo_res = 0;
         draw_config_menu();
         break;
-      case CONFIG_ITEM_CLEAR_PAT:
-      case CONFIG_ITEM_CLEAR_ALL:
-      case CONFIG_ITEM_RESET_SLIDERS:
-        config_confirm_pending = true;
-        draw_config_menu();
+      case CONFIG_ITEM_CLEAR_RESET:
+        config_reset_active  = true;
+        config_reset_item    = 0;
+        config_reset_confirm = false;
+        draw_reset_submenu();
         break;
       case CONFIG_ITEM_MODE:
         config_confirm_pending = true;
@@ -765,6 +776,87 @@ void run_config_menu() {
         draw_features_submenu();
         break;
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reset/Clear submenu
+// ---------------------------------------------------------------------------
+
+static const char* _reset_names[RESET_ITEM_COUNT] = {
+  "Clear all pats  ",
+  "Clear pattern   ",
+  "Reset sliders   "
+};
+
+void draw_reset_submenu() {
+  lcd.print("?x00?y0");
+  lcd.print(_reset_names[config_reset_item]);
+  lcd.print("?x00?y1");
+  if (config_reset_confirm) {
+    lcd.print("Entr=ok  Lft=no ");
+  } else {
+    uint8_t next = (config_reset_item + 1) % RESET_ITEM_COUNT;
+    lcd.print("  ");
+    lcd.print(_reset_names[next]);
+  }
+}
+
+void run_reset_submenu() {
+  if (!config_reset_active) return;
+
+  if (dpad_left_flag) {
+    dpad_left_flag = false;
+    if (config_reset_confirm) {
+      config_reset_confirm = false;
+      draw_reset_submenu();
+    } else {
+      config_reset_active = false;
+      draw_config_menu();
+    }
+    return;
+  }
+
+  if (config_reset_confirm) {
+    dpad_up_flag   = false;
+    dpad_down_flag = false;
+    if (enterbutton_flag) {
+      enterbutton_flag = false;
+      switch (config_reset_item) {
+        case RESET_ITEM_CLEAR_ALL:
+          clear_pattern_memory();
+          break;
+        case RESET_ITEM_CLEAR_PAT:
+          clear_pattern_memory_for_voice(0);
+          break;
+        case RESET_ITEM_SLIDERS:
+          resetSliders();
+          lcdflag = 255;
+          next_lcdflag = 255;
+          break;
+      }
+      config_reset_confirm = false;
+      draw_reset_submenu();
+    }
+    return;
+  }
+
+  if (dpad_up_flag) {
+    dpad_up_flag = false;
+    config_reset_item = (uint8_t)((config_reset_item + RESET_ITEM_COUNT - 1) % RESET_ITEM_COUNT);
+    draw_reset_submenu();
+  }
+
+  if (dpad_down_flag) {
+    dpad_down_flag = false;
+    config_reset_item = (uint8_t)((config_reset_item + 1) % RESET_ITEM_COUNT);
+    draw_reset_submenu();
+  }
+
+  if (enterbutton_flag) {
+    enterbutton_flag = false;
+    config_reset_confirm = true;
+    draw_reset_submenu();
   }
 }
 

@@ -655,11 +655,12 @@ void sd_diag_load_fields(char (*l1)[17], char (*l2)[17]) {
   {
     const char* sn;
     switch (v) {
-      case 0: sn="0 Chromatic";  break; case 1: sn="1 Major";    break;
-      case 2: sn="2 NatMinor";   break; case 3: sn="3 PentMaj";  break;
-      case 4: sn="4 PentMin";    break; case 5: sn="5 Dorian";   break;
-      case 6: sn="6 Mixolydian"; break; case 7: sn="7 HarmMinor";break;
-      case 8: sn="8 Blues";      break; default: sn="? not found"; break;
+      case 0: sn="0 Chromatic";  break; case 1: sn="1 Blues";     break;
+      case 2: sn="2 Dorian";    break; case 3: sn="3 HarmMinor"; break;
+      case 4: sn="4 Major";     break; case 5: sn="5 Mixolydian";break;
+      case 6: sn="6 NatMinor";  break; case 7: sn="7 PentMaj";   break;
+      case 8: sn="8 PentMin";   break; case 9: sn="9 Phrygian";  break;
+      default: sn="? not found"; break;
     }
     _diag_pad(l2[11], sn);
   }
