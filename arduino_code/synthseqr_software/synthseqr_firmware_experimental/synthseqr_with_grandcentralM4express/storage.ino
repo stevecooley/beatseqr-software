@@ -35,6 +35,8 @@
 //  803     256    cc_step_values[16][16]
 //  1059    1      pitch_drift
 //  1060    256    step_probability[16][16]
+//  1316    13     runtime feature flags (ft_*)
+//  1329    1      slider_hi_trim
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -60,8 +62,9 @@
 #define EEPROM_PITCH_DRIFT_ADDR      1059   // 1 byte: pitch_drift
 #define EEPROM_STEP_PROB_ADDR        1060   // 256 bytes: step_probability[16][16]
 #define EEPROM_FEATURE_FLAGS_ADDR    1316   // 13 bytes: runtime feature flags (ft_*)
+#define EEPROM_HI_TRIM_ADDR          1329   // 1 byte: slider_hi_trim (0–4)
 
-#define EEPROM_MAGIC_VALUE  0xCC  // bumped: scale reorder + Phrygian added
+#define EEPROM_MAGIC_VALUE  0xCD  // bumped: slider_hi_trim added
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -134,6 +137,8 @@ void save_to_eeprom() {
     EEPROM.write(fa++, (uint8_t)ft_diagnostics);
     EEPROM.write(fa++, (uint8_t)ft_velocity_mode);
   }
+
+  EEPROM.write(EEPROM_HI_TRIM_ADDR, slider_hi_trim);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -273,6 +278,11 @@ bool load_from_eeprom() {
     v = EEPROM.read(fa++); if (v <= 1) ft_octave_note_shift   = (bool)v;
     v = EEPROM.read(fa++); if (v <= 1) ft_diagnostics         = (bool)v;
     v = EEPROM.read(fa++); if (v <= 1) ft_velocity_mode       = (bool)v;
+  }
+
+  {
+    uint8_t v = EEPROM.read(EEPROM_HI_TRIM_ADDR);
+    if (v <= 4) slider_hi_trim = v;
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm

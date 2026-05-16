@@ -41,7 +41,7 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 | `pattern_select_routine.ino`               | Pattern switching, copy, and 4-pattern chain mode                                                                                                                                                                 |
 | `LCD.ino`                                  | LCD initialization and display updates                                                                                                                                                                            |
 | `midi_note_sending.ino`                    | `step()` blink callback and `midi()` MIDI clock output callback                                                                                                                                                   |
-| `diagnostics.ino`                          | Hardware test mode: LCD-based input tester; `bool diag_mode` gates the main loop and `run_LCD_update()`; `run_diagnostics()` handles entry/exit; `run_diagnostics_display()` polls all inputs each loop iteration |
+| `diagnostics.ino`                          | Hardware test mode: `bool diag_mode` + `uint8_t diag_submode` gate the main loop; submode 0 = input test (`run_diagnostics_display()`), submode 1 = LED chase (`run_diag_led_test()`); entered from Diagnostics submenu in config menu |
 | `storage.ino`                              | EEPROM save/load: `save_to_eeprom()`, `load_from_eeprom()`                                                                                                                                                        |
 | `sd_storage.ino`                           | SD card save/load: `save_to_sd()`, `load_from_sd()`, `boot_load()`, `save_everywhere()`                                                                                                                           |
 | `config_menu.ino`                          | Modal config menu: save, clear, mode toggle, octave/note shift, note range, swing, clock, channel                                                                                                                 |
@@ -82,6 +82,7 @@ uint8_t slider_mode                   // 1=NN (note number), 2=VL (velocity), 3=
 uint8_t slider_mode_total             // 5 (NN, VL, GT, CC, PR)
 uint8_t step_probability[16][16]      // fire probability per step per pattern (0–100); default 100 = always fires
 uint8_t pitch_drift                   // semitones of random pitch wander at send time (0=off, 1–7); global
+uint8_t slider_hi_trim                // extra notes added to slider_map_high_value at mapping time for physical calibration (0–4); default 0
 uint8_t lcdflag                       // LCD display mode selector
 bool external_clock_mode              // false = internal TC4, true = follow USB-MIDI clock
 bool advanced_mode                    // false = Simple (4 patterns, buttons select), true = Advanced (16 patterns, buttons are function keys)
@@ -318,11 +319,11 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 2. **Channel** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing
 3. **Clear/Reset** — enters the Reset/Clear submenu (see below)
 4. **Clock: int/ext** — toggles immediately via `setExternalClockMode()`; value shown inline on line 1. Hidden when `ft_external_clock` is off
-5. **Diagnostics** — confirmation required; toggles hardware test mode on next boot. Hidden when `ft_diagnostics` is off
+5. **Diagnostics** — opens the Diagnostics submenu (LED test, Input test, Hi trim — see below). Hidden when `ft_diagnostics` is off
 6. **Exit** — Enter, left, or right all exit
 7. **Features** — enters the Features submenu (see below)
 8. **Mode: Simple/Advanced** — confirmation required; Enter toggles Simple↔Advanced; line 1 shows target (`Mode:->Simple ` or `Mode:->Advancd`); Left cancels. Enabling Advanced also force-enables `ft_velocity_mode` and `ft_probability`. Hidden when `ft_advanced_mode` is off
-9. **Note range** — two-phase editor: Enter starts editing low value (`Edit Lo: N`), Enter again switches to high value (`Edit Hi: N`), Enter again exits; defaults 36/52; label shows `*` when non-default. Always visible (not gated by any feature flag)
+9. **Note range** — opens Note range submenu (see below); label shows `*` when non-default (36/52). Always visible (not gated by any feature flag)
 10. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; changing scale or root calls `apply_scale_to_all_patterns()` which quantizes all stored pitches immediately; label shows `*` when non-Chromatic/C. Scales: Chromatic Blues Dorian HarmMinor Major Mixolydian NatMinor PentMaj PentMin Phrygian. Hidden when `ft_scale_quantization` is off
 11. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
 12. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
@@ -335,6 +336,10 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 19. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
 
 **Reset/Clear submenu**: Scrolled with up/down, Enter shows confirmation (`Entr=ok  Lft=no`), Enter again executes, Left cancels confirmation or exits submenu back to main menu. Items: Clear all pats, Clear pattern, Reset sliders.
+
+**Note range submenu**: Scrolled with up/down, Left exits back to main menu. Line 1 shows `> {current item}`, line 2 shows next item preview. Items: Custom, 16 notes (36–51), 12 notes (36–47), 8 notes (36–43), 6 notes (36–41), 4 notes (36–39). Selecting a preset immediately sets `slider_map_low_value=36` and `slider_map_high_value` to the preset top, calls `init_blank_patterns_to_range()` and `build_scale_notes()`, then returns to the main menu. Selecting Custom enters a two-phase inline editor: Enter advances lo→hi, Enter again exits; Left returns to the preset list. All presets anchor the low note at 36.
+
+**Diagnostics submenu**: Scrolled with up/down, Left exits back to main menu. Items: LED test, Input test, Hi trim. LED test enters `diag_submode=1` (non-blocking sequential LED chase through 16 step + 4 pattern + play + enter LEDs at 80 ms/LED; Left exits back to submenu). Input test enters `diag_submode=0` (existing button/slider display; Left or double-tap Enter exits back to submenu). Hi trim enters an inline editor: up/down adjusts `slider_hi_trim` 0–4; Enter or Left exits. Both diag submodes set `diag_mode=true` which gates the main loop; on exit they call `draw_diag_submenu()` and leave `config_menu_active=true` so normal LCD updates are suppressed (the LCD.ino `config_menu_active` guard prevents overwriting the submenu display).
 
 **Features submenu**: Scrolled with up/down, Enter toggles on/off, Left exits. Shows all 14 `ft_*` flags by name. Toggling a flag off has side effects via `_apply_feature_disable()`: switching slider mode off while active falls back to NN mode; disabling advanced mode resets nav state; disabling note audition cancels any currently sounding audition note. Flags are NOT saved automatically — use Save after making changes.
 
@@ -414,11 +419,11 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 **On boot**: `load_from_eeprom()` is called only if `load_from_sd()` returns false. Checks for a magic sentinel byte at address 0. If missing (first boot or layout change), globals keep compiled-in defaults.
 
-**EEPROM layout** (1316 bytes, defined as `#define` constants in `storage.ino`):
+**EEPROM layout** (1330 bytes, defined as `#define` constants in `storage.ino`):
 
 | Address | Size | Content                                        |
 | ------- | ---- | ---------------------------------------------- |
-| 0       | 1    | Magic byte `0xC9`                              |
+| 0       | 1    | Magic byte `0xCD`                              |
 | 1       | 1    | `MIDICHANNEL`                                  |
 | 2       | 1    | `SWING`                                        |
 | 3       | 4    | `TEMPO` (float)                                |
@@ -441,12 +446,14 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 803     | 256  | `cc_step_values[16][16]` (one byte per step)   |
 | 1059    | 1    | `pitch_drift` (uint8_t, 0–7)                   |
 | 1060    | 256  | `step_probability[16][16]` (one byte per step) |
+| 1316    | 13   | runtime feature flags (`ft_*`)                 |
+| 1329    | 1    | `slider_hi_trim` (uint8_t, 0–4)                |
 
 **Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100.
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC9`.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xCD`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.
 
@@ -473,23 +480,29 @@ When `ft_note_audition` is true and the sequencer is stopped (`!playstatus`), st
 
 ## Diagnostics Mode
 
-Entered by holding D-pad left + right simultaneously for 1 second. All normal subsystems are bypassed while active.
+Entered from the config menu: Diagnostics → Enter → opens the Diagnostics submenu. There is no hardware hold-combo entry point.
 
 **`bool diag_mode`** — declared in `diagnostics.ino`, forward-declared as `extern` in `config.h`. When true:
 
 - `loop()` calls `run_diagnostics()` then executes `if (diag_mode) return;` — everything after (navigation, step buttons, pattern select, sliders, `run_LCD_update()`) is skipped.
 - `run_LCD_update()` also early-returns if `diag_mode` is true, so the normal LCD system cannot overwrite diagnostics output.
 
-**`run_diagnostics()`** — entry/exit detection only. On entry: waits for release, resets per-session state, shows a 1.5 s splash, then calls `diag_show_idle_screen()`. On exit: restores step LEDs via `read_step_memory()` + `go_to_pattern()`, clears LCD, restores `lcdflag = 255`.
+**`uint8_t diag_submode`** — selects which mode runs while `diag_mode` is true: 0 = input test, 1 = LED test.
 
-**`run_diagnostics_display()`** — called once per loop iteration while active. Non-blocking. Polls:
+**`run_diagnostics()`** — branches on `diag_submode`: calls `run_diag_led_test()` (submode 1) or `run_diagnostics_display()` (submode 0).
 
-- D-pad up/down/left/right and Enter via `uniquePress()` — writes button name + pin to LCD line 1.
+**LED test (`diag_submode = 1`, `run_diag_led_test()`)** — non-blocking sequential LED chase: one LED on at a time, 80 ms per LED, cycling through 16 step LEDs → 4 pattern LEDs → play LED → enter LED (22 total). Left exits: turns all LEDs off, calls `read_step_memory()` + `go_to_pattern()` to restore state, calls `draw_diag_submenu()`. `diag_mode` and `config_menu_active` both remain in sync so the LCD guard prevents normal updates from overwriting the submenu on re-entry.
+
+**Input test (`diag_submode = 0`, `run_diagnostics_display()`)** — called once per loop iteration. Non-blocking. Polls:
+
+- D-pad up/down and Enter via `uniquePress()` — writes button name + pin to LCD line 1.
+- D-pad left — exits input test back to diag submenu (restores LEDs, calls `draw_diag_submenu()`).
 - Play button via `play_button_isr_fired` flag (same as main loop) — writes to line 1.
 - Step buttons — first pressed wins per frame; LED toggles as secondary visual confirm.
-- Pattern select buttons — first pressed wins per frame; LED toggles.
+- Pattern select buttons — first pressed wins per frame; PAT1 enters the save-file viewer sub-mode.
 - Voice sliders — raw `analogRead()` on the actual analog pin (bypasses `Potentiometer` class); change threshold ±16 ADC counts; rate-limited to once per 100 ms; writes slider index, pin name, and raw 0–4095 value to LCD line 2.
 - Auto-clears to idle screen after 2 s of no activity.
+- Double-tap Enter exits back to diag submenu.
 
 **LCD format:**
 

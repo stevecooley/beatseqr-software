@@ -1,5 +1,6 @@
 
 bool diag_mode = false;
+uint8_t diag_submode = 0;  // 0=input test, 1=LED test
 
 // File-scope state so it survives multiple sessions and can be reset on entry.
 static bool          diag_showing_idle       = true;
@@ -8,6 +9,11 @@ static int           diag_last_raw[16]       = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 static unsigned long diag_last_slider_lcd_ms = 0;
 static bool          diag_enter_tap_pending  = false;
 static unsigned long diag_enter_tap_ms       = 0;
+
+// LED test state.
+static uint8_t       diag_led_idx      = 0;
+static unsigned long diag_led_last_ms  = 0;
+#define DIAG_LED_COUNT 22
 
 // Save-file viewer sub-mode (triggered by PAT1 press in diagnostics).
 static bool    diag_savefile_mode = false;
@@ -41,9 +47,9 @@ void diag_show_idle_screen()
 {
   lcd.print("?f");
   lcd.print("?x00?y0");
-  lcd.print("  DIAGNOSTICS   ");
+  lcd.print("  INPUT TEST    ");
   lcd.print("?x00?y1");
-  lcd.print("btn/PAT1:savefil");
+  lcd.print("Lft=back PAT1:sf");
 }
 
 // Save-file viewer: display the currently selected field on both LCD lines.
@@ -91,61 +97,93 @@ void diag_write_slider(uint8_t idx, const char* pin_name, int raw_val)
 // Entry / exit
 // ---------------------------------------------------------------------------
 
-// Called from the config menu to enter diagnostics mode.
-void enter_diagnostics()
+// Called from the diag submenu to enter the input test mode.
+void enter_diag_input_test()
 {
-  diag_mode = true;
-  diag_enter_tap_pending  = false;
+  diag_submode = 0;
+  diag_mode    = true;
+  diag_enter_tap_pending = false;
+  diag_savefile_mode     = false;
 
-  // Reset per-session state.
   for (int i = 0; i < 16; i++) diag_last_raw[i] = -1;
   diag_last_activity_ms   = millis();
   diag_last_slider_lcd_ms = 0;
   diag_showing_idle       = false;
 
-  Serial.println("entering diagnostics");
+  Serial.println("entering input test");
+  diag_show_idle_screen();
+  diag_showing_idle = true;
+}
 
-  // Entry splash — brief blocking delay is acceptable here.
-  lcd.print("?f");
-  lcd.print("?x00?y0");
-  lcd.print("  DIAGNOSTICS   ");
-  lcd.print("?x00?y1");
-  lcd.print("dbl-tap Entr=out");
-  delay(1500);
+// Called from the diag submenu to enter the LED test mode.
+void enter_diag_led_test()
+{
+  diag_submode    = 1;
+  diag_mode       = true;
+  diag_led_idx    = 0;
+  diag_led_last_ms = 0;
 
-  // LED test sweep: light each LED in sequence, leave them on, wait for Enter.
-  lcd.print("?x00?y0");
-  lcd.print("  DIAGNOSTICS   ");
-  lcd.print("?x00?y1");
-  lcd.print("LED test...     ");
-  for (int i = 0; i < 16; i++) { step_leds[i].on();           delay(80); }
-  for (int i = 0; i < 4;  i++) { pattern_select_leds[i].on(); delay(80); }
-  playbutton_LED.on();  delay(80);
-  enterbutton_LED.on(); delay(80);
-  lcd.print("?x00?y1");
-  lcd.print("Enter to proceed");
-  // Drain any queued press from the entry combo, then wait for a fresh tap.
-  while (enterbutton.isPressed()) {}
-  enterbutton.uniquePress();
-  while (!enterbutton.uniquePress()) {}
-  // Turn all LEDs off before handing control to the normal diagnostics loop.
   for (int i = 0; i < 16; i++) step_leds[i].off();
   for (int i = 0; i < 4;  i++) pattern_select_leds[i].off();
   playbutton_LED.off();
   enterbutton_LED.off();
 
-  diag_show_idle_screen();
-  diag_showing_idle = true;
+  Serial.println("entering LED test");
+  lcd.print("?f");
+  lcd.print("?x00?y0");
+  lcd.print("LED test        ");
+  lcd.print("?x00?y1");
+  lcd.print("Left=exit       ");
 }
 
 void run_diagnostics()
 {
   if (!diag_mode) return;
 
-  // Run display FIRST so uniquePress() gets the CHANGED flag before any
-  // subsequent isPressed() call starts a debounce window that would clear
-  // CHANGED and cause uniquePress() to miss the press.
-  run_diagnostics_display();
+  if (diag_submode == 1) {
+    run_diag_led_test();
+  } else {
+    // Run display FIRST so uniquePress() gets the CHANGED flag before any
+    // subsequent isPressed() call starts a debounce window that would clear
+    // CHANGED and cause uniquePress() to miss the press.
+    run_diagnostics_display();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// LED test — non-blocking sequential chase, Left exits back to diag submenu.
+// ---------------------------------------------------------------------------
+
+void run_diag_led_test()
+{
+  if (dpad_left.uniquePress()) {
+    for (int i = 0; i < 16; i++) step_leds[i].off();
+    for (int i = 0; i < 4;  i++) pattern_select_leds[i].off();
+    playbutton_LED.off();
+    enterbutton_LED.off();
+    diag_mode = false;
+    read_step_memory(0, pattern_value);
+    go_to_pattern(current_pattern, 1);
+    draw_diag_submenu();
+    return;
+  }
+
+  unsigned long now = millis();
+  if (now - diag_led_last_ms < 80) return;
+  diag_led_last_ms = now;
+
+  // Turn off all LEDs, then light the current one.
+  for (int i = 0; i < 16; i++) step_leds[i].off();
+  for (int i = 0; i < 4;  i++) pattern_select_leds[i].off();
+  playbutton_LED.off();
+  enterbutton_LED.off();
+
+  if      (diag_led_idx < 16) step_leds[diag_led_idx].on();
+  else if (diag_led_idx < 20) pattern_select_leds[diag_led_idx - 16].on();
+  else if (diag_led_idx == 20) playbutton_LED.on();
+  else                         enterbutton_LED.on();
+
+  diag_led_idx = (uint8_t)((diag_led_idx + 1) % DIAG_LED_COUNT);
 }
 
 // ---------------------------------------------------------------------------
@@ -193,24 +231,30 @@ void run_diagnostics_display()
   // --- D-pad ---
   if (dpad_up.uniquePress())    { diag_write_button("DPAD-UP",  19); activity = true; }
   if (dpad_down.uniquePress())  { diag_write_button("DPAD-DN",  18); activity = true; }
-  if (dpad_left.uniquePress())  { diag_write_button("DPAD-LT",  17); activity = true; }
   // pin 16 is now TRS MIDI TX — no dpad_right button
+  // Left exits input test, returning to the diag submenu.
+  if (dpad_left.uniquePress()) {
+    diag_mode          = false;
+    diag_savefile_mode = false;
+    Serial.println("exiting input test");
+    read_step_memory(0, pattern_value);
+    go_to_pattern(current_pattern, 1);
+    draw_diag_submenu();
+    return;
+  }
 
   // --- Enter: single tap shows button, double-tap exits diagnostics ---
   if (enterbutton.uniquePress()) {
     unsigned long now_ms = millis();
     if (diag_enter_tap_pending && now_ms - diag_enter_tap_ms <= 400) {
-      // Double-tap confirmed — exit diagnostics.
+      // Double-tap confirmed — exit input test, return to diag submenu.
       diag_enter_tap_pending = false;
-      diag_mode = false;
-      Serial.println("exiting diagnostics");
+      diag_mode          = false;
+      diag_savefile_mode = false;
+      Serial.println("exiting input test");
       read_step_memory(0, pattern_value);
       go_to_pattern(current_pattern, 1);
-      lcd.print("?f");
-      update_line1 = true;
-      update_line2 = true;
-      lcdflag      = 255;
-      next_lcdflag = 255;
+      draw_diag_submenu();
       return;
     } else {
       diag_enter_tap_pending = true;

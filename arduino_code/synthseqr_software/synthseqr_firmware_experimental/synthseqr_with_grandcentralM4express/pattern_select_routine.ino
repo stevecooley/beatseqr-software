@@ -74,37 +74,39 @@ void run_pattern_select_routine() {
         adv_blink_state = !adv_blink_state;
       }
 
-      // Release tracking: clear held button once it's physically released.
-      if (adv_chain_hold_step >= 0 &&
-          !step_buttons[adv_chain_hold_step].wasPressed()) {
-        adv_chain_hold_step = -1;
-      }
+      // During copy phases, run_step_button_routine() owns all step button
+      // presses. Don't call uniquePress() here — it would steal the CHANGED
+      // flag and cause the copy handler to miss the press next frame.
+      if (!adv_copy_waiting_source && !adv_copy_armed) {
+        // Release tracking: clear held button once it's physically released.
+        if (adv_chain_hold_step >= 0 &&
+            !step_buttons[adv_chain_hold_step].wasPressed()) {
+          adv_chain_hold_step = -1;
+        }
 
-      // Scan for step button presses (uniquePress() not called elsewhere
-      // this frame because detect_step_button_presses() is gated off).
-      for (int i = 0; i < 16; i++) {
-        if (step_buttons[i].uniquePress()) {
-          if (adv_chain_hold_step < 0) {
-            // First press — single pattern select, cancel any active chain.
-            adv_chain_hold_step = i;
-            extended_step_length_mode = 0;
-            go_to_pattern(i, 0);
-            Serial.print("nav: single pattern ");
-            Serial.println(i + 1);
-          } else if (i != adv_chain_hold_step) {
-            // Second press while first is still held — define a chain.
-            // chain_start is the held button, chain_end is this button.
-            // Wrap-around is supported (start > end).
-            chain_start = (uint8_t)adv_chain_hold_step;
-            chain_end   = (uint8_t)i;
-            extended_step_length_mode = 1;
-            go_to_pattern(chain_start, 0);
-            Serial.print("nav: chain ");
-            Serial.print(chain_start + 1);
-            Serial.print(" -> ");
-            Serial.println(chain_end + 1);
+        // Scan for step button presses.
+        for (int i = 0; i < 16; i++) {
+          if (step_buttons[i].uniquePress()) {
+            if (adv_chain_hold_step < 0) {
+              // First press — single pattern select, cancel any active chain.
+              adv_chain_hold_step = i;
+              extended_step_length_mode = 0;
+              go_to_pattern(i, 0);
+              Serial.print("nav: single pattern ");
+              Serial.println(i + 1);
+            } else if (i != adv_chain_hold_step) {
+              // Second press while first is still held — define a chain.
+              chain_start = (uint8_t)adv_chain_hold_step;
+              chain_end   = (uint8_t)i;
+              extended_step_length_mode = 1;
+              go_to_pattern(chain_start, 0);
+              Serial.print("nav: chain ");
+              Serial.print(chain_start + 1);
+              Serial.print(" -> ");
+              Serial.println(chain_end + 1);
+            }
+            break;
           }
-          break;
         }
       }
 

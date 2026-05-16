@@ -39,6 +39,8 @@ void listen_for_navigation_events() {
     dpad_left_flag = false;
     adv_copy_waiting_source = false;
     adv_copy_armed = false;
+    adv_pat_nav_active = false;
+    read_step_memory(0, pattern_value);
     update_line1 = true;
     update_line2 = true;
     next_lcdflag = 255;
@@ -63,7 +65,12 @@ void listen_for_navigation_events() {
       }
 
       if ((dpad_up_flag == true) || (dpad_down_flag == true)) {
-        pattern_select_events();
+        if (!adv_copy_waiting_source && !adv_copy_armed) {
+          pattern_select_events();
+        } else {
+          dpad_up_flag = false;
+          dpad_down_flag = false;
+        }
       }
 
       break;

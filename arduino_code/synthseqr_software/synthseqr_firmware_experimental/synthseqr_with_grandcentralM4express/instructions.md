@@ -362,14 +362,29 @@ Open the **Config Menu** (double-tap Enter), scroll to **Note shift**, and press
 
 ## Note Range
 
-Open the **Config Menu** (double-tap Enter), scroll to **Note range**, and press Enter.
+Open the **Config Menu** (double-tap Enter), scroll to **Note range**, and press Enter to open the Note Range submenu.
 
-The editor has two phases:
+**Submenu items** (D-pad up/down to scroll, Enter to select, D-pad left to exit submenu):
+
+| Item          | Low note   | High note  |
+| ------------- | ---------- | ---------- |
+| **Custom**    | (editable) | (editable) |
+| **16 notes**  | 36         | 51         |
+| **12 notes**  | 36         | 47         |
+| **8 notes**   | 36         | 43         |
+| **6 notes**   | 36         | 41         |
+| **4 notes**   | 36         | 39         |
+
+Line 1 shows `> ` before the currently selected item. Pressing Enter on a preset applies it immediately and exits the submenu.
+
+**Custom** opens the two-phase editor:
 
 1. **Edit Low** — line 2 shows `Edit Lo: 36`. D-pad up/down adjusts the low note (0–126, must stay below high). Press Enter to move to the high editor.
 2. **Edit High** — line 2 shows `Edit Hi: 52`. D-pad up/down adjusts the high note (low+1–127). Press Enter to confirm and exit.
 
-D-pad left exits either phase immediately, keeping whatever values were set. The label shows `Note range   *` in the menu when the values differ from the defaults (36/52).
+D-pad left exits either phase immediately, keeping whatever values were set.
+
+The label shows `Note range   *` in the menu when the values differ from the defaults (36/52).
 
 The range determines how the sliders map to MIDI notes in NN mode: the full travel of each slider covers the note range from low to high.
 
@@ -478,11 +493,11 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Channel               | MIDI output channel 1–16; up/down to change, Enter or Left to exit                                                                                                                                                        |
 | Clear/Reset           | Opens the Reset/Clear submenu — Clear all pats, Clear pattern, Reset sliders (all require confirmation)                                                                                                                   |
 | Clock: int/ext        | Toggle internal clock / external USB-MIDI clock                                                                                                                                                                           |
-| Diagnostics           | Enter hardware diagnostics mode (confirmation required)                                                                                                                                                                   |
+| Diagnostics           | Opens the Diagnostics submenu: LED test (sequential LED chase), Input test (button/slider tester), Hi trim (slider high-end calibration offset 0–4)                                                       |
 | Exit                  | Leave the config menu                                                                                                                                                                                                     |
 | Features              | Enter the Features submenu to toggle individual feature flags on/off                                                                                                                                                      |
 | Mode: Simple/Advanced | Toggle between Simple and Advanced mode (confirmation required)                                                                                                                                                           |
-| Note range            | Two-phase editor: Enter to edit low note, Enter again to edit high note, Enter to exit; Left exits either phase; label shows * when non-default (36/52)                                                                   |
+| Note range            | Opens the Note Range submenu: select a preset (4/6/8/12/16 notes anchored at 36) or Custom (two-phase lo/hi editor); label shows * when non-default (36/52)                                               |
 | Note scales           | Two-phase editor: Enter to choose scale type, Enter again to choose root note, Enter to exit; changing either value immediately quantizes all stored pitches to the nearest in-scale note; label shows * when non-default |
 | Note shift            | Adjust semitone offset ±12; up/down to change, Enter or Left to exit; label shows * when non-zero                                                                                                                         |
 | Octave shift          | Adjust octave offset ±5; up/down to change, Enter or Left to exit; label shows * when non-zero                                                                                                                            |
@@ -559,25 +574,30 @@ On the next power-up, everything is automatically restored exactly as you left i
 
 ## Diagnostics Mode
 
-Hold **D-pad left + D-pad right simultaneously for 1 second** to enter diagnostics mode. All normal sequencer functions are suspended; the LCD shows input feedback directly.
+Open the **Config Menu** (double-tap Enter), scroll to **Diagnostics**, and press Enter to open the Diagnostics submenu. All normal sequencer functions are suspended while any diagnostics mode is active. Press **D-pad left** to exit any diagnostics mode and return to the submenu; press D-pad left again to return to the Config Menu.
 
-### Entry
+**Diagnostics submenu items** (D-pad up/down to scroll, Enter to select):
 
-The LCD briefly shows:
+| Item           | What it does                                                                   |
+| -------------- | ------------------------------------------------------------------------------ |
+| **LED test**   | Non-blocking sequential chase through all 22 LEDs, 80 ms per LED              |
+| **Input test** | Interactive button and slider tester — LCD shows raw values as you press/move  |
+| **Hi trim**    | Slider high-end calibration offset (0–4), applied at MIDI send time in NN mode |
+
+### LED Test
+
+Press Enter on **LED test** to start. The sequencer cycles through all 22 LEDs in order (step LEDs 1–16, pattern select LEDs 1–4, Play LED, Enter LED), lighting one at a time at 80 ms per step, looping continuously.
+
+Press **D-pad left** to stop and return to the Diagnostics submenu.
+
+### Input Test
+
+Press Enter on **Input test** to start. The LCD shows an idle prompt:
 
 ```
-  DIAGNOSTICS   
-hold L+R to exit
+  INPUT TEST    
+Lft=back PAT1:sf
 ```
-
-then switches to an idle prompt after 1.5 seconds:
-
-```
-  DIAGNOSTICS   
- press a button 
-```
-
-### Button Testing
 
 Press any button. **Line 1** of the LCD immediately shows the button name and the GPIO pin it is wired to:
 
@@ -591,11 +611,9 @@ ENTER    pin: 20
 
 Format: `<name (8 chars)> pin:<pin number>`
 
-Button names: `STEP01`–`STEP16`, `DPAD-UP`, `DPAD-DN`, `DPAD-LT`, `DPAD-RT`, `ENTER`, `PLAY`, `PAT1`–`PAT4`.
+Button names: `STEP01`–`STEP16`, `DPAD-UP`, `DPAD-DN`, `ENTER`, `PLAY`, `PAT1`–`PAT4`.
 
 Step buttons and pattern select buttons also toggle their LED as a secondary visual confirmation.
-
-### Slider Testing
 
 Move any voice slider. **Line 2** of the LCD shows the slider index, its analog pin, and the raw 12-bit ADC value (0–4095):
 
@@ -606,17 +624,24 @@ SL09 A6  r:2048
 
 Format: `SL<index> <pin> r:<raw value>`
 
-The display updates only when the value changes by more than 16 ADC counts (noise floor). Only one slider update appears per 100 ms to keep the LCD readable.
+The display updates only when the value changes by more than 16 ADC counts. Only one slider update appears per 100 ms to keep the LCD readable.
 
 A full-travel slider should smoothly sweep from near 0 to near 4095. A dead or noisy slider will show erratic values, a very narrow range, or no movement at all.
 
-### Auto-Clear
+After **2 seconds** of no activity, both LCD lines return to the idle prompt.
 
-After **2 seconds** of no button presses or slider movement, both LCD lines return to the idle prompt so you can tell the mode is still active.
+**Save-file viewer**: Press **PAT1** (pattern button 1) to view the saved JSON fields from the SD card. D-pad up/down scrolls through fields. Press any other button to return to the idle prompt.
 
-### Exit
+**Exit**: Press **D-pad left** to return to the Diagnostics submenu. Double-tap **Enter** also exits.
 
-Hold **D-pad left + D-pad right simultaneously for 1 second**, then release. The sequencer restores all step LEDs and the main display.
+### Hi Trim
+
+Press Enter on **Hi trim** to enter the calibration offset editor.
+
+- D-pad up/down adjusts the trim from 0 to 4.
+- The offset is added on top of the configured note range high value when sliders map to pitches in NN mode. This compensates for physical faders that lose resistance near the top of travel and plateau before reaching true full travel.
+- Press Enter or D-pad left to exit.
+- Save the setting via Config Menu → Save to persist it across power cycles.
 
 ---
 
@@ -668,14 +693,14 @@ Connect at **57600 baud** to see:
 | Clear all patterns          | Hold step 1 + step 12                                                      |
 | Octave shift                | Config menu → Octave shift, up/down                                        |
 | Note shift                  | Config menu → Note shift, up/down                                          |
-| Note range                  | Config menu → Note range, Enter for lo/hi phases                           |
+| Note range                  | Config menu → Note range → submenu (select preset or Custom for lo/hi)     |
 | Set note scale              | Config menu → Note scales, Enter for scale/root phases                     |
 | Set pattern length          | Config menu → Pat length, up/down or tap step button                       |
 | Set pattern direction       | Config menu → Pat dir, up/down cycles 8 modes                              |
 | Save                        | Config menu → Save (sequencer stopped)                                     |
 | Toggle Simple/Advanced      | Config menu → Mode                                                         |
 | Open config menu            | Double-tap Enter                                                           |
-| Enter / exit diagnostics    | Hold D-pad left + right 1s                                                 |
+| Enter diagnostics           | Config menu → Diagnostics → submenu (LED test / Input test / Hi trim)      |
 
 ---
 

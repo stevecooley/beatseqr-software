@@ -44,10 +44,14 @@ void run_voice_slider_routine()
       // NN mode: map to scale note pool when active, else full chromatic range.
       // Pickup guard protects stored pitch across mode/pattern switches.
       if (scale_note_count > 0) {
-        uint8_t idx = (uint8_t)map(sector, 0, 255, 0, (int)scale_note_count - 1);
+        int pool_top = (int)scale_note_count - 1 + (int)slider_hi_trim;
+        uint8_t idx = (uint8_t)map(sector, 0, 255, 0, pool_top);
+        if (idx >= scale_note_count) idx = (uint8_t)(scale_note_count - 1);
         raw_voice_slider_values[j] = scale_note_pool[idx];
       } else {
-        raw_voice_slider_values[j] = map(sector, 0, 255, slider_map_low_value, slider_map_high_value);
+        int eff_hi = (int)slider_map_high_value + (int)slider_hi_trim;
+        if (eff_hi > 127) eff_hi = 127;
+        raw_voice_slider_values[j] = (uint8_t)map(sector, 0, 255, slider_map_low_value, (uint8_t)eff_hi);
       }
 
       if (slider_needs_pickup[j])

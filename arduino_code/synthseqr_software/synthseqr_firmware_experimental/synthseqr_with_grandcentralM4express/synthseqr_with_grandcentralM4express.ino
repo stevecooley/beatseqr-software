@@ -167,7 +167,7 @@ void loop() {
     }
   }
 
-  // Keep Button state current for heldFor() (diagnostics combo).
+  // Keep Button state current for heldFor().
   playbutton.isPressed();
   // Use the hardware interrupt flag for play press detection — much more
   // responsive than polling uniquePress() through the main loop.
@@ -228,6 +228,10 @@ void loop() {
         adv_pat0_press_ms = 0;
         adv_copy_waiting_source = true;
         adv_copy_armed = false;
+        adv_pat_nav_active = true;
+        adv_chain_hold_step = -1;
+        adv_blink_state = true;
+        adv_blink_last_ms = millis();
         lcdflag = 103;  next_lcdflag = 103;  // "copy which pat?"
         Serial.println("copy mode: pick source pattern");
       } else {

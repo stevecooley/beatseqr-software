@@ -239,7 +239,7 @@ void run_LCD_update() {
         lcd.print("?x00?y0");
         Serial.println("?x00?y0");
         char _buf[17];
-        snprintf(_buf, sizeof(_buf), "Copied %d to %d", current_pattern + 1, copy_pattern_to + 1);
+        snprintf(_buf, sizeof(_buf), "Copied %d to %d", copy_pattern_from + 1, copy_pattern_to + 1);
         lcd.print(_buf);
         Serial.println(_buf);
       }
@@ -255,25 +255,33 @@ void run_LCD_update() {
     }
     case 102:  // advanced copy phase 2 — source selected, waiting for destination
     {
-      lcd.print("?f");
-      Serial.println("?f");
-      lcd.print("?x00?y0");
-      Serial.println("?x00?y0");
-      char _buf[17];
-      snprintf(_buf, sizeof(_buf), "Copy %d->where?", current_pattern + 1);
-      lcd.print(_buf);
-      Serial.println(_buf);
+      static uint8_t prev_flag_102 = 255;
+      if (prev_flag_102 != 102) {
+        prev_flag_102 = 102;
+        lcd.print("?f");
+        Serial.println("?f");
+        lcd.print("?x00?y0");
+        Serial.println("?x00?y0");
+        char _buf[17];
+        snprintf(_buf, sizeof(_buf), "Copy %d->where  ", copy_pattern_from + 1);
+        lcd.print(_buf);
+        Serial.println(_buf);
+      }
       next_lcdflag = 102;
       break;
     }
     case 103:  // advanced copy phase 1 — waiting for user to tap source pattern
     {
-      lcd.print("?f");
-      Serial.println("?f");
-      lcd.print("?x00?y0");
-      Serial.println("?x00?y0");
-      lcd.print("copy which pat?");
-      Serial.println("copy which pat?");
+      static uint8_t prev_flag_103 = 255;
+      if (prev_flag_103 != 103) {
+        prev_flag_103 = 103;
+        lcd.print("?f");
+        Serial.println("?f");
+        lcd.print("?x00?y0");
+        Serial.println("?x00?y0");
+        lcd.print("copy which pat  ");
+        Serial.println("copy which pat  ");
+      }
       next_lcdflag = 103;
       break;
     }
