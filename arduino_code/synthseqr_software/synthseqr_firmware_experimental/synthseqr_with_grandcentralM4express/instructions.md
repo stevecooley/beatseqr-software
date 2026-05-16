@@ -44,6 +44,8 @@ Press any **step button** to toggle that step on or off.
 - LED off = step is silent
 - The sequencer fires a MIDI note-on when it arrives at an active step. The note rings for the number of steps set by that step's **gate length**, then a note-off is sent.
 
+When **Note Audition** is enabled (Config Menu → Features → Note audition), pressing a step button to **turn a step ON** also immediately sends a MIDI note preview so you can hear what that step will sound like — without needing to start the sequencer. The note plays for one 16th note at the current tempo. After a gate-set gesture, the note replays with the actual gate length just set. See **Note Audition** below.
+
 ### Voice Sliders
 
 The 16 sliders control different data depending on the active **slider mode**. See the **Slider Modes** section below.
@@ -179,6 +181,34 @@ Example: `♪045 ♩127 G4♩064`
 - `♩064` — CC value 64 (shows `---` if no CC is enabled for this step)
 
 This display makes it easy to see exactly what each step is playing in real time, regardless of which slider mode is active.
+
+---
+
+## Note Audition
+
+Note audition lets you hear what each step sounds like while the sequencer is **stopped** — no need to start playback just to check a note.
+
+**To enable**: Config Menu (double-tap Enter) → **Features** → scroll to **Note audition** → Enter to toggle **active**.
+
+**To disable**: same path, Enter to toggle **inactive**. Disabling immediately silences any note currently sounding from an audition.
+
+### What it does
+
+When note audition is active and the sequencer is stopped:
+
+- **Turn a step ON** (press a step button whose LED is currently off): the step toggles on *and* a MIDI note plays immediately for one 16th note at the current tempo. The note uses that step's current pitch, velocity, and any active octave/note shift and scale — exactly what the sequencer would play.
+- **Turn a step OFF** (press a step button whose LED is on): the step toggles off. No note plays.
+- **Gate-set gesture** (hold one step button ≥ 150 ms, tap a second step): the gate is set and the note plays again using the newly set gate length — so you hear the full ring time.
+
+### What it doesn't do
+
+- Audition does **not** fire while the sequencer is playing — you can hear the note naturally when the step is reached.
+- Audition does **not** apply to CC mode — step buttons in CC mode always toggle `cc_step_enabled` immediately with no note sent.
+- Pitch drift is **not** applied to audition notes — the preview is always the stable stored pitch so you hear exactly what is recorded.
+
+### Note
+
+Note audition is **off by default**. Enable it from the Features submenu, then save (Config Menu → Save) if you want the setting to persist across power cycles.
 
 ---
 
@@ -615,6 +645,7 @@ Connect at **57600 baud** to see:
 | Set step probability        | Voice slider (PR mode)                                                     |
 | Enter PR mode               | Config menu → Step prob                                                    |
 | Set pitch drift             | Config menu → Pitch drift, up/down                                         |
+| Enable note audition        | Config menu → Features → Note audition → Enter                             |
 | Cycle slider mode (simple)  | Enter button                                                               |
 | Slider mode → NN (advanced) | Pattern button 2                                                           |
 | Slider mode → GT (advanced) | Pattern button 3                                                           |

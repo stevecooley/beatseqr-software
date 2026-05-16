@@ -55,5 +55,9 @@
 #define FEATURE_DIAGNOSTICS 1
 #endif
 
+#ifndef FEATURE_NOTE_AUDITION
+#define FEATURE_NOTE_AUDITION 1
+#endif
+
 // All feature code is always compiled. Feature flags control runtime behaviour
 // only — toggled from the Features submenu in the device config menu.

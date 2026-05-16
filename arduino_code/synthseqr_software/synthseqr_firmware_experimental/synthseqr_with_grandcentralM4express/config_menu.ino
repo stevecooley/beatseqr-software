@@ -134,6 +134,19 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 #define RESET_ITEM_SLIDERS    2
 #define RESET_ITEM_COUNT      3
 
+#define NR_ITEM_CUSTOM  0
+#define NR_ITEM_16      1
+#define NR_ITEM_12      2
+#define NR_ITEM_8       3
+#define NR_ITEM_6       4
+#define NR_ITEM_4       5
+#define NR_ITEM_COUNT   6
+
+#define DIAG_ITEM_LED_TEST    0
+#define DIAG_ITEM_INPUT_TEST  1
+#define DIAG_ITEM_HI_TRIM     2
+#define DIAG_ITEM_COUNT       3
+
 // line1_label: 14 chars printed after "> " on line 1.
 // Items with inline values are rendered dynamically in print_config_label().
 static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
@@ -401,6 +414,12 @@ void exit_config_menu() {
   config_reset_active    = false;
   config_reset_item      = 0;
   config_reset_confirm   = false;
+  config_nr_submenu_active = false;
+  config_nr_item           = 0;
+  config_nr_custom_active  = false;
+  config_diag_submenu_active = false;
+  config_diag_item           = 0;
+  config_diag_editing_trim   = false;
   // Drop any pattern-button state that may have been accumulated while the
   // menu was open. Without this, a stray uniquePress() during menu navigation
   // can fire nav-mode toggle right after exit — visually indistinguishable
@@ -435,6 +454,14 @@ void run_config_menu() {
   }
   if (config_reset_active) {
     run_reset_submenu();
+    return;
+  }
+  if (config_nr_submenu_active) {
+    run_note_range_submenu();
+    return;
+  }
+  if (config_diag_submenu_active) {
+    run_diag_submenu();
     return;
   }
 
@@ -720,8 +747,10 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_DIAGNOSTICS:
-        exit_config_menu();
-        enter_diagnostics();
+        config_diag_submenu_active = true;
+        config_diag_item           = 0;
+        config_diag_editing_trim   = false;
+        draw_diag_submenu();
         break;
       case CONFIG_ITEM_CHANNEL:
         config_editing_value = true;
@@ -740,9 +769,11 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_NOTE_RANGE:
-        config_editing_value = true;
-        config_note_range_phase = 0;
-        draw_config_menu();
+        config_nr_submenu_active = true;
+        config_nr_item           = 0;
+        config_nr_custom_active  = false;
+        config_note_range_phase  = 0;
+        draw_note_range_submenu();
         break;
       case CONFIG_ITEM_NOTE_SCALES:
         config_editing_value = true;
@@ -797,7 +828,6 @@ void draw_reset_submenu() {
     lcd.print("Entr=ok  Lft=no ");
   } else {
     uint8_t next = (config_reset_item + 1) % RESET_ITEM_COUNT;
-    lcd.print("  ");
     lcd.print(_reset_names[next]);
   }
 }
@@ -864,7 +894,7 @@ void run_reset_submenu() {
 // Features submenu
 // ---------------------------------------------------------------------------
 
-#define FEATURE_COUNT 13
+#define FEATURE_COUNT 14
 
 static const char* _feature_names[FEATURE_COUNT] = {
   "Advanced mode   ",
@@ -879,7 +909,8 @@ static const char* _feature_names[FEATURE_COUNT] = {
   "Ext clock       ",
   "Oct/note shift  ",
   "Diagnostics     ",
-  "Velocity sliders"
+  "Velocity sliders",
+  "Note audition   "
 };
 
 static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
@@ -895,7 +926,8 @@ static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
   &ft_external_clock,
   &ft_octave_note_shift,
   &ft_diagnostics,
-  &ft_velocity_mode
+  &ft_velocity_mode,
+  &ft_note_audition
 };
 
 void draw_features_submenu() {
@@ -929,6 +961,15 @@ static void _apply_feature_disable(uint8_t idx) {
     case 12:  // velocity sliders — if currently in VL mode, drop back to NN
       if (slider_mode == 2) set_slider_mode(1);
       break;
+    case 13:  // note audition — cancel any sounding audition note immediately
+#if FEATURE_NOTE_AUDITION
+      if (audition_sounding_note >= 0) {
+        noteOff(MIDICHANNEL - 1, (uint8_t)audition_sounding_note, 0);
+        MidiUSB.flush();
+        audition_sounding_note = -1;
+      }
+#endif
+      break;
     default: break;
   }
 }
@@ -961,5 +1002,245 @@ void run_features_submenu() {
     *flag = !(*flag);
     if (!(*flag)) _apply_feature_disable(config_feature_item);
     draw_features_submenu();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Note range submenu
+// ---------------------------------------------------------------------------
+
+static const char* _nr_labels[NR_ITEM_COUNT] = {
+  "Custom        ",
+  "16 notes 36-51",
+  "12 notes 36-47",
+  "8 notes  36-43",
+  "6 notes  36-41",
+  "4 notes  36-39"
+};
+
+void draw_note_range_submenu() {
+  lcd.print("?x00?y0");
+  lcd.print("> ");
+  lcd.print(_nr_labels[config_nr_item]);
+  lcd.print("?x00?y1");
+  if (config_nr_custom_active) {
+    char line2[17];
+    int len;
+    if (config_note_range_phase == 0)
+      len = snprintf(line2, sizeof(line2), "Edit Lo: %d", slider_map_low_value);
+    else
+      len = snprintf(line2, sizeof(line2), "Edit Hi: %d", slider_map_high_value);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else {
+    uint8_t next = (uint8_t)((config_nr_item + 1) % NR_ITEM_COUNT);
+    lcd.print("  ");
+    lcd.print(_nr_labels[next]);
+  }
+}
+
+void run_note_range_submenu() {
+  if (!config_nr_submenu_active) return;
+
+  if (dpad_left_flag) {
+    dpad_left_flag = false;
+    if (config_nr_custom_active) {
+      config_nr_custom_active = false;
+      config_note_range_phase = 0;
+      draw_note_range_submenu();
+    } else {
+      config_nr_submenu_active = false;
+      draw_config_menu();
+    }
+    return;
+  }
+
+  if (config_nr_custom_active) {
+    if (dpad_up_flag) {
+      dpad_up_flag = false;
+      if (config_note_range_phase == 0 && slider_map_low_value < slider_map_high_value - 1) {
+        slider_map_low_value++;
+        init_blank_patterns_to_range();
+        build_scale_notes();
+        draw_note_range_submenu();
+      } else if (config_note_range_phase == 1 && slider_map_high_value < 127) {
+        slider_map_high_value++;
+        init_blank_patterns_to_range();
+        build_scale_notes();
+        draw_note_range_submenu();
+      }
+    }
+    if (dpad_down_flag) {
+      dpad_down_flag = false;
+      if (config_note_range_phase == 0 && slider_map_low_value > 0) {
+        slider_map_low_value--;
+        init_blank_patterns_to_range();
+        build_scale_notes();
+        draw_note_range_submenu();
+      } else if (config_note_range_phase == 1 && slider_map_high_value > slider_map_low_value + 1) {
+        slider_map_high_value--;
+        init_blank_patterns_to_range();
+        build_scale_notes();
+        draw_note_range_submenu();
+      }
+    }
+    if (enterbutton_flag) {
+      enterbutton_flag = false;
+      if (config_note_range_phase == 0) {
+        config_note_range_phase = 1;
+        draw_note_range_submenu();
+      } else {
+        config_nr_custom_active = false;
+        config_note_range_phase = 0;
+        draw_note_range_submenu();
+      }
+    }
+    return;
+  }
+
+  if (dpad_up_flag) {
+    dpad_up_flag = false;
+    config_nr_item = (uint8_t)((config_nr_item + NR_ITEM_COUNT - 1) % NR_ITEM_COUNT);
+    draw_note_range_submenu();
+  }
+  if (dpad_down_flag) {
+    dpad_down_flag = false;
+    config_nr_item = (uint8_t)((config_nr_item + 1) % NR_ITEM_COUNT);
+    draw_note_range_submenu();
+  }
+  if (enterbutton_flag) {
+    enterbutton_flag = false;
+    switch (config_nr_item) {
+      case NR_ITEM_CUSTOM:
+        config_nr_custom_active = true;
+        config_note_range_phase = 0;
+        draw_note_range_submenu();
+        break;
+      case NR_ITEM_16:
+        slider_map_low_value = 36; slider_map_high_value = 51;
+        init_blank_patterns_to_range(); build_scale_notes();
+        config_nr_submenu_active = false;
+        draw_config_menu();
+        break;
+      case NR_ITEM_12:
+        slider_map_low_value = 36; slider_map_high_value = 47;
+        init_blank_patterns_to_range(); build_scale_notes();
+        config_nr_submenu_active = false;
+        draw_config_menu();
+        break;
+      case NR_ITEM_8:
+        slider_map_low_value = 36; slider_map_high_value = 43;
+        init_blank_patterns_to_range(); build_scale_notes();
+        config_nr_submenu_active = false;
+        draw_config_menu();
+        break;
+      case NR_ITEM_6:
+        slider_map_low_value = 36; slider_map_high_value = 41;
+        init_blank_patterns_to_range(); build_scale_notes();
+        config_nr_submenu_active = false;
+        draw_config_menu();
+        break;
+      case NR_ITEM_4:
+        slider_map_low_value = 36; slider_map_high_value = 39;
+        init_blank_patterns_to_range(); build_scale_notes();
+        config_nr_submenu_active = false;
+        draw_config_menu();
+        break;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostics submenu
+// ---------------------------------------------------------------------------
+
+static void _diag_item_label(uint8_t item, char* buf) {
+  int len;
+  if (item == DIAG_ITEM_LED_TEST) {
+    memcpy(buf, "LED test        ", 16); buf[16] = '\0';
+  } else if (item == DIAG_ITEM_INPUT_TEST) {
+    memcpy(buf, "Input test      ", 16); buf[16] = '\0';
+  } else {
+    len = snprintf(buf, 17, "Hi trim: +%d", slider_hi_trim);
+    while (len < 16) buf[len++] = ' ';
+    buf[16] = '\0';
+  }
+}
+
+void draw_diag_submenu() {
+  char buf[17];
+  lcd.print("?x00?y0");
+  _diag_item_label(config_diag_item, buf);
+  lcd.print(buf);
+  lcd.print("?x00?y1");
+  if (config_diag_editing_trim) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Hi trim: +%d", slider_hi_trim);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else {
+    _diag_item_label((uint8_t)((config_diag_item + 1) % DIAG_ITEM_COUNT), buf);
+    lcd.print(buf);
+  }
+}
+
+void run_diag_submenu() {
+  if (!config_diag_submenu_active) return;
+
+  if (dpad_left_flag) {
+    dpad_left_flag = false;
+    if (config_diag_editing_trim) {
+      config_diag_editing_trim = false;
+      draw_diag_submenu();
+    } else {
+      config_diag_submenu_active = false;
+      draw_config_menu();
+    }
+    return;
+  }
+
+  if (config_diag_editing_trim) {
+    if (dpad_up_flag) {
+      dpad_up_flag = false;
+      if (slider_hi_trim < 4) { slider_hi_trim++; draw_diag_submenu(); }
+    }
+    if (dpad_down_flag) {
+      dpad_down_flag = false;
+      if (slider_hi_trim > 0) { slider_hi_trim--; draw_diag_submenu(); }
+    }
+    if (enterbutton_flag) {
+      enterbutton_flag = false;
+      config_diag_editing_trim = false;
+      draw_diag_submenu();
+    }
+    return;
+  }
+
+  if (dpad_up_flag) {
+    dpad_up_flag = false;
+    config_diag_item = (uint8_t)((config_diag_item + DIAG_ITEM_COUNT - 1) % DIAG_ITEM_COUNT);
+    draw_diag_submenu();
+  }
+  if (dpad_down_flag) {
+    dpad_down_flag = false;
+    config_diag_item = (uint8_t)((config_diag_item + 1) % DIAG_ITEM_COUNT);
+    draw_diag_submenu();
+  }
+  if (enterbutton_flag) {
+    enterbutton_flag = false;
+    switch (config_diag_item) {
+      case DIAG_ITEM_LED_TEST:
+        enter_diag_led_test();
+        break;
+      case DIAG_ITEM_INPUT_TEST:
+        enter_diag_input_test();
+        break;
+      case DIAG_ITEM_HI_TRIM:
+        config_diag_editing_trim = true;
+        draw_diag_submenu();
+        break;
+    }
   }
 }

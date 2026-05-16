@@ -1,10 +1,61 @@
+#if FEATURE_NOTE_AUDITION
+// audition_step_note()
+//
+// Plays a brief MIDI note for step i with gate_steps × 16th-note duration
+// at the current tempo. Applies octave/note shift and scale quantization
+// exactly as stepsend() does, but skips pitch drift so the preview is stable.
+// Cancels any previously-sounding audition note before sending the new one.
+// Only called when ft_note_audition is true and the sequencer is stopped.
+//
+void audition_step_note(int step, uint8_t gate_steps) {
+  if (audition_sounding_note >= 0) {
+    noteOff(MIDICHANNEL - 1, (uint8_t)audition_sounding_note, 0);
+    MidiUSB.flush();
+    audition_sounding_note = -1;
+  }
+
+  int16_t shifted = (int16_t)voice_slider_midinotenum[step];
+  if (ft_octave_note_shift) {
+    shifted += (int16_t)(octave_shift * 12) + (int16_t)note_shift;
+  }
+  if (ft_scale_quantization && scale_type != 0 && scale_note_count > 0) {
+    if (shifted < 0)   shifted = 0;
+    if (shifted > 127) shifted = 127;
+    shifted = (int16_t)quantize_to_scale((uint8_t)shifted);
+  }
+  if (shifted < 0)   shifted = 0;
+  if (shifted > 127) shifted = 127;
+
+  uint8_t pitch = (uint8_t)shifted;
+  uint8_t vel   = voice_slider_midivelocity[step];
+
+  unsigned long gate_ms = (unsigned long)((float)gate_steps * 60000.0f / TEMPO / 4.0f);
+  if (gate_ms < 50) gate_ms = 50;
+
+  noteOn(MIDICHANNEL - 1, pitch, vel);
+  MidiUSB.flush();
+  audition_sounding_note = (int8_t)pitch;
+  audition_note_off_ms   = millis() + gate_ms;
+}
+#endif  // FEATURE_NOTE_AUDITION
+
 void run_step_button_routine()
 {
+#if FEATURE_NOTE_AUDITION
+  // Send note-off for any sounding audition note once its gate duration elapses.
+  if (audition_sounding_note >= 0 && (long)(millis() - audition_note_off_ms) >= 0) {
+    noteOff(MIDICHANNEL - 1, (uint8_t)audition_sounding_note, 0);
+    MidiUSB.flush();
+    audition_sounding_note = -1;
+  }
+#endif
+
   // Advanced mode pattern copy phase 1: tap a step button to pick the source
   // pattern to copy FROM. Navigates to that pattern, then arms phase 2.
   if (adv_copy_waiting_source) {
     for (int i = 0; i < 16; i++) {
       if (step_buttons[i].uniquePress()) {
+        copy_pattern_from = i;
         go_to_pattern(i, 0);
         if (!adv_pat_nav_active) read_step_memory(0, i);
         adv_copy_waiting_source = false;
@@ -40,6 +91,9 @@ void run_step_button_routine()
 #endif
         copy_pattern_to = i;
         adv_copy_armed = false;
+        adv_pat_nav_active = false;
+        go_to_pattern(i, 0);
+        read_step_memory(0, i);
         lcdflag = 101;  next_lcdflag = 101;  // "Copy {n}-> done" then back to main
         Serial.print("copied to pattern ");
         Serial.println(i + 1);
@@ -111,6 +165,9 @@ void do_step_toggle(int i)
       slider_needs_pickup[i] = false;
     }
     seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[i], 127, i);
+#if FEATURE_NOTE_AUDITION
+    if (ft_note_audition && !playstatus) audition_step_note(i, 1);
+#endif
   } else {
     step_gate[pattern_value][i] = 1;  // gate resets when step is turned off
     seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[i], 0, i);
@@ -190,6 +247,9 @@ void detect_step_button_presses()
         }
         gate_flash_end_ms = millis() + 300;
         gate_gesture_fired = true;
+#if FEATURE_NOTE_AUDITION
+        if (ft_note_audition && !playstatus) audition_step_note(src, gate);
+#endif
 
         Serial.print("gate set: step ");
         Serial.print(src);

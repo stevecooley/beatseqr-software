@@ -111,6 +111,9 @@ unsigned long ext_clk_avg_interval_us // IIR-averaged 0xF8 pulse interval (~2083
 bool ext_swing_pulse_pending          // true when a deferred external-clock step pulse is waiting
 unsigned long ext_swing_pulse_fire_us  // micros() value to fire it at
 bool          ext_clock_start_pending  // play pressed while ext clock running; waiting for next beat boundary to call seq.start()
+// Note audition state (step_button_routine.ino):
+int8_t         audition_sounding_note  // MIDI pitch of the currently sounding audition note; -1 = none
+unsigned long  audition_note_off_ms    // millis() timestamp when the audition note-off should fire
 ```
 
 ## Sequencer Flow
@@ -333,7 +336,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 
 **Reset/Clear submenu**: Scrolled with up/down, Enter shows confirmation (`Entr=ok  Lft=no`), Enter again executes, Left cancels confirmation or exits submenu back to main menu. Items: Clear all pats, Clear pattern, Reset sliders.
 
-**Features submenu**: Scrolled with up/down, Enter toggles on/off, Left exits. Shows all 13 `ft_*` flags by name. Toggling a flag off has side effects via `_apply_feature_disable()`: switching slider mode off while active falls back to NN mode; disabling advanced mode resets nav state. Flags are NOT saved automatically — use Save after making changes.
+**Features submenu**: Scrolled with up/down, Enter toggles on/off, Left exits. Shows all 14 `ft_*` flags by name. Toggling a flag off has side effects via `_apply_feature_disable()`: switching slider mode off while active falls back to NN mode; disabling advanced mode resets nav state; disabling note audition cancels any currently sounding audition note. Flags are NOT saved automatically — use Save after making changes.
 
 | Feature name      | Flag                  | What it enables                                      |
 |-------------------|-----------------------|------------------------------------------------------|
@@ -350,6 +353,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 | Oct/note shift    | `ft_octave_note_shift`| Octave shift + Note shift menu items                 |
 | Diagnostics       | `ft_diagnostics`      | Diagnostics menu item + hardware test mode           |
 | Velocity sliders  | `ft_velocity_mode`    | Slider mode 2 (VL)                                   |
+| Note audition     | `ft_note_audition`    | MIDI note preview on step-on while stopped (default OFF) |
 
 **Double-tap detection**: implemented in the main `loop()` with `last_enter_ms` and `enter_tap_pending` statics. The first tap starts a 400 ms window without immediately setting `enterbutton_flag` — this prevents the first press of a double-tap from accidentally triggering a slider mode change. If a second `uniquePress()` arrives within the window, `enter_config_menu()` fires. If the window expires without a second tap, `enterbutton_flag` is set as a normal single-tap. Single-tap actions are therefore delayed by up to 400 ms, which is imperceptible for mode-cycling use.
 
@@ -445,6 +449,27 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 **Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xC9`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.
+
+## Note Audition
+
+When `ft_note_audition` is true and the sequencer is stopped (`!playstatus`), step button presses trigger a live MIDI preview in addition to toggling the step.
+
+- **Step toggled ON**: `do_step_toggle()` calls `audition_step_note(i, 1)` — sends a note-on with gate = 1 × 16th note duration at `TEMPO`.
+- **Gate-set gesture fires**: after `do_step_on()` + gate assignment, `detect_step_button_presses()` calls `audition_step_note(src, gate)` — sends a note-on with the actual gate just set, so the full ring time is audible.
+- **Step toggled OFF**: no audition (the note is being silenced, not added).
+- **CC mode**: unaffected — CC step buttons always toggle `cc_step_enabled` immediately, no audition.
+
+**`audition_step_note(int step, uint8_t gate_steps)`** (in `step_button_routine.ino`):
+1. Cancels any currently sounding audition note (note-off + flush).
+2. Computes pitch from `voice_slider_midinotenum[step]` with `octave_shift`, `note_shift`, and scale quantization applied — same transforms as `stepsend()`, but **no pitch drift** (preview is deterministic).
+3. Sends note-on with `voice_slider_midivelocity[step]`.
+4. Sets `audition_sounding_note` and `audition_note_off_ms = millis() + gate_ms`. Minimum gate enforced at 50 ms.
+
+**Note-off timer**: top of `run_step_button_routine()` checks `(long)(millis() - audition_note_off_ms) >= 0` and sends note-off when the gate expires.
+
+**Disable side-effect**: `_apply_feature_disable(13)` in `config_menu.ino` immediately cancels any sounding audition note when the feature is toggled off.
+
+**Default**: `ft_note_audition = false` — the feature is off on first boot and must be enabled in Features submenu.
 
 ## Diagnostics Mode
 

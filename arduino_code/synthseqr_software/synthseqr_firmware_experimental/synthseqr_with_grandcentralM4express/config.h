@@ -171,6 +171,7 @@ uint8_t slider_reset_counter = 0;
 const char* slider_message_header = "NN";
 uint8_t slider_map_low_value = 36;
 uint8_t slider_map_high_value = 52;
+uint8_t slider_hi_trim = 0;  // extra notes above slider_map_high_value for physical calibration (0–4)
 
 uint8_t slider_step_value = 2;
 
@@ -284,6 +285,7 @@ unsigned long adv_pat0_press_ms = 0;
 
 bool told_which_pattern_to_copy_to = false;
 uint8_t copy_pattern_to;
+uint8_t copy_pattern_from;
 
 bool not_told_which_pattern_mode_to_use = true;
 uint8_t pattern_mode;
@@ -410,6 +412,12 @@ int8_t sounding_notes[16] = {-1, -1, -1, -1, -1, -1, -1, -1,
 // (current_step + gate) % 16. -1 means not scheduled.
 int8_t sounding_note_end_step[16] = {-1, -1, -1, -1, -1, -1, -1, -1,
                                      -1, -1, -1, -1, -1, -1, -1, -1};
+
+// Note audition state — managed by audition_step_note() in step_button_routine.ino.
+// Holds the MIDI pitch of the note currently sounding from an audition event,
+// or -1 when no audition note is active.
+int8_t         audition_sounding_note = -1;
+unsigned long  audition_note_off_ms   = 0;
 
 // The last step that actually fired a note-on (for LCD line 2 feedback).
 // -1 = no step has fired yet this session.
@@ -544,6 +552,7 @@ bool ft_external_clock      = true;
 bool ft_octave_note_shift   = true;
 bool ft_diagnostics         = false;
 bool ft_velocity_mode       = true;
+bool ft_note_audition       = false;  // OFF by default
 
 // Features submenu state.
 bool    config_features_active = false;
@@ -553,3 +562,13 @@ uint8_t config_feature_item    = 0;
 bool    config_reset_active  = false;
 uint8_t config_reset_item    = 0;
 bool    config_reset_confirm = false;
+
+// Note range submenu state.
+bool    config_nr_submenu_active = false;
+uint8_t config_nr_item           = 0;
+bool    config_nr_custom_active  = false;
+
+// Diagnostics submenu state.
+bool    config_diag_submenu_active = false;
+uint8_t config_diag_item           = 0;
+bool    config_diag_editing_trim   = false;
