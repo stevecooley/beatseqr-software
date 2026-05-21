@@ -185,6 +185,14 @@ bool save_to_sd() {
   _f.print("  \"ft_octave_note_shift\": ");   _f.print(ft_octave_note_shift ? 1 : 0);   _f.println(",");
   _f.print("  \"ft_diagnostics\": ");         _f.print(ft_diagnostics ? 1 : 0);         _f.println(",");
   _f.print("  \"ft_velocity_mode\": ");       _f.print(ft_velocity_mode ? 1 : 0);       _f.println(",");
+  _f.print("  \"ft_live_cc_mode\": ");        _f.print(ft_live_cc_mode ? 1 : 0);        _f.println(",");
+  _f.print("  \"live_cc_channel\": ");        _f.print(live_cc_channel);                _f.println(",");
+  _f.print("  \"live_cc_numbers\": [");
+  for (int i = 0; i < 16; i++) {
+    _f.print(live_cc_number[i]);
+    if (i < 15) _f.print(",");
+  }
+  _f.println("],");
   _f.println("  \"patterns\": [");
 
   for (int p = 0; p < 16; p++) {
@@ -379,6 +387,28 @@ bool load_from_sd() {
     _f.seekSet(0); if (sd_find("\"ft_octave_note_shift\":"))   { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_octave_note_shift   = (bool)v; }
     _f.seekSet(0); if (sd_find("\"ft_diagnostics\":"))         { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_diagnostics         = (bool)v; }
     _f.seekSet(0); if (sd_find("\"ft_velocity_mode\":"))       { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_velocity_mode       = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_live_cc_mode\":"))        { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_live_cc_mode        = (bool)v; }
+  }
+
+  _f.seekSet(0);
+  if (sd_find("\"live_cc_channel\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 1 && v <= 16) live_cc_channel = (uint8_t)v;
+  }
+
+  _f.seekSet(0);
+  if (sd_find("\"live_cc_numbers\":")) {
+    if (sd_read_until('[')) {
+      for (int i = 0; i < 16; i++) {
+        sd_skip_ws();
+        int v = (int)sd_parse_number();
+        if (v >= 1 && v <= 119 && v != 32 && !(v >= 96 && v <= 101))
+          live_cc_number[i] = (uint8_t)v;
+        sd_skip_ws();
+        char c = (char)_f.peek();
+        if (c == ',' || c == ']') _f.read();
+      }
+    }
   }
 
   // Parse patterns array — seek once to "patterns": then read sequentially.

@@ -20,7 +20,7 @@ Synthseqr is a 16-step MIDI sequencer with 16 patterns, 16 voice sliders, a D-pa
 | Voice sliders (16)         | One per step — set pitch, velocity, or gate depending on mode   |
 | Play button                | Transport — start/stop                                          |
 | D-pad (up/down/left/right) | Navigation                                                      |
-| Enter button               | Cycle slider mode (simple mode) / open config menu (double-tap) |
+| Enter button               | Cycle slider mode (single-tap, both modes) / open config menu (double-tap) |
 | Pattern select buttons (4) | Function keys (behavior depends on mode)                        |
 | Pattern select LEDs (4)    | Mode indicator                                                  |
 
@@ -44,7 +44,7 @@ Press any **step button** to toggle that step on or off.
 - LED off = step is silent
 - The sequencer fires a MIDI note-on when it arrives at an active step. The note rings for the number of steps set by that step's **gate length**, then a note-off is sent.
 
-When **Note Audition** is enabled (Config Menu → Features → Note audition), pressing a step button to **turn a step ON** also immediately sends a MIDI note preview so you can hear what that step will sound like — without needing to start the sequencer. The note plays for one 16th note at the current tempo. After a gate-set gesture, the note replays with the actual gate length just set. See **Note Audition** below.
+**Note Audition** is on by default: pressing a step button to **turn a step ON** while the sequencer is stopped immediately sends a MIDI note preview so you can hear what that step will sound like — without needing to start the sequencer. The note plays for one 16th note at the current tempo. After a gate-set gesture, the note replays with the actual gate length just set. To disable, see **Note Audition** below.
 
 ### Voice Sliders
 
@@ -54,7 +54,7 @@ The 16 sliders control different data depending on the active **slider mode**. S
 
 ## Slider Modes
 
-Each step has four editable values: **pitch**, **velocity**, **gate length**, and **CC value**. The voice sliders edit one type at a time.
+Each step has several editable values: **pitch**, **velocity**, **gate length**, **CC value**, and **probability**. A sixth mode (**LV**) turns sliders into live MIDI CC controllers that bypass the sequencer entirely.
 
 | Mode                    | LCD indicator               | What sliders control                                                |
 | ----------------------- | --------------------------- | ------------------------------------------------------------------- |
@@ -63,23 +63,17 @@ Each step has four editable values: **pitch**, **velocity**, **gate length**, an
 | **GT** (gate)           | `♪G` at top-right of line 1 | Gate length (1–8 steps) for each step                               |
 | **CC** (control change) | `♪♩` at top-right of line 1 | MIDI CC value (0–127) per step; step buttons toggle CC steps on/off |
 | **PR** (probability)    | `♪P` at top-right of line 1 | Fire probability (0–100%) for each step                             |
+| **LV** (live CC)        | `♪L` at top-right of line 1 | Live MIDI CC — sliders transmit continuously on movement; step buttons select which lane's CC# is being edited |
 
 The current mode is always shown in the top-right corner of LCD line 1.
 
 ### Switching Modes
 
-**Simple mode:** Single-tap the **Enter button** to cycle NN → VL → GT → CC → PR → NN. The mode change fires ~400 ms after the tap so the sequencer can confirm it isn't the start of a double-tap.
+**Both Simple and Advanced mode:** single-tap the **Enter button** to cycle NN → VL → GT → CC → PR → LV → NN, skipping any mode whose feature flag is off. The mode change fires ~400 ms after the tap so the sequencer can confirm it isn't the start of a double-tap.
 
-**PR mode**, in "Advanced Mode", is accessed via the **Config Menu** (double-tap Enter) → **Step prob**. This exits the menu and activates PR mode. 
+**Advanced mode shortcuts:** pattern buttons 1/2/3 jump straight to NN/VL/PR respectively, without cycling through the others.
 
-**Advanced mode:** Use the **pattern select buttons**:
-
-- **Pattern button 1** → NN mode (LED 1 lights up)
-- **Pattern button 2** → GT mode (LED 2 lights up)
-- **Pattern button 3** → VL mode (LED 3 lights up)
-- For CC and PR modes in advanced mode: use the config menu.
-
-The lit LED tells you which slider mode is currently active.
+**Step prob menu shortcut:** Config Menu (double-tap Enter) → **Step prob** exits the menu and activates PR mode directly.
 
 ### Slider Pickup Guard
 
@@ -124,6 +118,22 @@ In PR mode each slider controls the **fire probability** for its corresponding s
 - CC steps fire independently: a step can have CC enabled and its note probabilistic.
 - Probabilities are saved per step, per pattern.
 - Clearing a pattern resets all probabilities to 100%.
+
+### Live CC (LV) Mode
+
+In LV mode each slider becomes a **live MIDI CC controller**. Slider movements transmit CC messages continuously in real time — they are **not** sequenced. The sliders play alongside the running step sequence, so you can perform with live CC while the note sequencer is playing.
+
+- **Each of the 16 sliders is a separate CC lane**, with its own configurable CC number. Defaults are CC 1 through CC 16.
+- **No pickup guard** — only movement transmits. Entering LV mode does not blast all 16 CC values; sliders sit silent until you touch them.
+- **Step buttons select which lane's CC# is being edited.** Tap a step → that lane is in edit mode (its LED lights up). The LCD line 2 shows `L05:007 Volume` — lane number, current CC#, and CC name.
+- **D-pad up/down** while editing adjusts the focused lane's CC number through the valid CC list (skips Bank LSB and RPN/NRPN data entry).
+- **Exit editing**: tap the same step button again, or press Enter, or press d-pad left.
+- **Other sliders keep transmitting live CC while you edit a different lane.**
+- **MIDI channel is independent.** Set via Config Menu → **Live CC ch** (1–16). This routes LV separately from the note sequencer's MIDI channel, so you can target a different synth or destination.
+- **LCD line 2 idle**: shows the most-recently-moved lane: `L05 CC007 V064` (lane / CC / last sent value).
+- LV mode lane assignments and channel are saved with **Save** (SD + EEPROM).
+
+LV runs concurrently with the existing sequenced CC mode — they use independent CC channels by default and won't collide.
 
 ---
 
@@ -186,11 +196,11 @@ This display makes it easy to see exactly what each step is playing in real time
 
 ## Note Audition
 
-Note audition lets you hear what each step sounds like while the sequencer is **stopped** — no need to start playback just to check a note.
+Note audition lets you hear what each step sounds like while the sequencer is **stopped** — no need to start playback just to check a note. It's **on by default**.
 
-**To enable**: Config Menu (double-tap Enter) → **Features** → scroll to **Note audition** → Enter to toggle **active**.
+**To disable**: Config Menu (double-tap Enter) → **Features** → scroll to **Note audition** → Enter to toggle **inactive**. Disabling immediately silences any note currently sounding from an audition.
 
-**To disable**: same path, Enter to toggle **inactive**. Disabling immediately silences any note currently sounding from an audition.
+**To re-enable**: same path, Enter to toggle **active**.
 
 ### What it does
 
@@ -208,7 +218,7 @@ When note audition is active and the sequencer is stopped:
 
 ### Note
 
-Note audition is **off by default**. Enable it from the Features submenu, then save (Config Menu → Save) if you want the setting to persist across power cycles.
+Note audition is **on by default**. If you disable it, save (Config Menu → Save) to make that change persist across power cycles.
 
 ---
 
@@ -264,7 +274,7 @@ Synthseqr has two modes, switchable from the Config Menu.
 - Pattern buttons 1–4 directly select patterns 1–4
 - Pattern button 1 + 4 simultaneously toggle **chain mode** (4 patterns looping)
 - Hold any pattern button 2 seconds to begin **pattern copy**; press destination button to complete
-- **Enter button** single-tap cycles slider mode: NN → VL → GT → NN
+- **Enter button** single-tap cycles slider mode through all enabled modes: NN → VL → GT → CC → PR → LV → NN
 
 ### Advanced Mode
 
@@ -287,7 +297,7 @@ Synthseqr has two modes, switchable from the Config Menu.
   - LCD briefly shows `Copied X to Y`, then returns to main display
   - **D-pad left** cancels at any point
 - D-pad mode 1 navigates patterns 1–16 with up/down
-- Enter button has no slider mode function in advanced mode — use pattern buttons 2/3/4 instead
+- **Enter button single-tap** cycles slider mode through all enabled modes (NN → VL → GT → CC → PR → LV → NN), the same as in Simple mode. Pattern buttons 2/3/4 remain as quick shortcuts to NN/VL/PR.
 
 ---
 
@@ -670,7 +680,7 @@ Connect at **57600 baud** to see:
 | Set step probability        | Voice slider (PR mode)                                                     |
 | Enter PR mode               | Config menu → Step prob                                                    |
 | Set pitch drift             | Config menu → Pitch drift, up/down                                         |
-| Enable note audition        | Config menu → Features → Note audition → Enter                             |
+| Toggle note audition        | Config menu → Features → Note audition → Enter (on by default)             |
 | Cycle slider mode (simple)  | Enter button                                                               |
 | Slider mode → NN (advanced) | Pattern button 2                                                           |
 | Slider mode → GT (advanced) | Pattern button 3                                                           |

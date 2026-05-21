@@ -165,8 +165,8 @@ int voice_slider_midichannel[16] = {1, 1, 1, 1, 1, 1, 1, 1,
                                     1, 1, 1, 1, 1, 1, 1, 1};
 
 int last_voice_slider_values[16];
-uint8_t slider_mode = 1;  // 1=NN  2=VL  3=GT  4=CC  5=PR
-uint8_t slider_mode_total = 5;
+uint8_t slider_mode = 1;  // 1=NN  2=VL  3=GT  4=CC  5=PR  6=LV
+uint8_t slider_mode_total = 6;
 uint8_t slider_reset_counter = 0;
 const char* slider_message_header = "NN";
 uint8_t slider_map_low_value = 36;
@@ -542,7 +542,7 @@ extern bool diag_mode;
 bool ft_advanced_mode       = true;
 bool ft_cc_mode             = true;
 bool ft_probability         = true;
-bool ft_gate_mode           = true;
+bool ft_gate_mode           = false;
 bool ft_scale_quantization  = true;
 bool ft_pitch_drift         = true;
 bool ft_pattern_direction   = true;
@@ -552,7 +552,20 @@ bool ft_external_clock      = true;
 bool ft_octave_note_shift   = true;
 bool ft_diagnostics         = false;
 bool ft_velocity_mode       = true;
-bool ft_note_audition       = false;  // OFF by default
+bool ft_note_audition       = true;   // ON by default
+bool ft_live_cc_mode        = true;   // ON by default — slider mode 6 (LV)
+
+// Live CC slider mode (mode 6) state.
+// Sliders transmit MIDI CC live (not sequenced). Each of the 16 lanes has its
+// own CC# (global across patterns) and its own last-sent value for change
+// detection. The CC channel is independent of MIDICHANNEL so live CC can be
+// routed to a different synth/destination than the note sequencer.
+uint8_t live_cc_number[16] = {1, 2, 3, 4, 5, 6, 7, 8,
+                              9, 10, 11, 12, 13, 14, 15, 16};
+uint8_t live_cc_channel    = 1;          // 1–16, independent of MIDICHANNEL
+uint8_t live_cc_last_sent[16];           // last sent 0–127 per lane; 255 = "never sent"
+int8_t  live_cc_editing_lane = -1;       // -1 = idle; 0..15 = lane in edit
+int8_t  live_cc_last_lane    = -1;       // most-recent lane that sent (LCD line 2)
 
 // Features submenu state.
 bool    config_features_active = false;

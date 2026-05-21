@@ -3,8 +3,9 @@
 // Returns a 7-char (max) display name for a MIDI CC number.
 // Used in config menu label (14 chars) and editing line 2 (16 chars).
 // Safe CC range: 1–119, skipping 32 (Bank LSB) and 96–101 (RPN/NRPN).
+// Non-static so LCD.ino can use it for live CC mode lane labels.
 //
-static const char* cc_name(uint8_t n) {
+const char* cc_name(uint8_t n) {
   switch (n) {
     case 1:  return "Mod Whl";
     case 2:  return "Breath ";
@@ -60,8 +61,9 @@ static const char* cc_name(uint8_t n) {
 //
 // Advance CC number by dir (+1 or -1), wrapping within 1–119 and skipping
 // forbidden values: 32 (Bank LSB) and 96–101 (RPN/NRPN data entry).
+// Non-static so navigation.ino can use it for live CC lane editing.
 //
-static uint8_t next_valid_cc(uint8_t current, int dir) {
+uint8_t next_valid_cc(uint8_t current, int dir) {
   int n = (int)current + dir;
   for (;;) {
     if (n < 1)   n = 119;
@@ -90,18 +92,19 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 //   4  Diagnostics
 //   5  Exit
 //   6  Features
-//   7  Mode            (toggles Simple / Advanced; confirmation required)
-//   8  Note range
-//   9  Note scales
-//  10  Note shift
-//  11  Octave shift
-//  12  Pat dir
-//  13  Pat length
-//  14  Pitch drift
-//  15  Save
-//  16  Step prob
-//  17  Swing
-//  18  Tempo
+//   7  Live CC ch      (hidden when ft_live_cc_mode is off)
+//   8  Mode            (toggles Simple / Advanced; confirmation required)
+//   9  Note range
+//  10  Note scales
+//  11  Note shift
+//  12  Octave shift
+//  13  Pat dir
+//  14  Pat length
+//  15  Pitch drift
+//  16  Save
+//  17  Step prob
+//  18  Swing
+//  19  Tempo
 
 // Reset/Clear submenu items (alphabetical):
 //   0  Clear all pats  (confirmation required)
@@ -115,19 +118,20 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 #define CONFIG_ITEM_DIAGNOSTICS   4
 #define CONFIG_ITEM_EXIT          5
 #define CONFIG_ITEM_FEATURES      6
-#define CONFIG_ITEM_MODE          7
-#define CONFIG_ITEM_NOTE_RANGE    8
-#define CONFIG_ITEM_NOTE_SCALES   9
-#define CONFIG_ITEM_NOTE_SHIFT    10
-#define CONFIG_ITEM_OCTAVE_SHIFT  11
-#define CONFIG_ITEM_PAT_DIR       12
-#define CONFIG_ITEM_PAT_LENGTH    13
-#define CONFIG_ITEM_PITCH_DRIFT   14
-#define CONFIG_ITEM_SAVE          15
-#define CONFIG_ITEM_STEP_PROB     16
-#define CONFIG_ITEM_SWING         17
-#define CONFIG_ITEM_TEMPO         18
-#define CONFIG_MENU_ITEM_COUNT    19
+#define CONFIG_ITEM_LIVE_CC_CHAN  7
+#define CONFIG_ITEM_MODE          8
+#define CONFIG_ITEM_NOTE_RANGE    9
+#define CONFIG_ITEM_NOTE_SCALES   10
+#define CONFIG_ITEM_NOTE_SHIFT    11
+#define CONFIG_ITEM_OCTAVE_SHIFT  12
+#define CONFIG_ITEM_PAT_DIR       13
+#define CONFIG_ITEM_PAT_LENGTH    14
+#define CONFIG_ITEM_PITCH_DRIFT   15
+#define CONFIG_ITEM_SAVE          16
+#define CONFIG_ITEM_STEP_PROB     17
+#define CONFIG_ITEM_SWING         18
+#define CONFIG_ITEM_TEMPO         19
+#define CONFIG_MENU_ITEM_COUNT    20
 
 #define RESET_ITEM_CLEAR_ALL  0
 #define RESET_ITEM_CLEAR_PAT  1
@@ -157,18 +161,19 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Diagnostics   ",   //  4 DIAGNOSTICS
   "Exit          ",   //  5 EXIT
   "Features      ",   //  6 FEATURES
-  "Mode:         ",   //  7 MODE          — value overwritten at draw time
-  "Note range    ",   //  8 NOTE_RANGE
-  "Note scales   ",   //  9 NOTE_SCALES   — * appended when non-default
-  "Note shift    ",   // 10 NOTE_SHIFT    — * appended when non-zero
-  "Octave shift  ",   // 11 OCTAVE_SHIFT  — * appended when non-zero
-  "Pat dir:      ",   // 12 PAT_DIR       — value overwritten at draw time
-  "Pat length    ",   // 13 PAT_LENGTH    — * appended when not 16
-  "Pitch drift   ",   // 14 PITCH_DRIFT   — * appended when non-zero
-  "Save          ",   // 15 SAVE
-  "Step prob     ",   // 16 STEP_PROB     — * appended if any step < 100
-  "Swing:        ",   // 17 SWING         — value overwritten at draw time
-  "Tempo         "    // 18 TEMPO         — value overwritten at draw time; hidden when ext clock
+  "Live CC ch:   ",   //  7 LIVE_CC_CHAN  — value overwritten at draw time
+  "Mode:         ",   //  8 MODE          — value overwritten at draw time
+  "Note range    ",   //  9 NOTE_RANGE
+  "Note scales   ",   // 10 NOTE_SCALES   — * appended when non-default
+  "Note shift    ",   // 11 NOTE_SHIFT    — * appended when non-zero
+  "Octave shift  ",   // 12 OCTAVE_SHIFT  — * appended when non-zero
+  "Pat dir:      ",   // 13 PAT_DIR       — value overwritten at draw time
+  "Pat length    ",   // 14 PAT_LENGTH    — * appended when not 16
+  "Pitch drift   ",   // 15 PITCH_DRIFT   — * appended when non-zero
+  "Save          ",   // 16 SAVE
+  "Step prob     ",   // 17 STEP_PROB     — * appended if any step < 100
+  "Swing:        ",   // 18 SWING         — value overwritten at draw time
+  "Tempo         "    // 19 TEMPO         — value overwritten at draw time; hidden when ext clock
 };
 
 // Tempo resolution index while editing: 0=±10, 1=±1, 2=±0.1.
@@ -194,6 +199,10 @@ void print_config_label(uint8_t item) {
   } else if (item == CONFIG_ITEM_CHANNEL) {
     // "Channel:   02 " — 14 chars
     snprintf(_buf, sizeof(_buf), "Channel:   %02d ", MIDICHANNEL);
+    lcd.print(_buf);
+  } else if (item == CONFIG_ITEM_LIVE_CC_CHAN) {
+    // "Live CC ch:02 " — 14 chars
+    snprintf(_buf, sizeof(_buf), "Live CC ch:%02d ", live_cc_channel);
     lcd.print(_buf);
   } else if (item == CONFIG_ITEM_SWING) {
     // "Swing:        " with value inline — 14 chars
@@ -271,6 +280,7 @@ static uint8_t config_menu_next(uint8_t from, int dir) {
       case CONFIG_ITEM_CC_NUMBER:    if (!ft_cc_mode)             enabled = false; break;
       case CONFIG_ITEM_STEP_PROB:    if (!ft_probability)         enabled = false; break;
       case CONFIG_ITEM_PITCH_DRIFT:  if (!ft_pitch_drift)         enabled = false; break;
+      case CONFIG_ITEM_LIVE_CC_CHAN: if (!ft_live_cc_mode)        enabled = false; break;
       default: break;
     }
     if (enabled) return cur;
@@ -298,6 +308,12 @@ void draw_config_menu() {
   } else if (config_editing_value && config_menu_item == CONFIG_ITEM_CHANNEL) {
     char line2[17];
     int len = snprintf(line2, sizeof(line2), "  Channel: %d", MIDICHANNEL);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_LIVE_CC_CHAN) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  LiveCC ch: %d", live_cc_channel);
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
@@ -499,6 +515,9 @@ void run_config_menu() {
       } else if (config_menu_item == CONFIG_ITEM_CHANNEL && MIDICHANNEL < 16) {
         MIDICHANNEL++;
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_LIVE_CC_CHAN && live_cc_channel < 16) {
+        live_cc_channel++;
+        draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_SWING && SWING < 5) {
         SWING++;
         seq.setShuffle(SWING);
@@ -558,6 +577,9 @@ void run_config_menu() {
         draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_CHANNEL && MIDICHANNEL > 1) {
         MIDICHANNEL--;
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_LIVE_CC_CHAN && live_cc_channel > 1) {
+        live_cc_channel--;
         draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_SWING && SWING > 0) {
         SWING--;
@@ -756,6 +778,10 @@ void run_config_menu() {
         config_editing_value = true;
         draw_config_menu();
         break;
+      case CONFIG_ITEM_LIVE_CC_CHAN:
+        config_editing_value = true;
+        draw_config_menu();
+        break;
       case CONFIG_ITEM_SWING:
         config_editing_value = true;
         draw_config_menu();
@@ -894,7 +920,7 @@ void run_reset_submenu() {
 // Features submenu
 // ---------------------------------------------------------------------------
 
-#define FEATURE_COUNT 14
+#define FEATURE_COUNT 15
 
 static const char* _feature_names[FEATURE_COUNT] = {
   "Advanced mode   ",
@@ -910,7 +936,8 @@ static const char* _feature_names[FEATURE_COUNT] = {
   "Oct/note shift  ",
   "Diagnostics     ",
   "Velocity sliders",
-  "Note audition   "
+  "Note audition   ",
+  "Live CC mode    "
 };
 
 static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
@@ -927,7 +954,8 @@ static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
   &ft_octave_note_shift,
   &ft_diagnostics,
   &ft_velocity_mode,
-  &ft_note_audition
+  &ft_note_audition,
+  &ft_live_cc_mode
 };
 
 void draw_features_submenu() {
@@ -969,6 +997,9 @@ static void _apply_feature_disable(uint8_t idx) {
         audition_sounding_note = -1;
       }
 #endif
+      break;
+    case 14:  // live CC mode — if currently in LV mode, drop back to NN
+      if (slider_mode == 6) set_slider_mode(1);
       break;
     default: break;
   }

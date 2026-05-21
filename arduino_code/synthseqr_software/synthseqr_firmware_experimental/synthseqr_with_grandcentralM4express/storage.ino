@@ -7,7 +7,7 @@
 #define EEPROM_EMULATION_SIZE 2048
 #include <FlashAsEEPROM_SAMD.h>
 
-// EEPROM layout — 1316 bytes total.
+// EEPROM layout — 1348 bytes total.
 // If you change the layout, increment EEPROM_MAGIC_VALUE so old saves are
 // ignored rather than misread as valid data.
 //
@@ -37,6 +37,9 @@
 //  1060    256    step_probability[16][16]
 //  1316    13     runtime feature flags (ft_*)
 //  1329    1      slider_hi_trim
+//  1330    1      ft_live_cc_mode (bool)
+//  1331    1      live_cc_channel (1–16)
+//  1332    16     live_cc_number[16] (CC# per lane)
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -63,8 +66,11 @@
 #define EEPROM_STEP_PROB_ADDR        1060   // 256 bytes: step_probability[16][16]
 #define EEPROM_FEATURE_FLAGS_ADDR    1316   // 13 bytes: runtime feature flags (ft_*)
 #define EEPROM_HI_TRIM_ADDR          1329   // 1 byte: slider_hi_trim (0–4)
+#define EEPROM_FT_LIVE_CC_ADDR       1330   // 1 byte: ft_live_cc_mode (bool)
+#define EEPROM_LIVE_CC_CHAN_ADDR     1331   // 1 byte: live_cc_channel (1–16)
+#define EEPROM_LIVE_CC_NUMBERS_ADDR  1332   // 16 bytes: live_cc_number[16]
 
-#define EEPROM_MAGIC_VALUE  0xCD  // bumped: slider_hi_trim added
+#define EEPROM_MAGIC_VALUE  0xCE  // bumped: live CC fields added
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -139,6 +145,13 @@ void save_to_eeprom() {
   }
 
   EEPROM.write(EEPROM_HI_TRIM_ADDR, slider_hi_trim);
+
+  EEPROM.write(EEPROM_FT_LIVE_CC_ADDR, (uint8_t)ft_live_cc_mode);
+  EEPROM.write(EEPROM_LIVE_CC_CHAN_ADDR, live_cc_channel);
+  {
+    int addr = EEPROM_LIVE_CC_NUMBERS_ADDR;
+    for (int i = 0; i < 16; i++) EEPROM.write(addr++, live_cc_number[i]);
+  }
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -283,6 +296,23 @@ bool load_from_eeprom() {
   {
     uint8_t v = EEPROM.read(EEPROM_HI_TRIM_ADDR);
     if (v <= 4) slider_hi_trim = v;
+  }
+
+  {
+    uint8_t v = EEPROM.read(EEPROM_FT_LIVE_CC_ADDR);
+    if (v <= 1) ft_live_cc_mode = (bool)v;
+  }
+  {
+    uint8_t v = EEPROM.read(EEPROM_LIVE_CC_CHAN_ADDR);
+    if (v >= 1 && v <= 16) live_cc_channel = v;
+  }
+  {
+    int addr = EEPROM_LIVE_CC_NUMBERS_ADDR;
+    for (int i = 0; i < 16; i++) {
+      uint8_t v = EEPROM.read(addr++);
+      if (v >= 1 && v <= 119 && v != 32 && !(v >= 96 && v <= 101))
+        live_cc_number[i] = v;
+    }
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm
