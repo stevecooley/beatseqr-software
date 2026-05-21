@@ -117,6 +117,11 @@ void run_chase_lights(unsigned int this_step) {
   // The nav routine manages them; skip chase light processing entirely.
   if (adv_pat_nav_active) return;
 
+  // In LV (live CC) mode, step LEDs are off except for the lane currently
+  // being edited — managed by detect_step_button_presses() and set_slider_mode().
+  // Skip the chase entirely so step_data state isn't repainted over our cleared LEDs.
+  if (slider_mode == 6) return;
+
   // While the config menu PAT_LENGTH editor is active, the step LEDs show
   // the pattern-length indicator (0..N-1 lit). Re-apply it before the chase
   // toggle so incoming steps don't overwrite it with read_step_memory().

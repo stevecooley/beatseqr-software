@@ -8,8 +8,13 @@
 void set_slider_mode(uint8_t mode) {
   uint8_t old_mode = slider_mode;
   slider_mode = mode;
+  // LV mode has no stored slider value to "pick up" — sliders only transmit on
+  // movement, and the last-sent sentinel ensures the first move always fires.
+  // Other modes need pickup guards so a physical position mismatch doesn't
+  // silently overwrite stored data when the mode is entered.
+  bool needs_pickup = (mode != 6);
   for (int i = 0; i < 16; i++) {
-    slider_needs_pickup[i] = true;
+    slider_needs_pickup[i] = needs_pickup;
   }
   update_line1 = true;
   update_line2 = true;
@@ -20,6 +25,19 @@ void set_slider_mode(uint8_t mode) {
     } else if (old_mode == 4) {
       read_step_memory(0, pattern_value);
     }
+  }
+  // LV mode: clear edit state, reset send-history so first move on any lane
+  // transmits, and turn step LEDs off (lit only for the lane being edited).
+  if (mode == 6) {
+    live_cc_editing_lane = -1;
+    live_cc_last_lane    = -1;
+    for (int i = 0; i < 16; i++) live_cc_last_sent[i] = 255;
+    clear_step_leds();
+  } else if (old_mode == 6) {
+    // Leaving LV: restore step LEDs to whatever the new mode wants.
+    live_cc_editing_lane = -1;
+    if (mode == 4) read_cc_step_memory();
+    else            read_step_memory(0, pattern_value);
   }
 }
 
@@ -124,6 +142,21 @@ void run_voice_slider_routine()
         }
       } else if (prob != step_probability[pattern_value][j]) {
         step_probability[pattern_value][j] = prob;
+      }
+    }
+    else if (slider_mode == 6)
+    {
+      // LV mode: send MIDI CC live on movement. Read raw 12-bit ADC directly
+      // (bypass the 256-sector quantization) and scale to 0–127. Each lane
+      // transmits on its own CC#; channel is independent of the note channel.
+      // No pickup guard — first movement past last_sent fires immediately.
+      uint16_t raw = voice_sliders[j].getValue();
+      uint8_t value = (uint8_t)(raw >> 5);  // 0..4095 -> 0..127
+      if (value != live_cc_last_sent[j]) {
+        controlChange(live_cc_channel - 1, live_cc_number[j], value);
+        live_cc_last_sent[j] = value;
+        live_cc_last_lane = (int8_t)j;
+        update_line2 = true;
       }
     }
 

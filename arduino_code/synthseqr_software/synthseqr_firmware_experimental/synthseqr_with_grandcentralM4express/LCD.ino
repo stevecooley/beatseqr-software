@@ -384,7 +384,7 @@ void run_LCD_update() {
         Serial.println(lcd_line1);
 
         // Slider mode indicator at cols 14-15: ?5 (slider-mode icon) + mode char.
-        // ?4=NN  ?2=VL  G=gate  ?3=CC
+        // ?4=NN  ?2=VL  G=gate  ?3=CC  P=PR  L=LV
         lcd.print("?5");
         Serial.print("?5");
         switch (slider_mode) {
@@ -393,6 +393,7 @@ void run_LCD_update() {
           case 3: lcd.print("G");  Serial.println("G");  break;
           case 4: lcd.print("?3"); Serial.println("?3"); break;
           case 5: lcd.print("P");  Serial.println("P");  break;
+          case 6: lcd.print("L");  Serial.println("L");  break;
           default: lcd.print("?4"); Serial.println("?4"); break;
         }
       }
@@ -400,6 +401,38 @@ void run_LCD_update() {
       if (update_line2 == true) {
         update_line2 = false;
         did_redraw = true;
+        // LV mode owns line 2: editing shows focused lane + CC# + name,
+        // idle shows last-touched lane + CC# + last-sent value, or a
+        // placeholder until any slider has moved.
+        if (slider_mode == 6) {
+          char line2[17];
+          int len;
+          if (live_cc_editing_lane >= 0) {
+            uint8_t cc = live_cc_number[live_cc_editing_lane];
+            len = snprintf(line2, sizeof(line2), "L%02d:%03d %-7s",
+                           (int)live_cc_editing_lane + 1, cc, cc_name(cc));
+          } else if (live_cc_last_lane >= 0) {
+            uint8_t cc  = live_cc_number[live_cc_last_lane];
+            uint8_t val = live_cc_last_sent[live_cc_last_lane];
+            if (val > 127) val = 0;
+            len = snprintf(line2, sizeof(line2), "L%02d CC%03d V%03d",
+                           (int)live_cc_last_lane + 1, cc, val);
+          } else {
+            len = snprintf(line2, sizeof(line2), "Live CC ch%02d", live_cc_channel);
+          }
+          while (len < 16) line2[len++] = ' ';
+          line2[16] = '\0';
+          lcd.print("?x00?y1");
+          Serial.print("?x00?y1");
+          lcd.print(line2);
+          Serial.println(line2);
+          if (cursor_flag || did_redraw) {
+            cursor_flag = false;
+            set_lcd_cursor(cursor_y, cursor_x);
+          }
+          next_lcdflag = 255;
+          break;
+        }
         // Line 2: "♪PPP ♩VVV G#♫CCC" — 16 chars.
         // ?4=NN icon, ?2=VL icon, ?3=CC icon; plain chars via sprintf.
         // Fields: note(5) + vel(5) + gate(2) + cc(4) = 16 chars exactly.

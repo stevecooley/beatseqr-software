@@ -230,6 +230,22 @@ void detect_step_button_presses()
     }
 #endif  // FEATURE_CC_MODE
 
+    if (slider_mode == 6) {
+      // LV mode: step buttons select which lane's CC# is being edited.
+      // Tap same lane = exit editing. Tap a different lane = switch focus.
+      // No step_data toggling, no gate-set gesture, no audition.
+      if (live_cc_editing_lane == (int8_t)i) {
+        live_cc_editing_lane = -1;
+        step_leds[i].off();
+      } else {
+        if (live_cc_editing_lane >= 0) step_leds[live_cc_editing_lane].off();
+        live_cc_editing_lane = (int8_t)i;
+        step_leds[i].on();
+      }
+      update_line2 = true;
+      continue;
+    }
+
     if (gate_hold_step >= 0 && gate_hold_step != i && !gate_gesture_fired) {
       if ((long)(millis() - gate_hold_start_ms) >= 150) {
         // Gate-set gesture: compute forward distance from held step to tapped step.

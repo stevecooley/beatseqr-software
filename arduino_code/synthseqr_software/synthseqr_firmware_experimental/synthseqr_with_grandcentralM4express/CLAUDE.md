@@ -78,8 +78,13 @@ uint8_t SWING                         // 0–5
 uint8_t cc_step_values[16][16]        // CC value per pattern per step (0–127); default 0
 uint8_t cc_step_enabled[16][16]       // CC step on/off per pattern per step; default 0 (off)
 uint8_t cc_number[16]                 // CC controller number per pattern (1–119, skipping 32 and 96–101); default 1 (Mod Wheel)
-uint8_t slider_mode                   // 1=NN (note number), 2=VL (velocity), 3=GT (gate), 4=CC (control change), 5=PR (probability)
-uint8_t slider_mode_total             // 5 (NN, VL, GT, CC, PR)
+uint8_t slider_mode                   // 1=NN, 2=VL, 3=GT, 4=CC (sequenced), 5=PR, 6=LV (live CC)
+uint8_t slider_mode_total             // 6 (NN, VL, GT, CC, PR, LV)
+uint8_t live_cc_number[16]            // CC# per LV lane (global across patterns); default 1–16
+uint8_t live_cc_channel               // 1–16 MIDI channel for live CC; independent of MIDICHANNEL
+uint8_t live_cc_last_sent[16]         // last sent 0–127 per lane; 255 sentinel = "never sent"
+int8_t  live_cc_editing_lane          // -1 = idle; 0..15 = lane currently being edited
+int8_t  live_cc_last_lane             // most-recent lane that sent (LCD line 2)
 uint8_t step_probability[16][16]      // fire probability per step per pattern (0–100); default 100 = always fires
 uint8_t pitch_drift                   // semitones of random pitch wander at send time (0=off, 1–7); global
 uint8_t slider_hi_trim                // extra notes added to slider_map_high_value at mapping time for physical calibration (0–4); default 0
@@ -161,7 +166,7 @@ The play button (pin 21) is attached to a SAMD51 EIC external interrupt (FALLING
 
 D-pad up/down on the main screen selects the active pattern (wraps within 1–4 simple / 1–16 advanced). D-pad left is a no-op on the main screen (consumed). Timing modes and tempo editing via d-pad have been removed — tempo is now in the config menu.
 
-**Enter button** (single tap, simple mode only) cycles the active slider mode, skipping any modes whose feature flag is off: NN → VL → GT → CC → PR → NN (only enabled modes appear). In advanced mode the enter button opens the config menu on double-tap; single-tap has no function. The enter LED is not toggled by the enter button.
+**Enter button** (single tap, both simple and advanced mode) cycles the active slider mode, skipping any modes whose feature flag is off: NN → VL → GT → CC → PR → LV → NN (only enabled modes appear). Double-tap Enter opens the config menu in both modes. The enter LED is not toggled by the enter button. While `live_cc_editing_lane >= 0` (LV-mode lane edit active), Enter exits editing instead of cycling slider mode.
 
 **`timing_mode` variable has been removed.** `switch_timing_mode_events()` and `set_timing_resolution()` no longer exist. Swing, clock source, MIDI channel, and tempo have all moved to the config menu (double-tap Enter).
 
@@ -187,7 +192,7 @@ Switching clock source calls `setExternalClockMode()` which stops or starts TC4 
 
 ## Slider Modes
 
-The 16 voice sliders operate in one of four modes:
+The 16 voice sliders operate in one of six modes:
 
 | Mode   | Display                | Slider controls                                                             | Storage                                                         |
 | ------ | ---------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -196,17 +201,27 @@ The 16 voice sliders operate in one of four modes:
 | 3 — GT | `?5G`                  | Gate length (1–16 steps)                                                    | `step_gate[p][s]`                                               |
 | 4 — CC | `?5?3` (CC icon)       | CC value (0–127) per step; step buttons toggle `cc_step_enabled` on/off     | `cc_step_values[p][s]`, `cc_step_enabled[p][s]`                 |
 | 5 — PR | `?5P`                  | Fire probability (0–100%) per step                                          | `step_probability[p][s]`                                        |
+| 6 — LV | `?5L`                  | **Live** MIDI CC (transmitted on movement, not sequenced)                   | `live_cc_number[s]` (global), `live_cc_last_sent[s]`            |
 
 **Switching modes:**
 
-- **Simple mode**: Enter single-tap cycles NN → VL → GT → CC → NN. PR mode is accessed via config menu → **Step prob** (exits menu and sets mode 5). The Enter single-tap cycle skips PR.
-- **Advanced mode**: Pattern button 1 = NN, button 2 = VL, button 3 = PR. CC and GT slider modes accessed via config menu. Gate lengths are set via the hold-step + tap-step key-combo regardless of ft_gate_mode.
+- **Enter single-tap** (both simple AND advanced mode) cycles NN → VL → GT → CC → PR → LV → NN, skipping any mode whose feature flag is off. (This is a change from earlier behavior where Enter had no function in advanced mode.)
+- **Advanced mode pattern buttons** remain as quick shortcuts: 1 = NN, 2 = VL, 3 = PR. CC, GT, and LV are reachable from advanced mode only via the Enter cycle (or the relevant config menu shortcut for sequenced CC).
+- **Step prob** menu item still jumps directly to PR. There is no equivalent menu shortcut into LV — use the Enter cycle.
 
-**`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders, sets `update_line1 = update_line2 = true`, and switches step LED display: entering CC mode calls `read_cc_step_memory()` (LEDs show `cc_step_enabled`); leaving CC mode calls `read_step_memory()` (LEDs show `step_data`). Always call this function — never set `slider_mode` directly — so pickup guards and LED display are always updated on transition.
+**`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders **except mode 6 (LV)** which has no pickup, sets `update_line1 = update_line2 = true`, and switches step LED display: entering CC mode calls `read_cc_step_memory()` (LEDs show `cc_step_enabled`); entering LV mode clears all step LEDs (lit only for the lane currently being edited); leaving CC/LV mode calls `read_step_memory()` (LEDs show `step_data`). Entering LV also resets `live_cc_editing_lane`, `live_cc_last_lane`, and seeds `live_cc_last_sent[i] = 255` so the first move on any lane transmits. Always call this function — never set `slider_mode` directly.
 
-**Pickup guard (all modes)**: `slider_needs_pickup[s]` prevents a slider from overwriting stored data until the physical slider crosses through the stored value for the current mode. This prevents mode switches from silently corrupting pattern data when sliders are at different physical positions for each mode. Tolerance: ±1 note (NN), ±1 velocity unit (VL), exact match (GT, range 1–8), ±1 CC unit (CC).
+**Pickup guard (modes 1–5)**: `slider_needs_pickup[s]` prevents a slider from overwriting stored data until the physical slider crosses through the stored value for the current mode. This prevents mode switches from silently corrupting pattern data when sliders are at different physical positions for each mode. Tolerance: ±1 note (NN), ±1 velocity unit (VL), exact match (GT, range 1–8), ±1 CC unit (CC). **LV mode (6) has no pickup** — the slider's position IS the value, and the 255 sentinel in `live_cc_last_sent[]` ensures the first move on any lane always transmits.
 
 **CC mode step buttons**: In CC mode, step buttons toggle `cc_step_enabled[p][s]` on/off (independent of `step_data`). A step can have CC enabled without having a note, and vice versa. The step LED reflects `cc_step_enabled` state while in CC mode.
+
+**LV mode step buttons**: Step buttons in LV mode select which lane's CC# is being edited. Tap a step → that lane becomes `live_cc_editing_lane` and its LED lights. Tap the same step again → exit editing. Tap a different step → switch focus. No `step_data` toggling, no gate-set gesture, no audition. While `live_cc_editing_lane >= 0`, d-pad up/down adjusts `live_cc_number[lane]` via the same valid-CC list as sequenced CC (skip 32, 96–101); d-pad left or Enter exits editing. Changing the CC# resets `live_cc_last_sent[lane] = 255` so the next slider movement retransmits on the new CC#.
+
+**LV slider read**: `run_voice_slider_routine()` mode-6 branch reads raw 12-bit ADC via `Potentiometer::getValue()` (bypasses the sectorization used by other modes) and maps to 0–127 via `raw >> 5`. If the value differs from `live_cc_last_sent[i]`, sends `controlChange(live_cc_channel - 1, live_cc_number[i], value)` and updates `live_cc_last_sent[i]` and `live_cc_last_lane`. The 20 ms `last_slider_ms` rate-limit at the top of `run_voice_slider_routine()` still applies — live CC will not transmit faster than ~50 Hz per slider, which is plenty for smooth control without flooding USB-MIDI.
+
+**LV MIDI channel** is `live_cc_channel` (1–16), set via config menu → **Live CC ch**. Independent of `MIDICHANNEL` (which the note sequencer and sequenced CC use). This allows routing live CC to a different synth/destination.
+
+**LV persistence**: `live_cc_number[16]` and `live_cc_channel` are saved to both SD JSON (`"live_cc_channel"`, `"live_cc_numbers": [..16..]`) and EEPROM (addresses 1331 and 1332–1347). `ft_live_cc_mode` is also persisted (SD `"ft_live_cc_mode"`; EEPROM address 1330). Bumping EEPROM_MAGIC_VALUE to 0xCE forces old saves without these fields to be re-defaulted on first boot after the upgrade.
 
 **Always boots to NN mode** (`slider_mode = 1`). Mode is not saved to SD/EEPROM — it resets to NN on power-up.
 
@@ -283,7 +298,7 @@ When `external_clock_mode == false` (default):
 - Hold any pattern button 2s → pattern copy (press destination pattern button)
 - Pattern LEDs show the active pattern (0–3)
 - D-pad mode 1 navigates patterns 1–4
-- Enter single-tap cycles slider mode: NN → VL → GT → NN
+- Enter single-tap cycles slider mode through all enabled modes: NN → VL → GT → CC → PR → LV → NN
 
 **Advanced mode** (`advanced_mode == true`):
 
@@ -303,7 +318,7 @@ When `external_clock_mode == false` (default):
 - Pattern LEDs: LED 0 = nav mode active; LEDs 1/2/3 = active slider mode indicator
 - D-pad mode 1 navigates patterns 1–16
 - Hold-for-2s pattern copy is disabled in advanced mode
-- Enter single-tap has no function in advanced mode (no LED toggle, no mode cycle)
+- Enter single-tap cycles slider mode in advanced mode too (NN → VL → GT → CC → PR → LV → NN, skipping disabled modes). Pattern buttons 1/2/3 remain as quick shortcuts to NN/VL/PR.
 
 ## Config Menu
 
@@ -322,18 +337,19 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 5. **Diagnostics** — opens the Diagnostics submenu (LED test, Input test, Hi trim — see below). Hidden when `ft_diagnostics` is off
 6. **Exit** — Enter, left, or right all exit
 7. **Features** — enters the Features submenu (see below)
-8. **Mode: Simple/Advanced** — confirmation required; Enter toggles Simple↔Advanced; line 1 shows target (`Mode:->Simple ` or `Mode:->Advancd`); Left cancels. Enabling Advanced also force-enables `ft_velocity_mode` and `ft_probability`. Hidden when `ft_advanced_mode` is off
-9. **Note range** — opens Note range submenu (see below); label shows `*` when non-default (36/52). Always visible (not gated by any feature flag)
-10. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; changing scale or root calls `apply_scale_to_all_patterns()` which quantizes all stored pitches immediately; label shows `*` when non-Chromatic/C. Scales: Chromatic Blues Dorian HarmMinor Major Mixolydian NatMinor PentMaj PentMin Phrygian. Hidden when `ft_scale_quantization` is off
-11. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
-12. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
-13. **Pat dir** — enter editing sub-state; up/down cycles 0–7; names: Fwd/Rev/Pong/Rand/Shuf/E·O/In/Quad. Hidden when `ft_pattern_direction` is off
-14. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button sets length to N+1; step LEDs show active length while editing; `seq.setSteps()` called on every change; label shows `*` when not 16. Hidden when `ft_variable_pat_length` is off
-15. **Pitch drift** — enter editing sub-state; up/down adjust 0–7 semitones; label shows `*` when non-zero. Hidden when `ft_pitch_drift` is off
-16. **Save** — saves to SD (primary) + EEPROM (backup); blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
-17. **Step prob** — exits menu immediately and activates PR slider mode; label shows `*` if any step probability < 100. Hidden when `ft_probability` is off
-18. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing. Hidden when `ft_swing` is off
-19. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
+8. **Live CC ch** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing. Sets the MIDI channel used by LV slider mode (independent of `MIDICHANNEL`). Hidden when `ft_live_cc_mode` is off
+9. **Mode: Simple/Advanced** — confirmation required; Enter toggles Simple↔Advanced; line 1 shows target (`Mode:->Simple ` or `Mode:->Advancd`); Left cancels. Enabling Advanced also force-enables `ft_velocity_mode` and `ft_probability`. Hidden when `ft_advanced_mode` is off
+10. **Note range** — opens Note range submenu (see below); label shows `*` when non-default (36/52). Always visible (not gated by any feature flag)
+11. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; changing scale or root calls `apply_scale_to_all_patterns()` which quantizes all stored pitches immediately; label shows `*` when non-Chromatic/C. Scales: Chromatic Blues Dorian HarmMinor Major Mixolydian NatMinor PentMaj PentMin Phrygian. Hidden when `ft_scale_quantization` is off
+12. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
+13. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
+14. **Pat dir** — enter editing sub-state; up/down cycles 0–7; names: Fwd/Rev/Pong/Rand/Shuf/E·O/In/Quad. Hidden when `ft_pattern_direction` is off
+15. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button sets length to N+1; step LEDs show active length while editing; `seq.setSteps()` called on every change; label shows `*` when not 16. Hidden when `ft_variable_pat_length` is off
+16. **Pitch drift** — enter editing sub-state; up/down adjust 0–7 semitones; label shows `*` when non-zero. Hidden when `ft_pitch_drift` is off
+17. **Save** — saves to SD (primary) + EEPROM (backup); blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
+18. **Step prob** — exits menu immediately and activates PR slider mode; label shows `*` if any step probability < 100. Hidden when `ft_probability` is off
+19. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing. Hidden when `ft_swing` is off
+20. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
 
 **Reset/Clear submenu**: Scrolled with up/down, Enter shows confirmation (`Entr=ok  Lft=no`), Enter again executes, Left cancels confirmation or exits submenu back to main menu. Items: Clear all pats, Clear pattern, Reset sliders.
 
@@ -348,7 +364,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 | Advanced mode     | `ft_advanced_mode`    | 16 patterns, pattern-nav/copy/chain, adv button layout |
 | CC mode           | `ft_cc_mode`          | Slider mode 4 (CC), CC number menu item              |
 | Probability       | `ft_probability`      | Slider mode 5 (PR), Step prob menu item              |
-| Gate sliders      | `ft_gate_mode`        | Slider mode 3 (GT) — key-combo gate always works     |
+| Gate sliders      | `ft_gate_mode`        | Slider mode 3 (GT) — key-combo gate always works (default OFF) |
 | Note scales       | `ft_scale_quantization` | Scale quantization, Note scales menu item (Note range is always visible) |
 | Pitch drift       | `ft_pitch_drift`      | Pitch drift menu item                                |
 | Pat direction     | `ft_pattern_direction`| Pattern direction menu item                          |
@@ -358,7 +374,8 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 | Oct/note shift    | `ft_octave_note_shift`| Octave shift + Note shift menu items                 |
 | Diagnostics       | `ft_diagnostics`      | Diagnostics menu item + hardware test mode           |
 | Velocity sliders  | `ft_velocity_mode`    | Slider mode 2 (VL)                                   |
-| Note audition     | `ft_note_audition`    | MIDI note preview on step-on while stopped (default OFF) |
+| Note audition     | `ft_note_audition`    | MIDI note preview on step-on while stopped (default ON) |
+| Live CC mode      | `ft_live_cc_mode`     | Slider mode 6 (LV), Live CC ch menu item (default ON) |
 
 **Double-tap detection**: implemented in the main `loop()` with `last_enter_ms` and `enter_tap_pending` statics. The first tap starts a 400 ms window without immediately setting `enterbutton_flag` — this prevents the first press of a double-tap from accidentally triggering a slider mode change. If a second `uniquePress()` arrives within the window, `enter_config_menu()` fires. If the window expires without a second tap, `enterbutton_flag` is set as a normal single-tap. Single-tap actions are therefore delayed by up to 400 ms, which is imperceptible for mode-cycling use.
 
@@ -393,6 +410,9 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
   "advanced_mode": 0,
   "pattern_length": 16,
   "pattern_direction": 0,
+  "ft_live_cc_mode": 0,
+  "live_cc_channel": 1,
+  "live_cc_numbers": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],
   "patterns": [
     {
       "steps":[1,0,...16 values],
@@ -419,11 +439,11 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 **On boot**: `load_from_eeprom()` is called only if `load_from_sd()` returns false. Checks for a magic sentinel byte at address 0. If missing (first boot or layout change), globals keep compiled-in defaults.
 
-**EEPROM layout** (1330 bytes, defined as `#define` constants in `storage.ino`):
+**EEPROM layout** (1348 bytes, defined as `#define` constants in `storage.ino`):
 
 | Address | Size | Content                                        |
 | ------- | ---- | ---------------------------------------------- |
-| 0       | 1    | Magic byte `0xCD`                              |
+| 0       | 1    | Magic byte `0xCE`                              |
 | 1       | 1    | `MIDICHANNEL`                                  |
 | 2       | 1    | `SWING`                                        |
 | 3       | 4    | `TEMPO` (float)                                |
@@ -448,12 +468,15 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 1060    | 256  | `step_probability[16][16]` (one byte per step) |
 | 1316    | 13   | runtime feature flags (`ft_*`)                 |
 | 1329    | 1    | `slider_hi_trim` (uint8_t, 0–4)                |
+| 1330    | 1    | `ft_live_cc_mode` (bool)                       |
+| 1331    | 1    | `live_cc_channel` (uint8_t, 1–16)              |
+| 1332    | 16   | `live_cc_number[16]` (CC# per LV lane)         |
 
 **Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100.
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xCD`.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xCE`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.
 
@@ -476,7 +499,7 @@ When `ft_note_audition` is true and the sequencer is stopped (`!playstatus`), st
 
 **Disable side-effect**: `_apply_feature_disable(13)` in `config_menu.ino` immediately cancels any sounding audition note when the feature is toggled off.
 
-**Default**: `ft_note_audition = false` — the feature is off on first boot and must be enabled in Features submenu.
+**Default**: `ft_note_audition = true` — the feature is on by default. Disable from Features submenu if you don't want step-toggle previews while stopped.
 
 ## Diagnostics Mode
 
