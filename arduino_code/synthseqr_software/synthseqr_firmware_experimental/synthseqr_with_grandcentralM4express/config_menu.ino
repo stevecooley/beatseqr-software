@@ -450,8 +450,16 @@ void exit_config_menu() {
     adv_copy_armed = false;
     adv_chain_hold_step = -1;
   }
-  // Restore step LEDs to pattern data state (in case PAT_LENGTH was editing).
-  read_step_memory(0, pattern_value);
+  // Restore step LEDs for the active slider mode (in case PAT_LENGTH was editing).
+  // CC mode shows cc_step_enabled; LV mode shows only the editing lane (if any).
+  if (slider_mode == 4) {
+    read_cc_step_memory();
+  } else if (slider_mode == 6) {
+    clear_step_leds();
+    if (live_cc_editing_lane >= 0) step_leds[live_cc_editing_lane].on();
+  } else {
+    read_step_memory(0, pattern_value);
+  }
   // Force a full LCD redraw back to the main display.
   update_line1 = true;
   update_line2 = true;

@@ -32,7 +32,11 @@
       "Bash(git -C /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express diff -- CLAUDE.md config.h config_menu.ino instructions.md scales.ino sd_storage.ino storage.ino)",
       "Bash(git -C /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express add CLAUDE.md config.h config_menu.ino instructions.md scales.ino sd_storage.ino storage.ino)",
       "Bash(git -C /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express commit -m ' *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(grep -n \"EEPROM layout\\\\|1329    1      \\\\`slider_hi_trim\\\\|1316    13\" /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/CLAUDE.md)",
+      "Bash(grep -n \"Magic byte\\\\`: Increment\" /Users/stevecooley/Library/CloudStorage/Dropbox/arduino/beatseqr-software/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/CLAUDE.md)",
+      "Bash(git checkout *)",
+      "Bash(git push *)"
     ],
     "additionalDirectories": [
       "/Users/stevecooley/Documents/Arduino/libraries/FifteenStep",

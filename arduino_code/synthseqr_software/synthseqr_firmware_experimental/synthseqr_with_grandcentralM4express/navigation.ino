@@ -177,11 +177,15 @@ void setExternalClockMode(bool enable) {
 //
 void pattern_select_events() {
   uint8_t max_patterns = advanced_mode ? 16 : 4;
+  // In LV mode, step LEDs are owned by the lane editor — don't repaint from
+  // step_data when switching patterns (pattern affects the note sequence
+  // running in the background, but LV lane mapping is global).
+  bool repaint_step_leds = (slider_mode != 6);
   if (dpad_up_flag == true) {
     dpad_up_flag = false;
     uint8_t next = (current_pattern + 1) % max_patterns;
     go_to_pattern(next, 0);
-    read_step_memory(0, next);
+    if (repaint_step_leds) read_step_memory(0, next);
     cursor_x = LCD_L1_X_PATTERN;
     cursor_y = 0;
     cursor_flag = true;
@@ -190,7 +194,7 @@ void pattern_select_events() {
     dpad_down_flag = false;
     uint8_t next = (current_pattern + max_patterns - 1) % max_patterns;  // -1 with wrap
     go_to_pattern(next, 0);
-    read_step_memory(0, next);
+    if (repaint_step_leds) read_step_memory(0, next);
     cursor_x = LCD_L1_X_PATTERN;
     cursor_y = 0;
     cursor_flag = true;
