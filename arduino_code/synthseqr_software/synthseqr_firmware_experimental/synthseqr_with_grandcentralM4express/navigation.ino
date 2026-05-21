@@ -1,16 +1,25 @@
 // next_slider_mode()
 //
-// Cycles slider mode forward from current, skipping CC (4) if ft_cc_mode is
-// off and PR (5) if ft_probability is off.
+// Cycles slider mode forward from current: NN → VL → GT → CC → PR → LV → NN,
+// skipping any modes whose feature flag is off. Tries up to slider_mode_total
+// times to find an enabled mode; falls back to NN if everything else is off.
 //
 static uint8_t next_slider_mode(uint8_t current) {
-  uint8_t next = (current % slider_mode_total) + 1;
-  if (next == 2 && !ft_velocity_mode) next++;
-  if (next == 3 && !ft_gate_mode)  next++;
-  if (next == 4 && !ft_cc_mode)   next++;
-  if (next == 5 && !ft_probability) next = 1;
-  if (next > slider_mode_total)   next = 1;
-  return next;
+  uint8_t next = current;
+  for (uint8_t i = 0; i < slider_mode_total; i++) {
+    next = (next % slider_mode_total) + 1;
+    bool enabled = true;
+    switch (next) {
+      case 2: if (!ft_velocity_mode) enabled = false; break;
+      case 3: if (!ft_gate_mode)     enabled = false; break;
+      case 4: if (!ft_cc_mode)       enabled = false; break;
+      case 5: if (!ft_probability)   enabled = false; break;
+      case 6: if (!ft_live_cc_mode)  enabled = false; break;
+      default: break;
+    }
+    if (enabled) return next;
+  }
+  return 1;  // NN is always available
 }
 
 void listen_for_navigation_events() {
@@ -52,16 +61,50 @@ void listen_for_navigation_events() {
   switch (navmode) {
     case 100:  // main screen navigation
     {
+      // LV mode + editing a lane: d-pad up/down adjusts that lane's CC#,
+      // d-pad left exits editing. Intercepts before normal pattern-nav handling.
+      if (slider_mode == 6 && live_cc_editing_lane >= 0) {
+        if (dpad_left_flag) {
+          dpad_left_flag = false;
+          step_leds[live_cc_editing_lane].off();
+          live_cc_editing_lane = -1;
+          update_line2 = true;
+          break;
+        }
+        if (dpad_up_flag) {
+          dpad_up_flag = false;
+          live_cc_number[live_cc_editing_lane] =
+            next_valid_cc(live_cc_number[live_cc_editing_lane], +1);
+          // Force next slider read to retransmit at the new CC# even if value unchanged.
+          live_cc_last_sent[live_cc_editing_lane] = 255;
+          update_line2 = true;
+        }
+        if (dpad_down_flag) {
+          dpad_down_flag = false;
+          live_cc_number[live_cc_editing_lane] =
+            next_valid_cc(live_cc_number[live_cc_editing_lane], -1);
+          live_cc_last_sent[live_cc_editing_lane] = 255;
+          update_line2 = true;
+        }
+        if (enterbutton_flag) {
+          enterbutton_flag = false;
+          step_leds[live_cc_editing_lane].off();
+          live_cc_editing_lane = -1;
+          update_line2 = true;
+        }
+        break;
+      }
+
       // Consume d-pad left here — no timing modes to cycle on main screen.
       if (dpad_left_flag) dpad_left_flag = false;
 
       if (enterbutton_flag == true) {
         enterbutton_flag = false;
-        // Simple mode: cycle slider mode NN → VL → GT → (CC) → (PR) → NN,
-        // skipping disabled features. Advanced mode uses pattern buttons 1/2/3.
-        if (!advanced_mode) {
-          set_slider_mode(next_slider_mode(slider_mode));
-        }
+        // Cycle slider mode in both simple and advanced mode (advanced no
+        // longer leaves Enter unused — it shares the same NN/VL/GT/CC/PR/LV
+        // cycle, with disabled modes skipped). Pattern buttons 1/2/3 still
+        // remain as quick-jump shortcuts in advanced mode.
+        set_slider_mode(next_slider_mode(slider_mode));
       }
 
       if ((dpad_up_flag == true) || (dpad_down_flag == true)) {
@@ -134,11 +177,15 @@ void setExternalClockMode(bool enable) {
 //
 void pattern_select_events() {
   uint8_t max_patterns = advanced_mode ? 16 : 4;
+  // In LV mode, step LEDs are owned by the lane editor — don't repaint from
+  // step_data when switching patterns (pattern affects the note sequence
+  // running in the background, but LV lane mapping is global).
+  bool repaint_step_leds = (slider_mode != 6);
   if (dpad_up_flag == true) {
     dpad_up_flag = false;
     uint8_t next = (current_pattern + 1) % max_patterns;
     go_to_pattern(next, 0);
-    read_step_memory(0, next);
+    if (repaint_step_leds) read_step_memory(0, next);
     cursor_x = LCD_L1_X_PATTERN;
     cursor_y = 0;
     cursor_flag = true;
@@ -147,7 +194,7 @@ void pattern_select_events() {
     dpad_down_flag = false;
     uint8_t next = (current_pattern + max_patterns - 1) % max_patterns;  // -1 with wrap
     go_to_pattern(next, 0);
-    read_step_memory(0, next);
+    if (repaint_step_leds) read_step_memory(0, next);
     cursor_x = LCD_L1_X_PATTERN;
     cursor_y = 0;
     cursor_flag = true;

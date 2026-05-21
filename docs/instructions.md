@@ -23,14 +23,13 @@ The 16 sliders change function depending on the active slider mode. The current 
 | NN   | ♪N        | Note pitch (MIDI note number) |
 | VL   | ♪V        | Velocity (1–127) |
 | GT   | ♪G        | Gate length (1–16 steps) |
-| CC   | ♪C        | MIDI CC value (0–127) per step |
+| CC   | ♪C        | MIDI CC value (0–127) per step (sequenced — fires with each step) |
 | PR   | ♪P        | Fire probability per step (0–100%) |
+| LV   | ♪L        | **Live** MIDI CC — sliders transmit CC continuously on movement |
 
-**Pickup guard**: when you switch modes, sliders won't overwrite stored values until the physical slider passes through the saved value. This prevents accidental data loss when sliders are at different positions for each mode.
+**Pickup guard**: when you switch modes, sliders won't overwrite stored values until the physical slider passes through the saved value. This prevents accidental data loss when sliders are at different positions for each mode. LV mode has no pickup — the slider position IS the value and only transmits when you move it.
 
-**Simple mode** — single-tap Enter to cycle through enabled modes.
-
-**Advanced mode** — pattern buttons 1/2/3 select NN/VL/PR directly.
+**Single-tap Enter** cycles through all enabled modes in both Simple and Advanced mode: NN → VL → GT → CC → PR → LV → NN. In Advanced mode, pattern buttons 1/2/3 also jump straight to NN/VL/PR.
 
 ---
 
@@ -40,6 +39,8 @@ The 16 sliders change function depending on the active slider mode. The current 
 - **Hold one step, tap another** — set gate length. The gate spans from the held step to the tapped step (wraps around). The held step turns on; the tapped step is not toggled.
 
 In **CC mode** the step buttons toggle CC-send on/off for each step independently of the note on/off state.
+
+In **LV mode** the step buttons select which slider lane's CC# is being edited. Tap a step → that lane is in edit mode (LED on); use d-pad up/down to pick its CC number. Tap the same step again, or press Enter or d-pad left, to exit editing. Other sliders keep transmitting live CC while you edit.
 
 ---
 
@@ -76,8 +77,8 @@ Pattern buttons are function keys — they do not select patterns directly.
 
 | Direction | Action |
 |-----------|--------|
-| Up / Down | Select next/previous pattern |
-| Left      | No action on main screen; exits menus and cancels operations |
+| Up / Down | Select next/previous pattern (in LV edit mode: change the focused lane's CC number) |
+| Left      | No action on main screen; exits menus, cancels operations, exits LV lane edit |
 
 ---
 
@@ -107,6 +108,7 @@ Only items whose feature is active appear in the list. Disabled features hide th
 | Pat length | Set pattern length 1–16 steps |
 | Pat dir | Set playback direction: Fwd / Rev / Pong / Rand / Shuf / E·O / In / Quad |
 | CC number | Set the MIDI CC number sent for this pattern (1–119) |
+| Live CC ch | Set the MIDI channel used by LV (live CC) mode — independent of the main MIDI channel |
 | Step prob | Switch sliders to PR (probability) mode |
 | Pitch drift | Add random pitch wander ±0–7 semitones per note-on |
 | Features | Open the Features submenu |
@@ -134,6 +136,8 @@ Turning a feature off hides its menu items and disables the associated slider mo
 | Oct/note shift | Octave shift and Note shift menu items |
 | Diagnostics | Diagnostics menu item and hardware test mode |
 | Velocity sliders | Slider mode VL |
+| Note audition | MIDI preview note when toggling a step while stopped (on by default) |
+| Live CC mode | Slider mode LV and Live CC ch menu item (on by default) |
 
 **Tip**: for a minimal setup, turn off everything except the features you actually use. The config menu becomes much shorter and easier to navigate.
 
@@ -185,6 +189,22 @@ When you change scale or root, all stored pitches across all 16 patterns are imm
 ## Pitch Drift
 
 **Config menu → Pitch drift**: adds a random semitone offset (±0–7) to each note at the moment it fires. Drift is applied after octave/note shift and before scale quantization, so the output always stays in-scale when a scale is active.
+
+---
+
+## Live CC Mode (LV)
+
+LV mode turns each slider into a live MIDI CC controller. Sliders transmit CC messages continuously as you move them — they are **not** sequenced; the values play in real time alongside the running sequence.
+
+**Turning it on**: enabled by default. Toggle via **Config menu → Features → Live CC mode**. Single-tap Enter to cycle into LV (`♪L` indicator on the LCD).
+
+**Assigning CC numbers**: tap any **step button** to put that lane into edit mode (its LED lights up). The LCD shows the lane's current CC number and name (e.g. `L05:007 Volume`). Use **d-pad up/down** to change the CC number. **Tap the same step again**, or press **Enter** or **d-pad left**, to exit editing. Other sliders keep sending live CC while you edit.
+
+**MIDI channel**: LV uses its own channel, set in **Config menu → Live CC ch** (1–16). This is independent of the main MIDI channel — point LV at a different synth or destination without affecting the note sequence.
+
+**Lane defaults**: lanes default to CC 1 through CC 16. Per-lane CC numbers and the LV channel are saved with **Save**.
+
+**Concurrency**: LV runs alongside the note sequencer and the existing sequenced CC mode (slider mode CC). The two CC modes use independent channels by default, so they won't collide.
 
 ---
 
