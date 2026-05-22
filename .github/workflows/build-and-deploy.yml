@@ -26,6 +26,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history is required for `git rev-list --count HEAD` in
+          # generate_version.sh — a shallow clone produces "3.1" instead of
+          # the real commit count.
+          fetch-depth: 0
 
       - name: Install arduino-cli
         uses: arduino/setup-arduino-cli@v2
