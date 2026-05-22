@@ -113,6 +113,25 @@ void read_midi()
         // Only let incoming transport control the sequencer in external clock mode.
         if (external_clock_mode) midistopped = true;
       }
+      else if ((rx.header & 0x0F) == 0x0B)
+      {
+        // MIDI Learn: capture controller number when the user is editing a CC#.
+        // Channel is ignored. Filtered CCs (32, 96–101) are skipped; edit stays armed.
+        uint8_t cc_num = rx.byte2 & 0x7F;
+        bool is_valid = (cc_num >= 1 && cc_num <= 119 && cc_num != 32 && (cc_num < 96 || cc_num > 101));
+        if (is_valid) {
+          if (config_menu_active && config_editing_value && config_menu_item == CONFIG_ITEM_CC_NUMBER) {
+            cc_number[pattern_value] = cc_num;
+            update_line1 = true;
+          }
+          else if (slider_mode == 6 && live_cc_editing_lane >= 0) {
+            live_cc_number[live_cc_editing_lane] = cc_num;
+            live_cc_last_sent[live_cc_editing_lane] = 255;
+            update_line1 = true;
+            update_line2 = true;
+          }
+        }
+      }
     }
 
   } while (rx.header != 0);

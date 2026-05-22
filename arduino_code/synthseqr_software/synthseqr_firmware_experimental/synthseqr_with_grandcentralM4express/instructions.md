@@ -127,6 +127,7 @@ In LV mode each slider becomes a **live MIDI CC controller**. Slider movements t
 - **No pickup guard** — only movement transmits. Entering LV mode does not blast all 16 CC values; sliders sit silent until you touch them.
 - **Step buttons select which lane's CC# is being edited.** Tap a step → that lane is in edit mode (its LED lights up). The LCD line 2 shows `L05:007 Volume` — lane number, current CC#, and CC name.
 - **D-pad up/down** while editing adjusts the focused lane's CC number through the valid CC list (skips Bank LSB and RPN/NRPN data entry).
+- **MIDI Learn**: while a lane is in edit mode, the next incoming MIDI CC message from any external controller automatically sets that lane's CC number. Just wiggle the knob/fader you want to assign — no extra button or arming gesture. See the **MIDI Learn** section for details.
 - **Exit editing**: tap the same step button again, or press Enter, or press d-pad left.
 - **Other sliders keep transmitting live CC while you edit a different lane.**
 - **MIDI channel is independent.** Set via Config Menu → **Live CC ch** (1–16). This routes LV separately from the note sequencer's MIDI channel, so you can target a different synth or destination.
@@ -546,6 +547,7 @@ Open the **Config Menu** (double-tap Enter) and scroll to **CC number**. Press E
 
 - D-pad up/down cycles through valid CC controller numbers (1–119).
 - Reserved CC numbers are skipped automatically: CC 32 (Bank LSB) and CC 96–101 (RPN/NRPN data entry).
+- **MIDI Learn**: while the editor is open, the next incoming MIDI CC message from any external controller automatically sets the CC number for the current pattern. Just wiggle the knob/fader you want to assign — no extra button or arming gesture. See the **MIDI Learn** section for details.
 - Line 2 shows the full LCD name of the selected CC while editing.
 - Press Enter or D-pad left to exit.
 - **CC number is per-pattern** — each of the 16 patterns can output a different CC.
@@ -554,6 +556,44 @@ Open the **Config Menu** (double-tap Enter) and scroll to **CC number**. Press E
 The CC controller number determines what parameter the CC automation lane controls on your synth or DAW. For example: CC 1 = Mod Wheel, CC 7 = Volume, CC 10 = Pan, CC 74 = Filter Cutoff (on many synths).
 
 See the **MIDI CC Number Reference** table at the end of this document for a full list.
+
+---
+
+## MIDI Learn
+
+MIDI Learn lets you assign a CC number by simply moving the control you want to bind, instead of scrolling through 119 controllers with the D-pad. It works automatically — there is no separate "Learn" button or arming step.
+
+### How to Use It
+
+**For sequenced CC (per-pattern):**
+
+1. Double-tap **Enter** to open the Config Menu.
+2. Scroll to **CC number** and press **Enter** to start editing. Line 2 shows the current CC's name.
+3. On your external controller (synth, MIDI keyboard, control surface), move the knob or fader you want to assign. The LCD immediately snaps to the new CC number and name.
+4. Press **Enter** or **D-pad left** to confirm and exit.
+
+**For Live CC (per-lane in LV slider mode):**
+
+1. Cycle slider mode to **LV** by tapping **Enter** until the indicator shows `♪L`.
+2. Tap a step button to select the lane you want to assign — its LED lights and the LCD shows the lane in edit mode.
+3. On your external controller, move the knob or fader you want to assign. The lane's CC number updates immediately.
+4. The next time you move synthseqr's slider for that lane, it will transmit on the newly learned CC number.
+5. Tap the same step button again, press **Enter**, or press **D-pad left** to exit lane editing.
+
+### Details
+
+- **Implicit while editing.** Learn is always active whenever the CC# editor (Config Menu) or an LV lane editor is open. There is no separate Learn button or arming gesture. If you don't want to risk accidental capture from incoming CC traffic, simply don't open the editor while CC is being received.
+- **Channel-agnostic.** The MIDI channel of the incoming CC is ignored. Only the controller number is captured. Your `Channel` (note channel) and `Live CC ch` settings are never changed by Learn.
+- **Filtered CCs are ignored.** Reserved controllers — CC 32 (Bank LSB) and CC 96–101 (RPN/NRPN data entry) — do not trigger Learn. If your controller sends one of these, the editor stays open and waits for a valid CC. This matches the existing filter used when you scroll with D-pad up/down.
+- **MIDI thru is preserved.** Incoming CC messages are still forwarded to any device downstream on the USB chain, exactly like other MIDI traffic. Learning a CC does not "consume" it.
+- **Works while the sequencer is playing.** Opening the CC# editor or entering an LV lane edit does not stop the sequencer, so you can learn assignments live.
+
+### Tips
+
+- **One-shot binding.** Each time you open an editor, the *next* valid CC captures. Move only the control you want to bind — moving multiple controls will leave the last one captured.
+- **Re-bind anytime.** To change a binding, just re-open the editor and move a different control.
+- **External clock mode.** Learn works the same whether the sequencer is on internal or external clock. Incoming MIDI clock (0xF8) is unaffected.
+- **Save your bindings.** Both sequenced CC numbers (per-pattern) and LV lane CC numbers are saved to SD and EEPROM via Config Menu → Save. Without saving, they reset to defaults on the next boot.
 
 ---
 
@@ -686,6 +726,8 @@ Connect at **57600 baud** to see:
 | Slider mode → GT (advanced) | Pattern button 3                                                           |
 | Slider mode → VL (advanced) | Pattern button 4                                                           |
 | Set CC controller number    | Config menu → CC number                                                    |
+| MIDI Learn (sequenced CC)   | Config menu → CC number → wiggle knob on external controller               |
+| MIDI Learn (LV lane)        | LV mode → tap step to edit lane → wiggle knob on external controller       |
 | Select pattern (d-pad)      | D-pad left to mode 1, up/down cycles patterns                              |
 | Select pattern (simple)     | Pattern button 1–4                                                         |
 | Select pattern (advanced)   | Single-click pattern button 1 (nav mode on), tap step button               |

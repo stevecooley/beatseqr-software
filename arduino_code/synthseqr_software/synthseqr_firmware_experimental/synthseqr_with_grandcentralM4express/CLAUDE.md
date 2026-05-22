@@ -264,6 +264,15 @@ When `external_clock_mode == false` (default):
 - TC4 drives `hardwareClockPulse()` from its ISR at the rate set by `TEMPO`
 - Sequencer outputs MIDI clock (0xF8), start (0xFA), and stop (0xFC)
 
+## MIDI Learn
+
+`read_midi()` in `midi_processor.ino` captures incoming USB-MIDI Control Change messages (USB-MIDI CIN `0x0B`) and writes the controller number into the CC# the user is currently editing. No explicit arm gesture — Learn is implicit whenever an edit predicate is true:
+
+- **Sequenced CC# (per-pattern)**: `config_menu_active && config_editing_value && config_menu_item == CONFIG_ITEM_CC_NUMBER`. Writes to `cc_number[pattern_value]`.
+- **Live CC# (per-lane)**: `slider_mode == 6 && live_cc_editing_lane >= 0`. Writes to `live_cc_number[live_cc_editing_lane]` and resets `live_cc_last_sent[lane] = 255` so the next slider movement retransmits on the new CC#.
+
+If neither predicate is true, incoming CC messages are ignored (and still passed through MIDI thru, like everything else in `read_midi()`). The same valid-CC filter as manual selection applies — controllers in 1–119 minus 32 and 96–101 are accepted; filtered controllers are ignored and the edit stays armed. Channel is ignored: only the controller number is captured. `live_cc_channel` and `MIDICHANNEL` are never modified by Learn.
+
 ## Pattern Operations
 
 - **Set gate length (normal step-edit mode, not CC mode, not advanced nav mode)**: Hold one step button for ≥ 150 ms, then tap a second step button. The source step is turned ON and its gate is set to the forward distance between the two buttons (1–16, wrapping). The destination step does not toggle. LEDs flash the gate range (both endpoints lit) for 300 ms then restore. A plain tap (< 150 ms, released without tapping another) still toggles the step normally. Turning a step OFF (plain tap when already on) always resets its gate to 1.
