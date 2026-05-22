@@ -75,8 +75,11 @@ void run_LCD_setup_routine() {
 
   lcd.print("?x00?y1");       // move cursor to beginning of line 0
   Serial.println("?x00?y1");  // move cursor to beginning of line 0
-  lcd.print("firmware v");
-  Serial.println("firmware v");
+  // "fw:" prefix (not "firmware v") so the line stays inside 16 chars even
+  // with the auto-generated FIRMWARE_VERSION ("3.147-dev" worst case = 13
+  // chars after the prefix = 16 total).
+  lcd.print("fw:");
+  Serial.println("fw:");
   lcd.print(firmware_version_number);
   Serial.println(firmware_version_number);
   delay(1500);

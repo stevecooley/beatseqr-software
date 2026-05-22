@@ -85,53 +85,55 @@ uint8_t next_valid_cc(uint8_t current, int dir) {
 //                     confirmation on line 2; on Mode item toggles immediately
 //
 // Menu items (alphabetical order):
-//   0  CC num
-//   1  Channel
-//   2  Clear/Reset     (opens Reset/Clear submenu)
-//   3  Clock
-//   4  Diagnostics
-//   5  Exit
-//   6  Features
-//   7  Live CC ch      (hidden when ft_live_cc_mode is off)
-//   8  Mode            (toggles Simple / Advanced; confirmation required)
-//   9  Note range
-//  10  Note scales
-//  11  Note shift
-//  12  Octave shift
-//  13  Pat dir
-//  14  Pat length
-//  15  Pitch drift
-//  16  Save
-//  17  Step prob
-//  18  Swing
-//  19  Tempo
+//   0  About           (shows beatseqr.com + firmware version; Enter or Left exits)
+//   1  CC num
+//   2  Channel
+//   3  Clear/Reset     (opens Reset/Clear submenu)
+//   4  Clock
+//   5  Diagnostics
+//   6  Exit
+//   7  Features
+//   8  Live CC ch      (hidden when ft_live_cc_mode is off)
+//   9  Mode            (toggles Simple / Advanced; confirmation required)
+//  10  Note range
+//  11  Note scales
+//  12  Note shift
+//  13  Octave shift
+//  14  Pat dir
+//  15  Pat length
+//  16  Pitch drift
+//  17  Save
+//  18  Step prob
+//  19  Swing
+//  20  Tempo
 
 // Reset/Clear submenu items (alphabetical):
 //   0  Clear all pats  (confirmation required)
 //   1  Clear pattern   (confirmation required)
 //   2  Reset sliders   (confirmation required)
 
-#define CONFIG_ITEM_CC_NUMBER     0
-#define CONFIG_ITEM_CHANNEL       1
-#define CONFIG_ITEM_CLEAR_RESET   2
-#define CONFIG_ITEM_CLOCK         3
-#define CONFIG_ITEM_DIAGNOSTICS   4
-#define CONFIG_ITEM_EXIT          5
-#define CONFIG_ITEM_FEATURES      6
-#define CONFIG_ITEM_LIVE_CC_CHAN  7
-#define CONFIG_ITEM_MODE          8
-#define CONFIG_ITEM_NOTE_RANGE    9
-#define CONFIG_ITEM_NOTE_SCALES   10
-#define CONFIG_ITEM_NOTE_SHIFT    11
-#define CONFIG_ITEM_OCTAVE_SHIFT  12
-#define CONFIG_ITEM_PAT_DIR       13
-#define CONFIG_ITEM_PAT_LENGTH    14
-#define CONFIG_ITEM_PITCH_DRIFT   15
-#define CONFIG_ITEM_SAVE          16
-#define CONFIG_ITEM_STEP_PROB     17
-#define CONFIG_ITEM_SWING         18
-#define CONFIG_ITEM_TEMPO         19
-#define CONFIG_MENU_ITEM_COUNT    20
+#define CONFIG_ITEM_ABOUT         0
+#define CONFIG_ITEM_CC_NUMBER     1
+#define CONFIG_ITEM_CHANNEL       2
+#define CONFIG_ITEM_CLEAR_RESET   3
+#define CONFIG_ITEM_CLOCK         4
+#define CONFIG_ITEM_DIAGNOSTICS   5
+#define CONFIG_ITEM_EXIT          6
+#define CONFIG_ITEM_FEATURES      7
+#define CONFIG_ITEM_LIVE_CC_CHAN  8
+#define CONFIG_ITEM_MODE          9
+#define CONFIG_ITEM_NOTE_RANGE    10
+#define CONFIG_ITEM_NOTE_SCALES   11
+#define CONFIG_ITEM_NOTE_SHIFT    12
+#define CONFIG_ITEM_OCTAVE_SHIFT  13
+#define CONFIG_ITEM_PAT_DIR       14
+#define CONFIG_ITEM_PAT_LENGTH    15
+#define CONFIG_ITEM_PITCH_DRIFT   16
+#define CONFIG_ITEM_SAVE          17
+#define CONFIG_ITEM_STEP_PROB     18
+#define CONFIG_ITEM_SWING         19
+#define CONFIG_ITEM_TEMPO         20
+#define CONFIG_MENU_ITEM_COUNT    21
 
 #define RESET_ITEM_CLEAR_ALL  0
 #define RESET_ITEM_CLEAR_PAT  1
@@ -154,26 +156,27 @@ uint8_t next_valid_cc(uint8_t current, int dir) {
 // line1_label: 14 chars printed after "> " on line 1.
 // Items with inline values are rendered dynamically in print_config_label().
 static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
-  "CC num:       ",   //  0 CC_NUMBER     — value overwritten at draw time
-  "Channel:      ",   //  1 CHANNEL       — value overwritten at draw time
-  "Clear/Reset   ",   //  2 CLEAR_RESET   — opens Reset/Clear submenu
-  "Clock:        ",   //  3 CLOCK         — value overwritten at draw time
-  "Diagnostics   ",   //  4 DIAGNOSTICS
-  "Exit          ",   //  5 EXIT
-  "Features      ",   //  6 FEATURES
-  "Live CC ch:   ",   //  7 LIVE_CC_CHAN  — value overwritten at draw time
-  "Mode:         ",   //  8 MODE          — value overwritten at draw time
-  "Note range    ",   //  9 NOTE_RANGE
-  "Note scales   ",   // 10 NOTE_SCALES   — * appended when non-default
-  "Note shift    ",   // 11 NOTE_SHIFT    — * appended when non-zero
-  "Octave shift  ",   // 12 OCTAVE_SHIFT  — * appended when non-zero
-  "Pat dir:      ",   // 13 PAT_DIR       — value overwritten at draw time
-  "Pat length    ",   // 14 PAT_LENGTH    — * appended when not 16
-  "Pitch drift   ",   // 15 PITCH_DRIFT   — * appended when non-zero
-  "Save          ",   // 16 SAVE
-  "Step prob     ",   // 17 STEP_PROB     — * appended if any step < 100
-  "Swing:        ",   // 18 SWING         — value overwritten at draw time
-  "Tempo         "    // 19 TEMPO         — value overwritten at draw time; hidden when ext clock
+  "About         ",   //  0 ABOUT         — Enter shows beatseqr.com + firmware version
+  "CC num:       ",   //  1 CC_NUMBER     — value overwritten at draw time
+  "Channel:      ",   //  2 CHANNEL       — value overwritten at draw time
+  "Clear/Reset   ",   //  3 CLEAR_RESET   — opens Reset/Clear submenu
+  "Clock:        ",   //  4 CLOCK         — value overwritten at draw time
+  "Diagnostics   ",   //  5 DIAGNOSTICS
+  "Exit          ",   //  6 EXIT
+  "Features      ",   //  7 FEATURES
+  "Live CC ch:   ",   //  8 LIVE_CC_CHAN  — value overwritten at draw time
+  "Mode:         ",   //  9 MODE          — value overwritten at draw time
+  "Note range    ",   // 10 NOTE_RANGE
+  "Note scales   ",   // 11 NOTE_SCALES   — * appended when non-default
+  "Note shift    ",   // 12 NOTE_SHIFT    — * appended when non-zero
+  "Octave shift  ",   // 13 OCTAVE_SHIFT  — * appended when non-zero
+  "Pat dir:      ",   // 14 PAT_DIR       — value overwritten at draw time
+  "Pat length    ",   // 15 PAT_LENGTH    — * appended when not 16
+  "Pitch drift   ",   // 16 PITCH_DRIFT   — * appended when non-zero
+  "Save          ",   // 17 SAVE
+  "Step prob     ",   // 18 STEP_PROB     — * appended if any step < 100
+  "Swing:        ",   // 19 SWING         — value overwritten at draw time
+  "Tempo         "    // 20 TEMPO         — value overwritten at draw time; hidden when ext clock
 };
 
 // Tempo resolution index while editing: 0=±10, 1=±1, 2=±0.1.
@@ -436,6 +439,7 @@ void exit_config_menu() {
   config_diag_submenu_active = false;
   config_diag_item           = 0;
   config_diag_editing_trim   = false;
+  config_about_active        = false;
   // Drop any pattern-button state that may have been accumulated while the
   // menu was open. Without this, a stray uniquePress() during menu navigation
   // can fire nav-mode toggle right after exit — visually indistinguishable
@@ -486,6 +490,10 @@ void run_config_menu() {
   }
   if (config_diag_submenu_active) {
     run_diag_submenu();
+    return;
+  }
+  if (config_about_active) {
+    run_about_screen();
     return;
   }
 
@@ -839,6 +847,10 @@ void run_config_menu() {
         config_features_active = true;
         config_feature_item = 0;
         draw_features_submenu();
+        break;
+      case CONFIG_ITEM_ABOUT:
+        config_about_active = true;
+        draw_about_screen();
         break;
     }
   }
@@ -1281,5 +1293,41 @@ void run_diag_submenu() {
         draw_diag_submenu();
         break;
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// About screen — shows "beatseqr.com" on line 1 and "firmware: <ver>" on
+// line 2. Enter or D-pad left returns to the main config menu. FIRMWARE_VERSION
+// comes from version.h, which is auto-generated from `git rev-list --count
+// HEAD` (with a "-dev" suffix on a dirty tree) before every build.
+// ---------------------------------------------------------------------------
+
+void draw_about_screen() {
+  char line2[17];
+  // 16-char line: "firmware: " (10) + up to 6 chars of version. Most versions
+  // ("3.147") fit easily; very long version strings get truncated by snprintf.
+  int len = snprintf(line2, sizeof(line2), "firmware:%s", FIRMWARE_VERSION);
+  while (len < 16) line2[len++] = ' ';
+  line2[16] = '\0';
+
+  lcd.print("?x00?y0");
+  lcd.print("beatseqr.com    ");
+  lcd.print("?x00?y1");
+  lcd.print(line2);
+}
+
+void run_about_screen() {
+  if (!config_about_active) return;
+
+  // Any of these inputs returns to the menu. D-pad up/down also work so the
+  // user can't get stuck if they instinctively scroll.
+  if (enterbutton_flag || dpad_left_flag || dpad_up_flag || dpad_down_flag) {
+    enterbutton_flag = false;
+    dpad_left_flag   = false;
+    dpad_up_flag     = false;
+    dpad_down_flag   = false;
+    config_about_active = false;
+    draw_config_menu();
   }
 }

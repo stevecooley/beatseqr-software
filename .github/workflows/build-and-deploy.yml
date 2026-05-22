@@ -49,6 +49,19 @@ jobs:
           # FifteenStep (modified fork) is bundled at:
           # arduino_code/.../synthseqr_with_grandcentralM4express/libraries/FifteenStep/
 
+      - name: Generate firmware version header
+        # Writes version.h next to the sketch. The sketch reads it via
+        # config.h's __has_include("version.h") guard. CI builds are always
+        # clean trees, so no "-dev" suffix is appended here.
+        id: fwver
+        run: |
+          chmod +x arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/generate_version.sh
+          arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/generate_version.sh
+          # Extract the version string for later steps to embed in version.json.
+          fw_ver="$(grep -oE '"3\.[^"]+"' arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/version.h | head -1 | tr -d '"')"
+          echo "fw_ver=${fw_ver}" >> "$GITHUB_OUTPUT"
+          echo "Firmware version: ${fw_ver}"
+
       - name: Compile firmware (PCB v1 — original, A2/A3 swapped)
         run: |
           arduino-cli compile \
@@ -84,7 +97,7 @@ jobs:
 
       - name: Generate version stamp
         run: |
-          echo "{\"commit\":\"${{ github.sha }}\",\"date\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+          echo "{\"commit\":\"${{ github.sha }}\",\"firmware\":\"${{ steps.fwver.outputs.fw_ver }}\",\"date\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
             > docs/version.json
 
       - name: Generate commits JSON

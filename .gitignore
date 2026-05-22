@@ -2,6 +2,11 @@
 **/.vscode/
 **/.claude/settings.json
 **/.claude/settings.local.json
+
+# Auto-generated firmware version header — regenerated on every build by
+# generate_version.sh (flash skill + CI). Never commit; the generator writes a
+# fresh one from `git rev-list --count HEAD` and dirty-tree status.
+/arduino_code/synthseqr_software/synthseqr_firmware_experimental/synthseqr_with_grandcentralM4express/version.h
 /arduino_code/libraries/WaveHC
 /steppa_065.app
 /arduino_code/libraries/SdFat_-_Adafruit_Fork

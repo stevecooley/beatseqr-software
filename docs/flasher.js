@@ -22,9 +22,16 @@
     .then(r => r.ok ? r.json() : null)
     .then(v => {
       if (!v) return;
+      const fw    = v.firmware || '';
       const short = (v.commit || '').slice(0, 7);
       const date  = (v.date  || '').slice(0, 10);
-      versionEl.textContent = short && date ? `build ${short} · ${date}` : '';
+      // Prefer the firmware version string ("3.147") when present; fall back
+      // to the old "build <sha> · <date>" format for older deploys.
+      const parts = [];
+      if (fw)    parts.push(`firmware ${fw}`);
+      if (short) parts.push(short);
+      if (date)  parts.push(date);
+      versionEl.textContent = parts.join(' · ');
     })
     .catch(() => {});
 
