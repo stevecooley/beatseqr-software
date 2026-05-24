@@ -278,6 +278,7 @@ If neither predicate is true, incoming CC messages are ignored (and still passed
 - **Set gate length (normal step-edit mode, not CC mode, not advanced nav mode)**: Hold one step button for ≥ 150 ms, then tap a second step button. The source step is turned ON and its gate is set to the forward distance between the two buttons (1–16, wrapping). The destination step does not toggle. LEDs flash the gate range (both endpoints lit) for 300 ms then restore. A plain tap (< 150 ms, released without tapping another) still toggles the step normally. Turning a step OFF (plain tap when already on) always resets its gate to 1.
 - **Copy pattern (simple mode)**: Hold a pattern select button for 2s, then press destination pattern button
 - **Copy pattern (advanced mode)**: Double-click pattern button 0 (within 400 ms) → phase 1: tap step = source pattern → phase 2: tap step = destination pattern
+- **Copy pattern (advanced mode, nav-mode hold-arm shortcut)**: While in pattern-nav mode (`adv_pat_nav_active`), hold any step button for ≥ 2 s → arms phase 2 directly with that step's pattern as the source (skips phase 1, no "copy which pat" prompt) → tap any step = destination. Does NOT fire in normal step-edit mode. If a chain-define gesture has already consumed the hold (second-tap before 2 s), hold-arm is suppressed.
 - **Cancel copy (advanced mode)**: D-pad left while copy is armed
 - **Chain 4 patterns (simple mode)**: Press pattern buttons 0 + 3 simultaneously to toggle
 - **Select pattern 0–15 (advanced mode)**: Hold pattern button 0, tap a step button

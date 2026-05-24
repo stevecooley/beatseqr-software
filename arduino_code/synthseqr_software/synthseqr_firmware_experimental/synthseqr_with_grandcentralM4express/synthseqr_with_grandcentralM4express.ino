@@ -232,7 +232,7 @@ void loop() {
         adv_chain_hold_step = -1;
         adv_blink_state = true;
         adv_blink_last_ms = millis();
-        lcdflag = 103;  next_lcdflag = 103;  // "copy which pat?"
+        lcdflag = 103;  next_lcdflag = 103;  update_line1 = true;  // "copy which pat?"
         Serial.println("copy mode: pick source pattern");
       } else {
         // First press — record timestamp; wait to see if second press comes.

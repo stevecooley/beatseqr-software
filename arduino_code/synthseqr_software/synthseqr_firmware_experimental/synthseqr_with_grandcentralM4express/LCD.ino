@@ -258,9 +258,10 @@ void run_LCD_update() {
     }
     case 102:  // advanced copy phase 2 — source selected, waiting for destination
     {
-      static uint8_t prev_flag_102 = 255;
-      if (prev_flag_102 != 102) {
-        prev_flag_102 = 102;
+      // Caller sets update_line1 = true to request a redraw. This avoids the
+      // sticky-static idiom that left stale state across repeated copy attempts.
+      if (update_line1) {
+        update_line1 = false;
         lcd.print("?f");
         Serial.println("?f");
         lcd.print("?x00?y0");
@@ -275,9 +276,8 @@ void run_LCD_update() {
     }
     case 103:  // advanced copy phase 1 — waiting for user to tap source pattern
     {
-      static uint8_t prev_flag_103 = 255;
-      if (prev_flag_103 != 103) {
-        prev_flag_103 = 103;
+      if (update_line1) {
+        update_line1 = false;
         lcd.print("?f");
         Serial.println("?f");
         lcd.print("?x00?y0");

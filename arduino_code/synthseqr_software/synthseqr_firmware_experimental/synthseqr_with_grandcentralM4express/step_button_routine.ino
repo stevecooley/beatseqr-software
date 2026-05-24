@@ -60,7 +60,7 @@ void run_step_button_routine()
         if (!adv_pat_nav_active) read_step_memory(0, i);
         adv_copy_waiting_source = false;
         adv_copy_armed = true;
-        lcdflag = 102;  next_lcdflag = 102;  // "Copy N->where?" = pick destination
+        lcdflag = 102;  next_lcdflag = 102;  update_line1 = true;  // "Copy N->where?" = pick destination
         Serial.print("copy source: pattern ");
         Serial.println(i + 1);
         break;

@@ -297,6 +297,7 @@ Synthseqr has two modes, switchable from the Config Menu.
   - Phase 2: LCD shows `Copy N->where?` → tap a step button to select the **destination** pattern
   - LCD briefly shows `Copied X to Y`, then returns to main display
   - **D-pad left** cancels at any point
+- **Hold-to-copy shortcut (in pattern-nav mode only)**: while pattern-nav mode is active, hold any step button for **2 seconds** to skip phase 1 — the held step's pattern becomes the source and the LCD jumps straight to `Copy N->where?`. Tap any step to pick the destination. Holding + tapping a second step within 2 s still defines a chain (chain-define wins).
 - D-pad mode 1 navigates patterns 1–16 with up/down
 - **Enter button single-tap** cycles slider mode through all enabled modes (NN → VL → GT → CC → PR → LV → NN), the same as in Simple mode. Pattern buttons 2/3/4 remain as quick shortcuts to NN/VL/PR.
 
@@ -332,6 +333,8 @@ Copies include steps, pitches, velocities, gate lengths, CC on/off, CC values, a
 2. Tap a **step button** to select the **source** pattern (step 1 = P01 ... step 16 = P16). The LCD shows `Copy N->where?`.
 3. Tap a **step button** to select the **destination** pattern. The LCD briefly shows `Copied X to Y`.
 4. To cancel at any point, press **D-pad left**.
+
+**Advanced mode shortcut (hold-to-copy)**: while **pattern-nav mode is active**, hold any step button for **2 seconds** to skip phase 1. The held step's pattern becomes the source and the LCD jumps to `Copy N->where?`. Then tap any step to pick the destination. This only works in pattern-nav mode — in normal step-edit mode, holding a step for 2 s just toggles it on release as usual. If you hold a step and tap a second step within 2 s, the chain-define gesture wins and copy is not armed.
 
 ### Chaining Patterns
 

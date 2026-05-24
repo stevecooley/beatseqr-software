@@ -78,10 +78,34 @@ void run_pattern_select_routine() {
       // presses. Don't call uniquePress() here — it would steal the CHANGED
       // flag and cause the copy handler to miss the press next frame.
       if (!adv_copy_waiting_source && !adv_copy_armed) {
+        // State for the 2 s hold-to-arm-copy shortcut. Reset whenever the
+        // hold step is cleared (release, chain-define, or copy-arm).
+        static unsigned long adv_chain_hold_start_ms = 0;
+        static bool          adv_chain_gesture_fired = false;
+
         // Release tracking: clear held button once it's physically released.
         if (adv_chain_hold_step >= 0 &&
             !step_buttons[adv_chain_hold_step].wasPressed()) {
           adv_chain_hold_step = -1;
+          adv_chain_hold_start_ms = 0;
+          adv_chain_gesture_fired = false;
+        }
+
+        // Hold-to-arm copy: held step ≥ 2 s with no chain-define gesture
+        // consumed yet → arm phase 2 with held step's pattern as source.
+        if (adv_chain_hold_step >= 0 && !adv_chain_gesture_fired &&
+            adv_chain_hold_start_ms != 0 &&
+            (long)(millis() - adv_chain_hold_start_ms) >= 2000) {
+          copy_pattern_from = (uint8_t)adv_chain_hold_step;
+          go_to_pattern(adv_chain_hold_step, 0);
+          adv_copy_armed = true;
+          adv_chain_gesture_fired = true;  // mark consumed
+          adv_chain_hold_step = -1;        // release-tracking no longer needed
+          adv_chain_hold_start_ms = 0;
+          lcdflag = 102;  next_lcdflag = 102;  update_line1 = true;
+          Serial.println("copy mode (nav hold-arm): source pattern set");
+          update_pat_nav_leds();
+          return;
         }
 
         // Scan for step button presses.
@@ -90,6 +114,8 @@ void run_pattern_select_routine() {
             if (adv_chain_hold_step < 0) {
               // First press — single pattern select, cancel any active chain.
               adv_chain_hold_step = i;
+              adv_chain_hold_start_ms = millis();
+              adv_chain_gesture_fired = false;
               extended_step_length_mode = 0;
               go_to_pattern(i, 0);
               Serial.print("nav: single pattern ");
@@ -98,6 +124,7 @@ void run_pattern_select_routine() {
               // Second press while first is still held — define a chain.
               chain_start = (uint8_t)adv_chain_hold_step;
               chain_end   = (uint8_t)i;
+              adv_chain_gesture_fired = true;  // suppress hold-arm copy
               extended_step_length_mode = 1;
               go_to_pattern(chain_start, 0);
               Serial.print("nav: chain ");
@@ -295,6 +322,9 @@ void listen_for_copy_command() {
   if (told_which_pattern_to_copy_to ==
       true)  // we were told to copy the current pattern to another pattern
   {
+    // Source pattern was the one held for 2 s — current_pattern is already
+    // pointing at it because the initial press called go_to_pattern().
+    copy_pattern_from = current_pattern;
     for (int i = 0; i < 4; i++) {
       if (pattern_select_button_flags[i] == true) {
         pattern_select_button_flags[i] = false;
