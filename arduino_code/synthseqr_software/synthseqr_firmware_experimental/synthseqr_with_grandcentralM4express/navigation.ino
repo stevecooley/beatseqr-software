@@ -1,6 +1,6 @@
 // next_slider_mode()
 //
-// Cycles slider mode forward from current: NN → VL → GT → CC → PR → LV → NN,
+// Cycles slider mode forward from current: NN → VL → GT → CC → PR → LV → D → NN,
 // skipping any modes whose feature flag is off. Tries up to slider_mode_total
 // times to find an enabled mode; falls back to NN if everything else is off.
 //
@@ -15,6 +15,7 @@ static uint8_t next_slider_mode(uint8_t current) {
       case 4: if (!ft_cc_mode)       enabled = false; break;
       case 5: if (!ft_probability)   enabled = false; break;
       case 6: if (!ft_live_cc_mode)  enabled = false; break;
+      case 7: if (!ft_drift_mode)    enabled = false; break;
       default: break;
     }
     if (enabled) return next;
@@ -180,7 +181,10 @@ void pattern_select_events() {
   // In LV mode, step LEDs are owned by the lane editor — don't repaint from
   // step_data when switching patterns (pattern affects the note sequence
   // running in the background, but LV lane mapping is global).
-  bool repaint_step_leds = (slider_mode != 6);
+  // In CC and D mode, go_to_pattern() already paints the right per-pattern
+  // overlay (cc_step_enabled / step_drift_enabled), so skip the redundant
+  // step_data repaint here too.
+  bool repaint_step_leds = (slider_mode != 6 && slider_mode != 4 && slider_mode != 7);
   if (dpad_up_flag == true) {
     dpad_up_flag = false;
     uint8_t next = (current_pattern + 1) % max_patterns;

@@ -455,9 +455,12 @@ void exit_config_menu() {
     adv_chain_hold_step = -1;
   }
   // Restore step LEDs for the active slider mode (in case PAT_LENGTH was editing).
-  // CC mode shows cc_step_enabled; LV mode shows only the editing lane (if any).
+  // CC mode shows cc_step_enabled; D mode shows step_drift_enabled;
+  // LV mode shows only the editing lane (if any).
   if (slider_mode == 4) {
     read_cc_step_memory();
+  } else if (slider_mode == 7) {
+    read_drift_step_memory();
   } else if (slider_mode == 6) {
     clear_step_leds();
     if (live_cc_editing_lane >= 0) step_leds[live_cc_editing_lane].on();
@@ -940,12 +943,13 @@ void run_reset_submenu() {
 // Features submenu
 // ---------------------------------------------------------------------------
 
-#define FEATURE_COUNT 15
+#define FEATURE_COUNT 16
 
 static const char* _feature_names[FEATURE_COUNT] = {
   "Advanced mode   ",
   "CC mode         ",
   "Diagnostics     ",
+  "Drift mode      ",
   "Ext clock       ",
   "Gate sliders    ",
   "Live CC mode    ",
@@ -964,6 +968,7 @@ static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
   &ft_advanced_mode,
   &ft_cc_mode,
   &ft_diagnostics,
+  &ft_drift_mode,
   &ft_external_clock,
   &ft_gate_mode,
   &ft_live_cc_mode,
@@ -990,6 +995,7 @@ void draw_features_submenu() {
 }
 
 // Apply side-effects when a feature is toggled off.
+// Indices match the alphabetical _feature_names[] order above.
 static void _apply_feature_disable(uint8_t idx) {
   switch (idx) {
     case 0:  // advanced mode
@@ -1003,13 +1009,16 @@ static void _apply_feature_disable(uint8_t idx) {
         go_to_pattern(current_pattern, 1);
       }
       break;
-    case 3:  // external clock
+    case 3:  // drift mode — if currently in D mode, drop back to NN
+      if (slider_mode == 7) set_slider_mode(1);
+      break;
+    case 4:  // external clock
       if (external_clock_mode) setExternalClockMode(false);
       break;
-    case 5:  // live CC mode — if currently in LV mode, drop back to NN
+    case 6:  // live CC mode — if currently in LV mode, drop back to NN
       if (slider_mode == 6) set_slider_mode(1);
       break;
-    case 6:  // note audition — cancel any sounding audition note immediately
+    case 7:  // note audition — cancel any sounding audition note immediately
 #if FEATURE_NOTE_AUDITION
       if (audition_sounding_note >= 0) {
         noteOff(MIDICHANNEL - 1, (uint8_t)audition_sounding_note, 0);
@@ -1018,7 +1027,7 @@ static void _apply_feature_disable(uint8_t idx) {
       }
 #endif
       break;
-    case 14:  // velocity sliders — if currently in VL mode, drop back to NN
+    case 15:  // velocity sliders — if currently in VL mode, drop back to NN
       if (slider_mode == 2) set_slider_mode(1);
       break;
     default: break;

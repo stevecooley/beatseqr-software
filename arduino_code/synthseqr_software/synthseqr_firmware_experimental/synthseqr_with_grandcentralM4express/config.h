@@ -150,6 +150,14 @@ uint8_t step_probability[16][16] = {
     {100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100},
     {100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100},
     {100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100}};
+
+// Per-step drift (slider mode 7, "D"). Independent / additive with global pitch_drift.
+// step_drift_enabled: 1 = apply per-step drift to this step, 0 = skip.
+// step_drift_amount:  ± semitones of random wander at send time (0–12).
+// Both default to 0 = no per-step drift on any step.
+uint8_t step_drift_enabled[16][16];
+uint8_t step_drift_amount[16][16];
+
 int voice_slider_midinotenum[16] = {36, 37, 38, 39, 40, 41, 42, 43,
                                     44, 45, 46, 47, 48, 49, 50, 51};
 
@@ -180,8 +188,8 @@ int voice_slider_midichannel[16] = {1, 1, 1, 1, 1, 1, 1, 1,
                                     1, 1, 1, 1, 1, 1, 1, 1};
 
 int last_voice_slider_values[16];
-uint8_t slider_mode = 1;  // 1=NN  2=VL  3=GT  4=CC  5=PR  6=LV
-uint8_t slider_mode_total = 6;
+uint8_t slider_mode = 1;  // 1=NN  2=VL  3=GT  4=CC  5=PR  6=LV  7=D
+uint8_t slider_mode_total = 7;
 uint8_t slider_reset_counter = 0;
 const char* slider_message_header = "NN";
 uint8_t slider_map_low_value = 36;
@@ -569,6 +577,7 @@ bool ft_diagnostics         = false;
 bool ft_velocity_mode       = true;
 bool ft_note_audition       = true;   // ON by default
 bool ft_live_cc_mode        = true;   // ON by default — slider mode 6 (LV)
+bool ft_drift_mode          = true;   // ON by default — slider mode 7 (D, per-step drift)
 
 // Live CC slider mode (mode 6) state.
 // Sliders transmit MIDI CC live (not sequenced). Each of the 16 lanes has its

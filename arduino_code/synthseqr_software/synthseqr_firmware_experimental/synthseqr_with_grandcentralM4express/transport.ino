@@ -139,16 +139,18 @@ void run_chase_lights(unsigned int this_step) {
           else                    step_leds[i].off();
         }
       } else {
-        if (ft_cc_mode && slider_mode == 4) read_cc_step_memory();
-        else                                read_step_memory(0, pattern_value);
+        if (ft_cc_mode && slider_mode == 4)        read_cc_step_memory();
+        else if (ft_drift_mode && slider_mode == 7) read_drift_step_memory();
+        else                                        read_step_memory(0, pattern_value);
       }
       step_leds[this_step].toggle();  // chase lights!
       last_step = this_step;
     }
   } else {
     if (!editing_pat_len) {
-      if (ft_cc_mode && slider_mode == 4) read_cc_step_memory();
-      else                                read_step_memory(0, pattern_value);
+      if (ft_cc_mode && slider_mode == 4)        read_cc_step_memory();
+      else if (ft_drift_mode && slider_mode == 7) read_drift_step_memory();
+      else                                        read_step_memory(0, pattern_value);
     }
   }
 }
@@ -294,10 +296,18 @@ void stepsend(int current_step, int last_step) {
         if (shifted > 127) shifted = 127;
         shifted = (int16_t)quantize_to_scale((uint8_t)shifted);
       }
-      // Apply pitch drift: random wander ±pitch_drift semitones, then clamp
-      // to note range and re-quantize to the active scale.
-      if (ft_pitch_drift && pitch_drift > 0) {
-        shifted += (int16_t)random(-(long)pitch_drift, (long)pitch_drift + 1);
+      // Apply pitch drift: random wander ±total_drift semitones, then clamp
+      // to note range and re-quantize to the active scale. Total drift =
+      // global pitch_drift (if enabled) + per-step step_drift_amount (if its
+      // enable bit is set). The two are independent/additive — global drifts
+      // every step, per-step adds on top for selected steps only.
+      int total_drift = 0;
+      if (ft_pitch_drift) total_drift += (int)pitch_drift;
+      if (ft_drift_mode && step_drift_enabled[pattern_value][play_step]) {
+        total_drift += (int)step_drift_amount[pattern_value][play_step];
+      }
+      if (total_drift > 0) {
+        shifted += (int16_t)random(-(long)total_drift, (long)total_drift + 1);
         if (shifted < (int16_t)slider_map_low_value)  shifted = (int16_t)slider_map_low_value;
         if (shifted > (int16_t)slider_map_high_value) shifted = (int16_t)slider_map_high_value;
         if (ft_scale_quantization && scale_type != 0 && scale_note_count > 0)

@@ -19,12 +19,14 @@ void set_slider_mode(uint8_t mode) {
   update_line1 = true;
   update_line2 = true;
   // Update step LEDs to reflect the data type for the new mode.
-  if (ft_cc_mode) {
-    if (mode == 4) {
-      read_cc_step_memory();
-    } else if (old_mode == 4) {
-      read_step_memory(0, pattern_value);
-    }
+  // CC (4), D (7), and LV (6) all override the default step_data display.
+  if (mode == 4 && ft_cc_mode) {
+    read_cc_step_memory();
+  } else if (mode == 7 && ft_drift_mode) {
+    read_drift_step_memory();
+  } else if ((old_mode == 4 || old_mode == 7) && mode != 6) {
+    // Leaving CC or D for a step_data mode: restore step LEDs.
+    read_step_memory(0, pattern_value);
   }
   // LV mode: clear edit state, reset send-history so first move on any lane
   // transmits, and turn step LEDs off (lit only for the lane being edited).
@@ -36,8 +38,9 @@ void set_slider_mode(uint8_t mode) {
   } else if (old_mode == 6) {
     // Leaving LV: restore step LEDs to whatever the new mode wants.
     live_cc_editing_lane = -1;
-    if (mode == 4) read_cc_step_memory();
-    else            read_step_memory(0, pattern_value);
+    if (mode == 4)      read_cc_step_memory();
+    else if (mode == 7) read_drift_step_memory();
+    else                read_step_memory(0, pattern_value);
   }
 }
 
@@ -159,6 +162,22 @@ void run_voice_slider_routine()
         update_line2 = true;
       }
     }
+    else if (slider_mode == 7 && ft_drift_mode)
+    {
+      // D mode: per-step drift amount 0–12 semitones. Step buttons toggle
+      // step_drift_enabled; the slider sets step_drift_amount. Pickup guard
+      // prevents physical-position mismatch from corrupting other patterns'
+      // drift values across mode/pattern switches.
+      uint8_t drift = (uint8_t)map(sector, 0, 255, 0, 12);
+      if (drift > 12) drift = 12;
+      if (slider_needs_pickup[j]) {
+        if (abs((int)drift - (int)step_drift_amount[pattern_value][j]) <= 1) {
+          slider_needs_pickup[j] = false;
+        }
+      } else if (drift != step_drift_amount[pattern_value][j]) {
+        step_drift_amount[pattern_value][j] = drift;
+      }
+    }
 
     last_voice_slider_values[j] = voice_slider_values[j];
   }
@@ -178,6 +197,8 @@ void resetSliders()
     pattern_step_velocities[pattern_value][i] = 127;
     step_gate[pattern_value][i] = 1;
     step_probability[pattern_value][i] = 100;
+    step_drift_enabled[pattern_value][i] = 0;
+    step_drift_amount[pattern_value][i] = 0;
     slider_needs_pickup[i] = false;
     slider_serial_message_factory("NN", i);
     slider_serial_message_factory("CC", i);

@@ -78,8 +78,8 @@ uint8_t SWING                         // 0–5
 uint8_t cc_step_values[16][16]        // CC value per pattern per step (0–127); default 0
 uint8_t cc_step_enabled[16][16]       // CC step on/off per pattern per step; default 0 (off)
 uint8_t cc_number[16]                 // CC controller number per pattern (1–119, skipping 32 and 96–101); default 1 (Mod Wheel)
-uint8_t slider_mode                   // 1=NN, 2=VL, 3=GT, 4=CC (sequenced), 5=PR, 6=LV (live CC)
-uint8_t slider_mode_total             // 6 (NN, VL, GT, CC, PR, LV)
+uint8_t slider_mode                   // 1=NN, 2=VL, 3=GT, 4=CC (sequenced), 5=PR, 6=LV (live CC), 7=D (per-step drift)
+uint8_t slider_mode_total             // 7 (NN, VL, GT, CC, PR, LV, D)
 uint8_t live_cc_number[16]            // CC# per LV lane (global across patterns); default 1–16
 uint8_t live_cc_channel               // 1–16 MIDI channel for live CC; independent of MIDICHANNEL
 uint8_t live_cc_last_sent[16]         // last sent 0–127 per lane; 255 sentinel = "never sent"
@@ -87,6 +87,8 @@ int8_t  live_cc_editing_lane          // -1 = idle; 0..15 = lane currently being
 int8_t  live_cc_last_lane             // most-recent lane that sent (LCD line 2)
 uint8_t step_probability[16][16]      // fire probability per step per pattern (0–100); default 100 = always fires
 uint8_t pitch_drift                   // semitones of random pitch wander at send time (0=off, 1–7); global
+uint8_t step_drift_enabled[16][16]    // per-step drift on/off (D mode); default 0
+uint8_t step_drift_amount[16][16]     // per-step drift amount in semitones (0–12); default 0 — additive with pitch_drift
 uint8_t slider_hi_trim                // extra notes added to slider_map_high_value at mapping time for physical calibration (0–4); default 0
 uint8_t lcdflag                       // LCD display mode selector
 bool external_clock_mode              // false = internal TC4, true = follow USB-MIDI clock
@@ -127,7 +129,7 @@ unsigned long  audition_note_off_ms    // millis() timestamp when the audition n
 1. `seq.run()` (FifteenStep) ticks the sequencer on each `loop()` call
 2. Timing is driven by the **TC4 hardware timer** (internal mode) or **incoming USB-MIDI 0xF8** (external mode) — both call `seq.hardwareClockPulse()` which sets volatile flags; `seq.run()` processes those flags in main-loop context
 3. On each step change, `stepsend(current_step, last_step)` fires as the step callback
-4. `stepsend()` first computes `play_step` from `current_step` via the `pattern_direction` switch (Fwd=identity; Rev=mirror; Pong=ping_pong_step counter; Rand=random(); Shuf=shuffle_order[shuffle_pos]; E/O=even-then-odd interleave; In=outside-in; Quad=Q1,Q3,Q2,Q4 reordering). Then it scans all 16 `sounding_note_end_step[]` entries — any slot whose end-step equals `current_step` gets a note-off (gate timing is always in hardware clock steps). If `step_data[pattern][0][play_step]` is on, `step_probability[pattern][play_step]` is checked: the step fires only if `prob >= 100` or `random(100) < prob`. If it fires, pitch drift is applied: a random offset in `[-pitch_drift, +pitch_drift]` is added to the shifted pitch, clamped to `[slider_map_low_value, slider_map_high_value]`, and quantized to the active scale if any. Note-on is sent; `sounding_note_end_step[play_step]` is set to `(current_step + step_gate[pattern][play_step]) % pattern_length`. `last_triggered_step` is updated to `play_step` and `update_line2` is set for the LCD. If `cc_step_enabled[pattern][play_step]` is set, a CC message is sent using `cc_number[pattern]` and `cc_step_values[pattern][play_step]`; CC steps fire independently of note probability.
+4. `stepsend()` first computes `play_step` from `current_step` via the `pattern_direction` switch (Fwd=identity; Rev=mirror; Pong=ping_pong_step counter; Rand=random(); Shuf=shuffle_order[shuffle_pos]; E/O=even-then-odd interleave; In=outside-in; Quad=Q1,Q3,Q2,Q4 reordering). Then it scans all 16 `sounding_note_end_step[]` entries — any slot whose end-step equals `current_step` gets a note-off (gate timing is always in hardware clock steps). If `step_data[pattern][0][play_step]` is on, `step_probability[pattern][play_step]` is checked: the step fires only if `prob >= 100` or `random(100) < prob`. If it fires, drift is applied: `total_drift = pitch_drift (if enabled) + step_drift_amount[pattern][play_step] (if step_drift_enabled is set and ft_drift_mode is on)`; a single random offset in `[-total_drift, +total_drift]` is added to the shifted pitch, clamped to `[slider_map_low_value, slider_map_high_value]`, and re-quantized to the active scale if any. Note-on is sent; `sounding_note_end_step[play_step]` is set to `(current_step + step_gate[pattern][play_step]) % pattern_length`. `last_triggered_step` is updated to `play_step` and `update_line2` is set for the LCD. If `cc_step_enabled[pattern][play_step]` is set, a CC message is sent using `cc_number[pattern]` and `cc_step_values[pattern][play_step]`; CC steps fire independently of note probability.
 5. On stop (play button or MIDI stop), `allNotesOff()` sends note-off for every entry in `sounding_notes[]` and clears both `sounding_notes[]` and `sounding_note_end_step[]`
 
 ## Hardware Timer (TC4)
@@ -166,7 +168,7 @@ The play button (pin 21) is attached to a SAMD51 EIC external interrupt (FALLING
 
 D-pad up/down on the main screen selects the active pattern (wraps within 1–4 simple / 1–16 advanced). D-pad left is a no-op on the main screen (consumed). Timing modes and tempo editing via d-pad have been removed — tempo is now in the config menu.
 
-**Enter button** (single tap, both simple and advanced mode) cycles the active slider mode, skipping any modes whose feature flag is off: NN → VL → GT → CC → PR → LV → NN (only enabled modes appear). Double-tap Enter opens the config menu in both modes. The enter LED is not toggled by the enter button. While `live_cc_editing_lane >= 0` (LV-mode lane edit active), Enter exits editing instead of cycling slider mode.
+**Enter button** (single tap, both simple and advanced mode) cycles the active slider mode, skipping any modes whose feature flag is off: NN → VL → GT → CC → PR → LV → D → NN (only enabled modes appear). Double-tap Enter opens the config menu in both modes. The enter LED is not toggled by the enter button. While `live_cc_editing_lane >= 0` (LV-mode lane edit active), Enter exits editing instead of cycling slider mode.
 
 **`timing_mode` variable has been removed.** `switch_timing_mode_events()` and `set_timing_resolution()` no longer exist. Swing, clock source, MIDI channel, and tempo have all moved to the config menu (double-tap Enter).
 
@@ -192,7 +194,7 @@ Switching clock source calls `setExternalClockMode()` which stops or starts TC4 
 
 ## Slider Modes
 
-The 16 voice sliders operate in one of six modes:
+The 16 voice sliders operate in one of seven modes:
 
 | Mode   | Display                | Slider controls                                                             | Storage                                                         |
 | ------ | ---------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -202,18 +204,23 @@ The 16 voice sliders operate in one of six modes:
 | 4 — CC | `?5?3` (CC icon)       | CC value (0–127) per step; step buttons toggle `cc_step_enabled` on/off     | `cc_step_values[p][s]`, `cc_step_enabled[p][s]`                 |
 | 5 — PR | `?5P`                  | Fire probability (0–100%) per step                                          | `step_probability[p][s]`                                        |
 | 6 — LV | `?5L`                  | **Live** MIDI CC (transmitted on movement, not sequenced)                   | `live_cc_number[s]` (global), `live_cc_last_sent[s]`            |
+| 7 — D  | `?5D`                  | Per-step drift amount (0–12 semitones); step buttons toggle `step_drift_enabled` on/off | `step_drift_amount[p][s]`, `step_drift_enabled[p][s]`           |
 
 **Switching modes:**
 
-- **Enter single-tap** (both simple AND advanced mode) cycles NN → VL → GT → CC → PR → LV → NN, skipping any mode whose feature flag is off. (This is a change from earlier behavior where Enter had no function in advanced mode.)
+- **Enter single-tap** (both simple AND advanced mode) cycles NN → VL → GT → CC → PR → LV → D → NN, skipping any mode whose feature flag is off. (This is a change from earlier behavior where Enter had no function in advanced mode.)
 - **Advanced mode pattern buttons** remain as quick shortcuts: 1 = NN, 2 = VL, 3 = PR. CC, GT, and LV are reachable from advanced mode only via the Enter cycle (or the relevant config menu shortcut for sequenced CC).
 - **Step prob** menu item still jumps directly to PR. There is no equivalent menu shortcut into LV — use the Enter cycle.
 
-**`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders **except mode 6 (LV)** which has no pickup, sets `update_line1 = update_line2 = true`, and switches step LED display: entering CC mode calls `read_cc_step_memory()` (LEDs show `cc_step_enabled`); entering LV mode clears all step LEDs (lit only for the lane currently being edited); leaving CC/LV mode calls `read_step_memory()` (LEDs show `step_data`). Entering LV also resets `live_cc_editing_lane`, `live_cc_last_lane`, and seeds `live_cc_last_sent[i] = 255` so the first move on any lane transmits. Always call this function — never set `slider_mode` directly.
+**`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders **except mode 6 (LV)** which has no pickup, sets `update_line1 = update_line2 = true`, and switches step LED display: entering CC mode calls `read_cc_step_memory()` (LEDs show `cc_step_enabled`); entering D mode calls `read_drift_step_memory()` (LEDs show `step_drift_enabled`); entering LV mode clears all step LEDs (lit only for the lane currently being edited); leaving CC/D/LV mode restores the appropriate display. Entering LV also resets `live_cc_editing_lane`, `live_cc_last_lane`, and seeds `live_cc_last_sent[i] = 255` so the first move on any lane transmits. Always call this function — never set `slider_mode` directly.
 
-**Pickup guard (modes 1–5)**: `slider_needs_pickup[s]` prevents a slider from overwriting stored data until the physical slider crosses through the stored value for the current mode. This prevents mode switches from silently corrupting pattern data when sliders are at different physical positions for each mode. Tolerance: ±1 note (NN), ±1 velocity unit (VL), exact match (GT, range 1–8), ±1 CC unit (CC). **LV mode (6) has no pickup** — the slider's position IS the value, and the 255 sentinel in `live_cc_last_sent[]` ensures the first move on any lane always transmits.
+**Pickup guard (modes 1–5, 7)**: `slider_needs_pickup[s]` prevents a slider from overwriting stored data until the physical slider crosses through the stored value for the current mode. This prevents mode switches from silently corrupting pattern data when sliders are at different physical positions for each mode. Tolerance: ±1 note (NN), ±1 velocity unit (VL), exact match (GT, range 1–8), ±1 CC unit (CC), ±1 probability unit (PR), ±1 semitone (D). **LV mode (6) has no pickup** — the slider's position IS the value, and the 255 sentinel in `live_cc_last_sent[]` ensures the first move on any lane always transmits.
 
 **CC mode step buttons**: In CC mode, step buttons toggle `cc_step_enabled[p][s]` on/off (independent of `step_data`). A step can have CC enabled without having a note, and vice versa. The step LED reflects `cc_step_enabled` state while in CC mode.
+
+**D mode step buttons**: In D mode, step buttons toggle `step_drift_enabled[p][s]` on/off (independent of `step_data`). A step can have drift enabled without having a note (no audible effect until the step has a note). The step LED reflects `step_drift_enabled` state while in D mode. No gate-set gesture, no audition.
+
+**D mode drift application**: Per-step drift is **additive** with the global `pitch_drift`. At trigger time, `stepsend()` computes `total_drift = pitch_drift (if ft_pitch_drift) + step_drift_amount[p][s] (if ft_drift_mode && step_drift_enabled[p][s])`, then picks a single random offset in `[-total_drift, +total_drift]` and applies it to the pitch (clamped to note range, then re-quantized to the active scale if any). A step with global drift = 3 and per-step drift = 5 has effective range ±8 semitones on that step only.
 
 **LV mode step buttons**: Step buttons in LV mode select which lane's CC# is being edited. Tap a step → that lane becomes `live_cc_editing_lane` and its LED lights. Tap the same step again → exit editing. Tap a different step → switch focus. No `step_data` toggling, no gate-set gesture, no audition. While `live_cc_editing_lane >= 0`, d-pad up/down adjusts `live_cc_number[lane]` via the same valid-CC list as sequenced CC (skip 32, 96–101); d-pad left or Enter exits editing. Changing the CC# resets `live_cc_last_sent[lane] = 255` so the next slider movement retransmits on the new CC#.
 
@@ -221,11 +228,13 @@ The 16 voice sliders operate in one of six modes:
 
 **LV MIDI channel** is `live_cc_channel` (1–16), set via config menu → **Live CC ch**. Independent of `MIDICHANNEL` (which the note sequencer and sequenced CC use). This allows routing live CC to a different synth/destination.
 
-**LV persistence**: `live_cc_number[16]` and `live_cc_channel` are saved to both SD JSON (`"live_cc_channel"`, `"live_cc_numbers": [..16..]`) and EEPROM (addresses 1331 and 1332–1347). `ft_live_cc_mode` is also persisted (SD `"ft_live_cc_mode"`; EEPROM address 1330). Bumping EEPROM_MAGIC_VALUE to 0xCE forces old saves without these fields to be re-defaulted on first boot after the upgrade.
+**LV persistence**: `live_cc_number[16]` and `live_cc_channel` are saved to both SD JSON (`"live_cc_channel"`, `"live_cc_numbers": [..16..]`) and EEPROM (addresses 1331 and 1332–1347). `ft_live_cc_mode` is also persisted (SD `"ft_live_cc_mode"`; EEPROM address 1330).
+
+**D persistence**: `step_drift_enabled[16][16]` and `step_drift_amount[16][16]` are saved to both SD JSON (per-pattern `"drift_enabled":[16]` and `"drift_amounts":[16]`) and EEPROM (addresses 1349 and 1605). `ft_drift_mode` is also persisted (SD `"ft_drift_mode"`; EEPROM address 1348). The drift arrays are optional in JSON — older saves without them load cleanly and default to all-off. Bumping EEPROM_MAGIC_VALUE to 0xCF forces old saves without these fields to be re-defaulted on first boot after the upgrade.
 
 **Always boots to NN mode** (`slider_mode = 1`). Mode is not saved to SD/EEPROM — it resets to NN on power-up.
 
-**`resetSliders()`**: Resets all 16 steps' pitches to `slider_map_low_value`, velocities to 127, and gates to 1, for the current pattern.
+**`resetSliders()`**: Resets all 16 steps' pitches to `slider_map_low_value`, velocities to 127, gates to 1, probabilities to 100, and drift to off/0, for the current pattern.
 
 ## Multi-Step Gate Lengths
 
@@ -283,7 +292,7 @@ If neither predicate is true, incoming CC messages are ignored (and still passed
 - **Chain 4 patterns (simple mode)**: Press pattern buttons 0 + 3 simultaneously to toggle
 - **Select pattern 0–15 (advanced mode)**: Hold pattern button 0, tap a step button
 
-**Pattern copy includes velocities, gates, and CC data**: Both `listen_for_copy_command()` (simple mode) and the advanced mode 2-phase copy loop copy `pattern_step_velocities`, `step_gate`, `cc_step_enabled`, `cc_step_values`, and `cc_number` along with `step_data` and `pattern_step_pitches`.
+**Pattern copy includes velocities, gates, CC data, and drift data**: Both `listen_for_copy_command()` (simple mode) and the advanced mode 2-phase copy loop copy `pattern_step_velocities`, `step_gate`, `cc_step_enabled`, `cc_step_values`, `cc_number`, `step_probability`, `step_drift_enabled`, and `step_drift_amount` along with `step_data` and `pattern_step_pitches`.
 
 **`go_to_pattern(pattern, silent)`**: Turns all 4 pattern LEDs off, except LED 0 stays on when `adv_pat_nav_active` is true. In simple mode, lights the LED for `pattern % 4`. In advanced mode outside nav mode, no LED is lit — buttons are function keys. `toggle()` was previously used but is state-dependent; always use `on()`. The `silent` parameter is accepted but currently unused.
 
@@ -295,7 +304,7 @@ If neither predicate is true, incoming CC messages are ignored (and still passed
 
 **Chain toggle one-shot guard**: The `isPressed()` check for pattern buttons 0+3 fires every loop iteration while both are held. A `static bool chain_toggle_handled` in `run_pattern_select_routine()` ensures the mode flip and `go_to_pattern()` call happen only once per press. It resets when the buttons are released. Do not remove this guard — without it the mode flips back and forth on every loop frame.
 
-**`clear_pattern_memory()` clears all 16 patterns**: Loops over all 16 patterns (`p = 0..15`) and zeros every step, resets pitches to `slider_map_low_value`, resets velocities to 127, resets gates to 1, resets `step_probability` to 100, and clears CC data (enabled and values). After clearing, calls `read_step_memory(0, pattern_value)` to refresh the LEDs for the active pattern. `clear_pattern_memory_for_voice(0)` does the same for the current pattern only. These functions are called from the config menu — the old step-button-combo triggers (step 0+15 / step 0+11) have been removed.
+**`clear_pattern_memory()` clears all 16 patterns**: Loops over all 16 patterns (`p = 0..15`) and zeros every step, resets pitches to `slider_map_low_value`, resets velocities to 127, resets gates to 1, resets `step_probability` to 100, clears CC data (enabled and values), and clears per-step drift (`step_drift_enabled` and `step_drift_amount` both zero). After clearing, calls `read_step_memory(0, pattern_value)` to refresh the LEDs for the active pattern. `clear_pattern_memory_for_voice(0)` does the same for the current pattern only. These functions are called from the config menu — the old step-button-combo triggers (step 0+15 / step 0+11) have been removed.
 
 **Pattern chain auto-advance**: When `extended_step_length_mode == 1`, `stepsend()` calls `run_auto_pattern_select_routine()` at `current_step == pattern_length - 1`. This advances `current_pattern` within `chain_start..chain_end`. **Wrap-around chains** (where `chain_start > chain_end`, e.g. start=7, end=2 → plays 7,8,…,15,0,1,2) are fully supported. The advance happens at the start of step 15 so step 15 plays from the current pattern; the new pattern takes over from step 0.
 
@@ -308,7 +317,7 @@ If neither predicate is true, incoming CC messages are ignored (and still passed
 - Hold any pattern button 2s → pattern copy (press destination pattern button)
 - Pattern LEDs show the active pattern (0–3)
 - D-pad mode 1 navigates patterns 1–4
-- Enter single-tap cycles slider mode through all enabled modes: NN → VL → GT → CC → PR → LV → NN
+- Enter single-tap cycles slider mode through all enabled modes: NN → VL → GT → CC → PR → LV → D → NN
 
 **Advanced mode** (`advanced_mode == true`):
 
@@ -328,7 +337,7 @@ If neither predicate is true, incoming CC messages are ignored (and still passed
 - Pattern LEDs: LED 0 = nav mode active; LEDs 1/2/3 = active slider mode indicator
 - D-pad mode 1 navigates patterns 1–16
 - Hold-for-2s pattern copy is disabled in advanced mode
-- Enter single-tap cycles slider mode in advanced mode too (NN → VL → GT → CC → PR → LV → NN, skipping disabled modes). Pattern buttons 1/2/3 remain as quick shortcuts to NN/VL/PR.
+- Enter single-tap cycles slider mode in advanced mode too (NN → VL → GT → CC → PR → LV → D → NN, skipping disabled modes). Pattern buttons 1/2/3 remain as quick shortcuts to NN/VL/PR.
 
 ## Config Menu
 
@@ -386,6 +395,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 | Velocity sliders  | `ft_velocity_mode`    | Slider mode 2 (VL)                                   |
 | Note audition     | `ft_note_audition`    | MIDI note preview on step-on while stopped (default ON) |
 | Live CC mode      | `ft_live_cc_mode`     | Slider mode 6 (LV), Live CC ch menu item (default ON) |
+| Drift mode        | `ft_drift_mode`       | Slider mode 7 (D, per-step drift, additive with global pitch_drift, default ON) |
 
 **Double-tap detection**: implemented in the main `loop()` with `last_enter_ms` and `enter_tap_pending` statics. The first tap starts a 400 ms window without immediately setting `enterbutton_flag` — this prevents the first press of a double-tap from accidentally triggering a slider mode change. If a second `uniquePress()` arrives within the window, `enter_config_menu()` fires. If the window expires without a second tap, `enterbutton_flag` is set as a normal single-tap. Single-tap actions are therefore delayed by up to 400 ms, which is imperceptible for mode-cycling use.
 
@@ -421,6 +431,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
   "pattern_length": 16,
   "pattern_direction": 0,
   "ft_live_cc_mode": 0,
+  "ft_drift_mode": 1,
   "live_cc_channel": 1,
   "live_cc_numbers": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],
   "patterns": [
@@ -432,14 +443,16 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
       "cc_number": 1,
       "cc_enabled":[0,0,...16 values],
       "cc_values":[0,0,...16 values],
-      "probabilities":[100,100,...16 values]
+      "probabilities":[100,100,...16 values],
+      "drift_enabled":[0,0,...16 values],
+      "drift_amounts":[0,0,...16 values]
     },
     ...16 patterns
   ]
 }
 ```
 
-`pitch_drift` and `probabilities` are optional in the JSON — older saves without them load cleanly and default to 0 and 100 respectively.
+`pitch_drift`, `probabilities`, `drift_enabled`, and `drift_amounts` are optional in the JSON — older saves without them load cleanly and default to 0 / 100 / 0 / 0 respectively.
 
 **Arduino prototype issue**: The Arduino build tool auto-generates function prototypes before `#include`s are processed. Functions with `File&` parameters fail with "File not declared in this scope". All SD helper functions use a module-level `static File _f` handle instead — no `File` type appears in any function signature. Do not add `File&` parameters to helpers in `sd_storage.ino`.
 
@@ -449,11 +462,11 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 **On boot**: `load_from_eeprom()` is called only if `load_from_sd()` returns false. Checks for a magic sentinel byte at address 0. If missing (first boot or layout change), globals keep compiled-in defaults.
 
-**EEPROM layout** (1348 bytes, defined as `#define` constants in `storage.ino`):
+**EEPROM layout** (1861 bytes, defined as `#define` constants in `storage.ino`):
 
 | Address | Size | Content                                        |
 | ------- | ---- | ---------------------------------------------- |
-| 0       | 1    | Magic byte `0xCE`                              |
+| 0       | 1    | Magic byte `0xCF`                              |
 | 1       | 1    | `MIDICHANNEL`                                  |
 | 2       | 1    | `SWING`                                        |
 | 3       | 4    | `TEMPO` (float)                                |
@@ -481,12 +494,15 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 1330    | 1    | `ft_live_cc_mode` (bool)                       |
 | 1331    | 1    | `live_cc_channel` (uint8_t, 1–16)              |
 | 1332    | 16   | `live_cc_number[16]` (CC# per LV lane)         |
+| 1348    | 1    | `ft_drift_mode` (bool)                         |
+| 1349    | 256  | `step_drift_enabled[16][16]`                   |
+| 1605    | 256  | `step_drift_amount[16][16]` (0–12)             |
 
-**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100.
+**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100; `step_drift_amount` validated 0–12; `step_drift_enabled` coerced to 0/1.
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xCE`.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xCF`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.
 

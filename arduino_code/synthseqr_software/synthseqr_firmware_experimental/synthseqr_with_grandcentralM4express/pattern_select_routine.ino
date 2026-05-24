@@ -295,6 +295,12 @@ void go_to_pattern(int pattern, int silent) {
 #if FEATURE_CC_MODE
     if (slider_mode == 4) {
       read_cc_step_memory();
+    } else if (slider_mode == 7) {
+      read_drift_step_memory();
+    } else
+#else
+    if (slider_mode == 7) {
+      read_drift_step_memory();
     } else
 #endif
     {
@@ -357,6 +363,10 @@ void listen_for_copy_command() {
 #endif
             step_probability[copy_pattern_to][step] =
                 step_probability[current_pattern][step];
+            step_drift_enabled[copy_pattern_to][step] =
+                step_drift_enabled[current_pattern][step];
+            step_drift_amount[copy_pattern_to][step] =
+                step_drift_amount[current_pattern][step];
           }
         }
 #if FEATURE_CC_MODE

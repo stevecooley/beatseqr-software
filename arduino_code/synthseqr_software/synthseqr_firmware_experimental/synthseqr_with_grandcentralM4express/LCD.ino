@@ -387,7 +387,7 @@ void run_LCD_update() {
         Serial.println(lcd_line1);
 
         // Slider mode indicator at cols 14-15: ?5 (slider-mode icon) + mode char.
-        // ?4=NN  ?2=VL  G=gate  ?3=CC  P=PR  L=LV
+        // ?4=NN  ?2=VL  G=gate  ?3=CC  P=PR  L=LV  D=drift
         lcd.print("?5");
         Serial.print("?5");
         switch (slider_mode) {
@@ -397,6 +397,7 @@ void run_LCD_update() {
           case 4: lcd.print("?3"); Serial.println("?3"); break;
           case 5: lcd.print("P");  Serial.println("P");  break;
           case 6: lcd.print("L");  Serial.println("L");  break;
+          case 7: lcd.print("D");  Serial.println("D");  break;
           default: lcd.print("?4"); Serial.println("?4"); break;
         }
       }

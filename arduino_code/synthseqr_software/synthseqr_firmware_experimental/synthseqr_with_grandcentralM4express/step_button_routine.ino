@@ -85,6 +85,8 @@ void run_step_button_routine()
           cc_step_values[i][s] = cc_step_values[current_pattern][s];
 #endif
           step_probability[i][s] = step_probability[current_pattern][s];
+          step_drift_enabled[i][s] = step_drift_enabled[current_pattern][s];
+          step_drift_amount[i][s] = step_drift_amount[current_pattern][s];
         }
 #if FEATURE_CC_MODE
         cc_number[i] = cc_number[current_pattern];
@@ -200,10 +202,12 @@ void detect_step_button_presses()
   if (gate_flash_end_ms != 0 && (long)(millis() - gate_flash_end_ms) >= 0) {
     gate_flash_end_ms = 0;
 #if FEATURE_CC_MODE
-    if (slider_mode == 4) read_cc_step_memory();
-    else                  read_step_memory(0, pattern_value);
+    if (slider_mode == 4)      read_cc_step_memory();
+    else if (slider_mode == 7) read_drift_step_memory();
+    else                       read_step_memory(0, pattern_value);
 #else
-    read_step_memory(0, pattern_value);
+    if (slider_mode == 7) read_drift_step_memory();
+    else                  read_step_memory(0, pattern_value);
 #endif
   }
 
@@ -243,6 +247,15 @@ void detect_step_button_presses()
         step_leds[i].on();
       }
       update_line2 = true;
+      continue;
+    }
+
+    if (slider_mode == 7 && ft_drift_mode) {
+      // D mode: step buttons toggle per-step drift on/off. LED reflects the
+      // enable state. No step_data toggling, no gate-set gesture, no audition.
+      step_drift_enabled[pattern_value][i] = step_drift_enabled[pattern_value][i] ? 0 : 1;
+      if (step_drift_enabled[pattern_value][i]) step_leds[i].on();
+      else                                      step_leds[i].off();
       continue;
     }
 
@@ -303,6 +316,18 @@ void read_cc_step_memory() {
   }
 }
 #endif  // FEATURE_CC_MODE
+
+// read_drift_step_memory()
+//
+// Sets step LEDs to reflect step_drift_enabled[] for the current pattern.
+// Called when in D slider mode (mode 7) instead of read_step_memory().
+//
+void read_drift_step_memory() {
+  for (int i = 0; i < 16; i++) {
+    if (step_drift_enabled[pattern_value][i]) step_leds[i].on();
+    else                                      step_leds[i].off();
+  }
+}
 
 void read_step_memory(int voice, int pattern)
 {
@@ -369,6 +394,8 @@ void clear_pattern_memory_for_voice(int voice)
     cc_step_values[pattern_value][i] = 0;
 #endif
     step_probability[pattern_value][i] = 100;
+    step_drift_enabled[pattern_value][i] = 0;
+    step_drift_amount[pattern_value][i] = 0;
     step_leds[i].off();
   }
   return;
@@ -391,6 +418,8 @@ void clear_pattern_memory()
         cc_step_values[p][i] = 0;
 #endif
         step_probability[p][i] = 100;
+        step_drift_enabled[p][i] = 0;
+        step_drift_amount[p][i] = 0;
       }
     }
   }
