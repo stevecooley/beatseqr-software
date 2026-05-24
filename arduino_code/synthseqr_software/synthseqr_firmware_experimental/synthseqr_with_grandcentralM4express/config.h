@@ -584,8 +584,11 @@ bool ft_drift_mode          = true;   // ON by default — slider mode 7 (D, per
 // own CC# (global across patterns) and its own last-sent value for change
 // detection. The CC channel is independent of MIDICHANNEL so live CC can be
 // routed to a different synth/destination than the note sequencer.
-uint8_t live_cc_number[16] = {1, 2, 3, 4, 5, 6, 7, 8,
-                              9, 10, 11, 12, 13, 14, 15, 16};
+// Default to CC 102–117 — the MIDI spec "Undefined" range. Avoids stomping
+// on Mod Wheel (1), Volume (7), Pan (10), Expression (11) etc. when entering
+// LV mode with sliders at arbitrary physical positions.
+uint8_t live_cc_number[16] = {102, 103, 104, 105, 106, 107, 108, 109,
+                              110, 111, 112, 113, 114, 115, 116, 117};
 uint8_t live_cc_channel    = 1;          // 1–16, independent of MIDICHANNEL
 uint8_t live_cc_last_sent[16];           // last sent 0–127 per lane; 255 = "never sent"
 int8_t  live_cc_editing_lane = -1;       // -1 = idle; 0..15 = lane in edit

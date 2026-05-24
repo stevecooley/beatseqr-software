@@ -137,8 +137,9 @@ uint8_t next_valid_cc(uint8_t current, int dir) {
 
 #define RESET_ITEM_CLEAR_ALL  0
 #define RESET_ITEM_CLEAR_PAT  1
-#define RESET_ITEM_SLIDERS    2
-#define RESET_ITEM_COUNT      3
+#define RESET_ITEM_LIVE_CC    2
+#define RESET_ITEM_SLIDERS    3
+#define RESET_ITEM_COUNT      4
 
 #define NR_ITEM_CUSTOM  0
 #define NR_ITEM_16      1
@@ -866,6 +867,7 @@ void run_config_menu() {
 static const char* _reset_names[RESET_ITEM_COUNT] = {
   "Clear all pats  ",
   "Clear pattern   ",
+  "Reset live CCs  ",
   "Reset sliders   "
 };
 
@@ -907,6 +909,12 @@ void run_reset_submenu() {
           break;
         case RESET_ITEM_CLEAR_PAT:
           clear_pattern_memory_for_voice(0);
+          break;
+        case RESET_ITEM_LIVE_CC:
+          for (uint8_t i = 0; i < 16; i++) {
+            live_cc_number[i]    = 102 + i;   // MIDI "Undefined" range, avoids Volume/Pan/Expression
+            live_cc_last_sent[i] = 255;       // sentinel so next slider move retransmits
+          }
           break;
         case RESET_ITEM_SLIDERS:
           resetSliders();

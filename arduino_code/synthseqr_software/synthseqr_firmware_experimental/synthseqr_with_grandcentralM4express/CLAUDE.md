@@ -80,7 +80,7 @@ uint8_t cc_step_enabled[16][16]       // CC step on/off per pattern per step; de
 uint8_t cc_number[16]                 // CC controller number per pattern (1–119, skipping 32 and 96–101); default 1 (Mod Wheel)
 uint8_t slider_mode                   // 1=NN, 2=VL, 3=GT, 4=CC (sequenced), 5=PR, 6=LV (live CC), 7=D (per-step drift)
 uint8_t slider_mode_total             // 7 (NN, VL, GT, CC, PR, LV, D)
-uint8_t live_cc_number[16]            // CC# per LV lane (global across patterns); default 1–16
+uint8_t live_cc_number[16]            // CC# per LV lane (global across patterns); default 102–117 (MIDI "Undefined" range — avoids Mod/Vol/Pan/Expression)
 uint8_t live_cc_channel               // 1–16 MIDI channel for live CC; independent of MIDICHANNEL
 uint8_t live_cc_last_sent[16]         // last sent 0–127 per lane; 255 sentinel = "never sent"
 int8_t  live_cc_editing_lane          // -1 = idle; 0..15 = lane currently being edited
@@ -370,7 +370,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 19. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing. Hidden when `ft_swing` is off
 20. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
 
-**Reset/Clear submenu**: Scrolled with up/down, Enter shows confirmation (`Entr=ok  Lft=no`), Enter again executes, Left cancels confirmation or exits submenu back to main menu. Items: Clear all pats, Clear pattern, Reset sliders.
+**Reset/Clear submenu**: Scrolled with up/down, Enter shows confirmation (`Entr=ok  Lft=no`), Enter again executes, Left cancels confirmation or exits submenu back to main menu. Items: Clear all pats, Clear pattern, Reset live CCs, Reset sliders. **Reset live CCs** restores `live_cc_number[]` to the default 102–117 (MIDI "Undefined" range) and zeroes `live_cc_last_sent[]` to 255 so the next slider move retransmits — does not touch `live_cc_channel` or any other state.
 
 **Note range submenu**: Scrolled with up/down, Left exits back to main menu. Line 1 shows `> {current item}`, line 2 shows next item preview. Items: Custom, 16 notes (36–51), 12 notes (36–47), 8 notes (36–43), 6 notes (36–41), 4 notes (36–39). Selecting a preset immediately sets `slider_map_low_value=36` and `slider_map_high_value` to the preset top, calls `init_blank_patterns_to_range()` and `build_scale_notes()`, then returns to the main menu. Selecting Custom enters a two-phase inline editor: Enter advances lo→hi, Enter again exits; Left returns to the preset list. All presets anchor the low note at 36.
 
