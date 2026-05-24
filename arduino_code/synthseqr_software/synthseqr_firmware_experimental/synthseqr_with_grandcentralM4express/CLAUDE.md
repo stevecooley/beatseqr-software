@@ -507,7 +507,7 @@ When `ft_note_audition` is true and the sequencer is stopped (`!playstatus`), st
 
 **Note-off timer**: top of `run_step_button_routine()` checks `(long)(millis() - audition_note_off_ms) >= 0` and sends note-off when the gate expires.
 
-**Disable side-effect**: `_apply_feature_disable(13)` in `config_menu.ino` immediately cancels any sounding audition note when the feature is toggled off.
+**Disable side-effect**: `_apply_feature_disable(6)` in `config_menu.ino` immediately cancels any sounding audition note when the feature is toggled off.
 
 **Default**: `ft_note_audition = true` — the feature is on by default. Disable from Features submenu if you don't want step-toggle previews while stopped.
 

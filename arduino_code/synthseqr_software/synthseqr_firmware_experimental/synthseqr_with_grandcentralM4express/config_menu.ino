@@ -945,37 +945,37 @@ void run_reset_submenu() {
 static const char* _feature_names[FEATURE_COUNT] = {
   "Advanced mode   ",
   "CC mode         ",
-  "Probability     ",
+  "Diagnostics     ",
+  "Ext clock       ",
   "Gate sliders    ",
+  "Live CC mode    ",
+  "Note audition   ",
   "Note scales     ",
-  "Pitch drift     ",
+  "Oct/note shift  ",
   "Pat direction   ",
   "Pat length      ",
+  "Pitch drift     ",
+  "Probability     ",
   "Swing           ",
-  "Ext clock       ",
-  "Oct/note shift  ",
-  "Diagnostics     ",
-  "Velocity sliders",
-  "Note audition   ",
-  "Live CC mode    "
+  "Velocity sliders"
 };
 
 static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
   &ft_advanced_mode,
   &ft_cc_mode,
-  &ft_probability,
+  &ft_diagnostics,
+  &ft_external_clock,
   &ft_gate_mode,
+  &ft_live_cc_mode,
+  &ft_note_audition,
   &ft_scale_quantization,
-  &ft_pitch_drift,
+  &ft_octave_note_shift,
   &ft_pattern_direction,
   &ft_variable_pat_length,
+  &ft_pitch_drift,
+  &ft_probability,
   &ft_swing,
-  &ft_external_clock,
-  &ft_octave_note_shift,
-  &ft_diagnostics,
-  &ft_velocity_mode,
-  &ft_note_audition,
-  &ft_live_cc_mode
+  &ft_velocity_mode
 };
 
 void draw_features_submenu() {
@@ -1003,13 +1003,13 @@ static void _apply_feature_disable(uint8_t idx) {
         go_to_pattern(current_pattern, 1);
       }
       break;
-    case 9:  // external clock
+    case 3:  // external clock
       if (external_clock_mode) setExternalClockMode(false);
       break;
-    case 12:  // velocity sliders — if currently in VL mode, drop back to NN
-      if (slider_mode == 2) set_slider_mode(1);
+    case 5:  // live CC mode — if currently in LV mode, drop back to NN
+      if (slider_mode == 6) set_slider_mode(1);
       break;
-    case 13:  // note audition — cancel any sounding audition note immediately
+    case 6:  // note audition — cancel any sounding audition note immediately
 #if FEATURE_NOTE_AUDITION
       if (audition_sounding_note >= 0) {
         noteOff(MIDICHANNEL - 1, (uint8_t)audition_sounding_note, 0);
@@ -1018,8 +1018,8 @@ static void _apply_feature_disable(uint8_t idx) {
       }
 #endif
       break;
-    case 14:  // live CC mode — if currently in LV mode, drop back to NN
-      if (slider_mode == 6) set_slider_mode(1);
+    case 14:  // velocity sliders — if currently in VL mode, drop back to NN
+      if (slider_mode == 2) set_slider_mode(1);
       break;
     default: break;
   }
