@@ -641,3 +641,25 @@ bool    config_diag_editing_trim   = false;
 // About screen state. While true, the config menu is displaying the firmware
 // version splash. Any Enter or Left press returns to the main config menu.
 bool    config_about_active        = false;
+
+/////////////////////////////////
+// D-pad up/down behavior on main screen
+/////////////////////////////////
+
+// Selects what d-pad up/down does on the main screen (not in config menu, LV
+// edit, advanced pattern-nav mode, etc — those intercept first). Default 0 =
+// Pattern (original behavior: cycle active pattern).
+#define DPAD_MAIN_MODE_PATTERN     0
+#define DPAD_MAIN_MODE_OCTAVE      1
+#define DPAD_MAIN_MODE_NOTE_SHIFT  2
+#define DPAD_MAIN_MODE_TEMPO       3
+#define DPAD_MAIN_MODE_SWING       4
+#define DPAD_MAIN_MODE_PITCH_DRIFT 5
+#define DPAD_MAIN_MODE_PAT_LENGTH  6
+#define DPAD_MAIN_MODE_PAT_DIR     7
+#define DPAD_MAIN_MODE_MIDI_CH     8
+#define DPAD_MAIN_MODE_LIVE_CC_CH  9
+#define DPAD_MAIN_MODE_CC_NUM      10
+#define DPAD_MAIN_MODE_COUNT       11
+
+uint8_t dpad_main_mode = DPAD_MAIN_MODE_PATTERN;

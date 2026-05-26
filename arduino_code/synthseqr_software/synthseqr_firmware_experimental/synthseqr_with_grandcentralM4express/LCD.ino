@@ -463,6 +463,77 @@ void run_LCD_update() {
           next_lcdflag = 255;
           break;
         }
+        // D-pad up/dn target indicator owns line 2 whenever the user has
+        // bound d-pad to anything other than Pattern. Replaces the step-
+        // trigger feedback so the current value of the bound target is
+        // always visible. If the bound feature has since been disabled, the
+        // dispatch in navigation.ino falls back to Pattern, but the LCD
+        // also falls back here so the indicator never shows a value the
+        // user can't actually change.
+        if (dpad_main_mode != DPAD_MAIN_MODE_PATTERN &&
+            dpad_main_mode_enabled(dpad_main_mode)) {
+          char line2[17];
+          int len = 0;
+          switch (dpad_main_mode) {
+            case DPAD_MAIN_MODE_OCTAVE:
+              len = snprintf(line2, sizeof(line2), "Octave: %+d", octave_shift);
+              break;
+            case DPAD_MAIN_MODE_NOTE_SHIFT:
+              len = snprintf(line2, sizeof(line2), "Note shft: %+d", note_shift);
+              break;
+            case DPAD_MAIN_MODE_TEMPO:
+              len = snprintf(line2, sizeof(line2), "Tempo: %5.1f", TEMPO);
+              break;
+            case DPAD_MAIN_MODE_SWING:
+              len = snprintf(line2, sizeof(line2), "Swing: %d", SWING);
+              break;
+            case DPAD_MAIN_MODE_PITCH_DRIFT:
+              len = snprintf(line2, sizeof(line2), "Pitch drift: %d", pitch_drift);
+              break;
+            case DPAD_MAIN_MODE_PAT_LENGTH:
+              len = snprintf(line2, sizeof(line2), "Pat length: %d", pattern_length);
+              break;
+            case DPAD_MAIN_MODE_PAT_DIR: {
+              const char* dname;
+              switch (pattern_direction) {
+                case 1: dname = "Rev";  break;
+                case 2: dname = "Pong"; break;
+                case 3: dname = "Rand"; break;
+                case 4: dname = "Shuf"; break;
+                case 5: dname = "E/O";  break;
+                case 6: dname = "In";   break;
+                case 7: dname = "Quad"; break;
+                default: dname = "Fwd"; break;
+              }
+              len = snprintf(line2, sizeof(line2), "Pat dir: %s", dname);
+              break;
+            }
+            case DPAD_MAIN_MODE_MIDI_CH:
+              len = snprintf(line2, sizeof(line2), "MIDI ch: %d", MIDICHANNEL);
+              break;
+            case DPAD_MAIN_MODE_LIVE_CC_CH:
+              len = snprintf(line2, sizeof(line2), "Live CC ch: %d", live_cc_channel);
+              break;
+            case DPAD_MAIN_MODE_CC_NUM: {
+              uint8_t cc = cc_number[pattern_value];
+              len = snprintf(line2, sizeof(line2), "CC:%03d %s", cc, cc_name(cc));
+              break;
+            }
+            default: len = 0; break;
+          }
+          while (len < 16) line2[len++] = ' ';
+          line2[16] = '\0';
+          lcd.print("?x00?y1");
+          Serial.print("?x00?y1");
+          lcd.print(line2);
+          Serial.println(line2);
+          if (cursor_flag || did_redraw) {
+            cursor_flag = false;
+            set_lcd_cursor(cursor_y, cursor_x);
+          }
+          next_lcdflag = 255;
+          break;
+        }
         // Line 2: "♪PPP ♩VVV G#♫CCC" — 16 chars.
         // ?4=NN icon, ?2=VL icon, ?3=CC icon; plain chars via sprintf.
         // Fields: note(5) + vel(5) + gate(2) + cc(4) = 16 chars exactly.

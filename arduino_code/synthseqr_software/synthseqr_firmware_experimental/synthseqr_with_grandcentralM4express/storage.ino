@@ -7,7 +7,7 @@
 #define EEPROM_EMULATION_SIZE 2048
 #include <FlashAsEEPROM_SAMD.h>
 
-// EEPROM layout — 1861 bytes total.
+// EEPROM layout — 1862 bytes total.
 // If you change the layout, increment EEPROM_MAGIC_VALUE so old saves are
 // ignored rather than misread as valid data.
 //
@@ -44,6 +44,7 @@
 //  1349    256    step_drift_enabled[16][16]
 //  1605    256    step_drift_amount[16][16] (0–12)
 //  1861    1      slider_takeover (0=Catch 1=Jump 2=Relative)
+//  1862    1      dpad_main_mode (0..DPAD_MAIN_MODE_COUNT-1)
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -77,8 +78,9 @@
 #define EEPROM_DRIFT_ENABLED_ADDR    1349   // 256 bytes: step_drift_enabled[16][16]
 #define EEPROM_DRIFT_AMOUNT_ADDR     1605   // 256 bytes: step_drift_amount[16][16]
 #define EEPROM_SLIDER_TAKEOVER_ADDR  1861   // 1 byte: slider_takeover (0–2)
+#define EEPROM_DPAD_MAIN_MODE_ADDR   1862   // 1 byte: dpad_main_mode (0..N-1)
 
-#define EEPROM_MAGIC_VALUE  0xD0  // bumped: slider_takeover added
+#define EEPROM_MAGIC_VALUE  0xD1  // bumped: dpad_main_mode added
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -174,6 +176,7 @@ void save_to_eeprom() {
   }
 
   EEPROM.write(EEPROM_SLIDER_TAKEOVER_ADDR, slider_takeover);
+  EEPROM.write(EEPROM_DPAD_MAIN_MODE_ADDR, dpad_main_mode);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -357,6 +360,11 @@ bool load_from_eeprom() {
   {
     uint8_t v = EEPROM.read(EEPROM_SLIDER_TAKEOVER_ADDR);
     if (v <= 2) slider_takeover = v;
+  }
+
+  {
+    uint8_t v = EEPROM.read(EEPROM_DPAD_MAIN_MODE_ADDR);
+    if (v < DPAD_MAIN_MODE_COUNT) dpad_main_mode = v;
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm

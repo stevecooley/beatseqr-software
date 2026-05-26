@@ -110,7 +110,7 @@ void listen_for_navigation_events() {
 
       if ((dpad_up_flag == true) || (dpad_down_flag == true)) {
         if (!adv_copy_waiting_source && !adv_copy_armed) {
-          pattern_select_events();
+          handle_dpad_main_action();
         } else {
           dpad_up_flag = false;
           dpad_down_flag = false;
@@ -253,4 +253,94 @@ void clock_source_events() {
     update_line2 = true;
     cursor_flag = true;
   }
+}
+
+// handle_dpad_main_action()
+//
+// Dispatches d-pad up/down on the main screen based on `dpad_main_mode`.
+// 0 = Pattern (original behaviour); other values adjust an inline value
+// (octave shift, tempo, swing, pitch drift, pattern length/direction, MIDI
+// channel, live CC channel, CC# for current pattern). If the active mode's
+// underlying feature was disabled after binding, falls back to Pattern.
+// Sets update_line2 so the d-pad indicator on line 2 refreshes; Tempo also
+// sets update_line1 because TEMPO is shown there.
+//
+void handle_dpad_main_action() {
+  uint8_t mode = dpad_main_mode;
+  if (!dpad_main_mode_enabled(mode)) mode = DPAD_MAIN_MODE_PATTERN;
+
+  if (mode == DPAD_MAIN_MODE_PATTERN) {
+    pattern_select_events();
+    return;
+  }
+
+  bool up = dpad_up_flag;
+  bool down = dpad_down_flag;
+  dpad_up_flag = false;
+  dpad_down_flag = false;
+  if (!up && !down) return;
+  int dir = up ? +1 : -1;
+
+  switch (mode) {
+    case DPAD_MAIN_MODE_OCTAVE: {
+      int v = (int)octave_shift + dir;
+      if (v < -5) v = -5;
+      if (v >  5) v =  5;
+      octave_shift = (int8_t)v;
+      break;
+    }
+    case DPAD_MAIN_MODE_NOTE_SHIFT: {
+      int v = (int)note_shift + dir;
+      if (v < -12) v = -12;
+      if (v >  12) v =  12;
+      note_shift = (int8_t)v;
+      break;
+    }
+    case DPAD_MAIN_MODE_TEMPO: {
+      float t = TEMPO + dir;
+      if (t < 10.0f)  t = 10.0f;
+      if (t > 250.0f) t = 250.0f;
+      TEMPO = t;
+      seq.setTempo(TEMPO);
+      setSequencerTimerPeriod(60000000UL / (unsigned long)TEMPO / 24UL);
+      update_line1 = true;  // tempo is shown on line 1
+      break;
+    }
+    case DPAD_MAIN_MODE_SWING:
+      if (dir > 0 && SWING < 5) SWING++;
+      else if (dir < 0 && SWING > 0) SWING--;
+      seq.setShuffle(SWING);
+      break;
+    case DPAD_MAIN_MODE_PITCH_DRIFT:
+      if (dir > 0 && pitch_drift < 7) pitch_drift++;
+      else if (dir < 0 && pitch_drift > 0) pitch_drift--;
+      break;
+    case DPAD_MAIN_MODE_PAT_LENGTH:
+      if (dir > 0 && pattern_length < 16) pattern_length++;
+      else if (dir < 0 && pattern_length > 1) pattern_length--;
+      seq.setSteps(pattern_length);
+      if (ping_pong_step >= pattern_length) ping_pong_step = (uint8_t)(pattern_length - 1);
+      if (pattern_direction == 4) init_shuffle();
+      break;
+    case DPAD_MAIN_MODE_PAT_DIR:
+      if (dir > 0) pattern_direction = (pattern_direction + 1) % PATTERN_DIRECTION_COUNT;
+      else         pattern_direction = (pattern_direction + PATTERN_DIRECTION_COUNT - 1) % PATTERN_DIRECTION_COUNT;
+      if (pattern_direction == 2) { ping_pong_going_forward = true; ping_pong_step = 0; }
+      if (pattern_direction == 4) init_shuffle();
+      break;
+    case DPAD_MAIN_MODE_MIDI_CH:
+      if (dir > 0 && MIDICHANNEL < 16) MIDICHANNEL++;
+      else if (dir < 0 && MIDICHANNEL > 1) MIDICHANNEL--;
+      break;
+    case DPAD_MAIN_MODE_LIVE_CC_CH:
+      if (dir > 0 && live_cc_channel < 16) live_cc_channel++;
+      else if (dir < 0 && live_cc_channel > 1) live_cc_channel--;
+      break;
+    case DPAD_MAIN_MODE_CC_NUM:
+      cc_number[pattern_value] = next_valid_cc(cc_number[pattern_value], dir);
+      break;
+    default: break;
+  }
+
+  update_line2 = true;
 }

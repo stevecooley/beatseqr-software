@@ -94,6 +94,7 @@ uint8_t slider_takeover               // 0=Catch (cross stored value), 1=Jump (e
 uint16_t slider_last_raw[16]          // last 12-bit ADC reading per slider; used by Jump-movement detection and Relative deltas
 uint8_t slider_pickup_dir[16]         // overlay direction per slider: 0=engaged, 1=push up ('^'), 2=pull down ('v')
 bool slider_pickup_overlay_active     // when true, LCD line 2 shows the per-slider catch-direction overlay instead of step feedback
+uint8_t dpad_main_mode                // d-pad up/down target on main screen; 0=Pattern(default) 1=Oct 2=NoteShift 3=Tempo 4=Swing 5=PitchDrift 6=PatLen 7=PatDir 8=MIDIch 9=LvCCch 10=CC#
 uint8_t lcdflag                       // LCD display mode selector
 bool external_clock_mode              // false = internal TC4, true = follow USB-MIDI clock
 bool advanced_mode                    // false = Simple (4 patterns, buttons select), true = Advanced (16 patterns, buttons are function keys)
@@ -170,7 +171,7 @@ The play button (pin 21) is attached to a SAMD51 EIC external interrupt (FALLING
 
 ## Navigation
 
-D-pad up/down on the main screen selects the active pattern (wraps within 1–4 simple / 1–16 advanced). D-pad left is a no-op on the main screen (consumed). Timing modes and tempo editing via d-pad have been removed — tempo is now in the config menu.
+D-pad up/down on the main screen is **user-configurable** via the `D-pad up/dn` config menu item. Default is Pattern (cycle active pattern, wraps within 1–4 simple / 1–16 advanced). Other options: Octave shift, Note shift, Tempo (±1 BPM), Swing, Pitch drift, Pat length, Pat direction, MIDI channel, Live CC channel, CC# (current pattern). The dispatch lives in `handle_dpad_main_action()` in `navigation.ino` and consults `dpad_main_mode_enabled()` so a target whose feature flag has been disabled falls back to Pattern instead of doing nothing. Special main-screen modes (LV lane edit, advanced pattern-nav, copy phases) still intercept d-pad up/down **before** this dispatch — they are unaffected by `dpad_main_mode`. D-pad left is a no-op on the main screen (consumed). Timing modes and tempo editing via d-pad have been removed — tempo also lives in the config menu.
 
 **Enter button** (single tap, both simple and advanced mode) cycles the active slider mode, skipping any modes whose feature flag is off: NN → VL → GT → CC → PR → LV → D → NN (only enabled modes appear). Double-tap Enter opens the config menu in both modes. The enter LED is not toggled by the enter button. While `live_cc_editing_lane >= 0` (LV-mode lane edit active), Enter exits editing instead of cycling slider mode.
 
@@ -365,23 +366,24 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 2. **Channel** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing
 3. **Clear/Reset** — enters the Reset/Clear submenu (see below)
 4. **Clock: int/ext** — toggles immediately via `setExternalClockMode()`; value shown inline on line 1. Hidden when `ft_external_clock` is off
-5. **Diagnostics** — opens the Diagnostics submenu (LED test, Input test, Hi trim — see below). Hidden when `ft_diagnostics` is off
-6. **Exit** — Enter, left, or right all exit
-7. **Features** — enters the Features submenu (see below)
-8. **Live CC ch** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing. Sets the MIDI channel used by LV slider mode (independent of `MIDICHANNEL`). Hidden when `ft_live_cc_mode` is off
-9. **Mode: Simple/Advanced** — confirmation required; Enter toggles Simple↔Advanced; line 1 shows target (`Mode:->Simple ` or `Mode:->Advancd`); Left cancels. Enabling Advanced also force-enables `ft_velocity_mode` and `ft_probability`. Hidden when `ft_advanced_mode` is off
-10. **Note range** — opens Note range submenu (see below); label shows `*` when non-default (36/52). Always visible (not gated by any feature flag)
-11. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; changing scale or root calls `apply_scale_to_all_patterns()` which quantizes all stored pitches immediately; label shows `*` when non-Chromatic/C. Scales: Chromatic Blues Dorian HarmMinor Major Mixolydian NatMinor PentMaj PentMin Phrygian. Hidden when `ft_scale_quantization` is off
-12. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
-13. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
-14. **Pat dir** — enter editing sub-state; up/down cycles 0–7; names: Fwd/Rev/Pong/Rand/Shuf/E·O/In/Quad. Hidden when `ft_pattern_direction` is off
-15. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button sets length to N+1; step LEDs show active length while editing; `seq.setSteps()` called on every change; label shows `*` when not 16. Hidden when `ft_variable_pat_length` is off
-16. **Pitch drift** — enter editing sub-state; up/down adjust 0–7 semitones; label shows `*` when non-zero. Hidden when `ft_pitch_drift` is off
-17. **Save** — saves to SD (primary) + EEPROM (backup); blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
-18. **Slider takeover (Takeover:)** — enter editing sub-state; up/down cycles Catch / Jump / Relative; line 1 shows current value. Changing the value re-seeds `slider_last_raw[]` from current ADC reads and clears/sets `slider_needs_pickup[]` according to the new mode. Always visible.
-19. **Step prob** — exits menu immediately and activates PR slider mode; label shows `*` if any step probability < 100. Hidden when `ft_probability` is off
-20. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing. Hidden when `ft_swing` is off
-21. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
+5. **D-pad up/dn (D-pad:)** — enter editing sub-state; up/down cycles through enabled targets (Pattern / Octave / Note / Tempo / Swing / Drift / PatLen / PatDir / MIDIch / LvCCch / CC#); Enter or Left exits editing. Selects what d-pad up/down does on the main screen. Pattern keeps the original step-feedback line 2; any other choice replaces line 2 with a persistent indicator showing the bound target's current value. Always visible.
+6. **Diagnostics** — opens the Diagnostics submenu (LED test, Input test, Hi trim — see below). Hidden when `ft_diagnostics` is off
+7. **Exit** — Enter, left, or right all exit
+8. **Features** — enters the Features submenu (see below)
+9. **Live CC ch** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing. Sets the MIDI channel used by LV slider mode (independent of `MIDICHANNEL`). Hidden when `ft_live_cc_mode` is off
+10. **Mode: Simple/Advanced** — confirmation required; Enter toggles Simple↔Advanced; line 1 shows target (`Mode:->Simple ` or `Mode:->Advancd`); Left cancels. Enabling Advanced also force-enables `ft_velocity_mode` and `ft_probability`. Hidden when `ft_advanced_mode` is off
+11. **Note range** — opens Note range submenu (see below); label shows `*` when non-default (36/52). Always visible (not gated by any feature flag)
+12. **Note scales** — two-phase editor: Enter starts editing scale type (`Sc: Major`), Enter again switches to root note (`Root: C#`), Enter exits; changing scale or root calls `apply_scale_to_all_patterns()` which quantizes all stored pitches immediately; label shows `*` when non-Chromatic/C. Scales: Chromatic Blues Dorian HarmMinor Major Mixolydian NatMinor PentMaj PentMin Phrygian. Hidden when `ft_scale_quantization` is off
+13. **Note shift** — enter editing sub-state; up/down adjust ±1 semitone (range -12 to +12); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
+14. **Octave shift** — enter editing sub-state; up/down adjust ±1 octave (range -5 to +5); label shows `*` when non-zero. Hidden when `ft_octave_note_shift` is off
+15. **Pat dir** — enter editing sub-state; up/down cycles 0–7; names: Fwd/Rev/Pong/Rand/Shuf/E·O/In/Quad. Hidden when `ft_pattern_direction` is off
+16. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button sets length to N+1; step LEDs show active length while editing; `seq.setSteps()` called on every change; label shows `*` when not 16. Hidden when `ft_variable_pat_length` is off
+17. **Pitch drift** — enter editing sub-state; up/down adjust 0–7 semitones; label shows `*` when non-zero. Hidden when `ft_pitch_drift` is off
+18. **Save** — saves to SD (primary) + EEPROM (backup); blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
+19. **Slider takeover (Takeover:)** — enter editing sub-state; up/down cycles Catch / Jump / Relative; line 1 shows current value. Changing the value re-seeds `slider_last_raw[]` from current ADC reads and clears/sets `slider_needs_pickup[]` according to the new mode. Always visible.
+20. **Step prob** — exits menu immediately and activates PR slider mode; label shows `*` if any step probability < 100. Hidden when `ft_probability` is off
+21. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing. Hidden when `ft_swing` is off
+22. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
 
 **Reset/Clear submenu**: Scrolled with up/down, Enter shows confirmation (`Entr=ok  Lft=no`), Enter again executes, Left cancels confirmation or exits submenu back to main menu. Items: Clear all pats, Clear pattern, Reset live CCs, Reset sliders. **Reset live CCs** restores `live_cc_number[]` to the default 102–117 (MIDI "Undefined" range) and zeroes `live_cc_last_sent[]` to 255 so the next slider move retransmits — does not touch `live_cc_channel` or any other state.
 
@@ -447,6 +449,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
   "ft_drift_mode": 1,
   "live_cc_channel": 1,
   "live_cc_numbers": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],
+  "dpad_main_mode": 0,
   "patterns": [
     {
       "steps":[1,0,...16 values],
@@ -475,7 +478,7 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 **On boot**: `load_from_eeprom()` is called only if `load_from_sd()` returns false. Checks for a magic sentinel byte at address 0. If missing (first boot or layout change), globals keep compiled-in defaults.
 
-**EEPROM layout** (1861 bytes, defined as `#define` constants in `storage.ino`):
+**EEPROM layout** (1862 bytes, defined as `#define` constants in `storage.ino`):
 
 | Address | Size | Content                                        |
 | ------- | ---- | ---------------------------------------------- |
@@ -511,12 +514,13 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 1349    | 256  | `step_drift_enabled[16][16]`                   |
 | 1605    | 256  | `step_drift_amount[16][16]` (0–12)             |
 | 1861    | 1    | `slider_takeover` (uint8_t, 0=Catch 1=Jump 2=Relative) |
+| 1862    | 1    | `dpad_main_mode` (uint8_t, 0..DPAD_MAIN_MODE_COUNT-1)  |
 
 **Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100; `step_drift_amount` validated 0–12; `step_drift_enabled` coerced to 0/1.
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xCF`.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xD1`.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.
 

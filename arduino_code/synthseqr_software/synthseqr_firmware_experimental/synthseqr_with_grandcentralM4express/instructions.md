@@ -19,7 +19,8 @@ Synthseqr is a 16-step MIDI sequencer with 16 patterns, 16 voice sliders, a D-pa
 | Step LEDs (16)             | Above each step button                                          |
 | Voice sliders (16)         | One per step — set pitch, velocity, or gate depending on mode   |
 | Play button                | Transport — start/stop                                          |
-| D-pad (up/down/left/right) | Navigation                                                      |
+| D-pad up/down              | Configurable target on the main screen (default: select pattern); see **D-pad Up/Down Behavior** below |
+| D-pad left                 | Exits various sub-modes (cancel copy, exit nav, leave config menu) |
 | Enter button               | Cycle slider mode (single-tap, both modes) / open config menu (double-tap) |
 | Pattern select buttons (4) | Function keys (behavior depends on mode)                        |
 | Pattern select LEDs (4)    | Mode indicator                                                  |
@@ -140,22 +141,53 @@ LV runs concurrently with the existing sequenced CC mode — they use independen
 
 ## Tempo
 
-The D-pad navigates through 4 timing modes in visual left-to-right order. Press **D-pad left/right** to move between them. Press **D-pad up/down** to adjust the selected value.
+Tempo lives in the **Config Menu** (double-tap Enter → **Tempo**). Enter starts editing; tap Enter again to cycle resolution between ±10, ±1, and ±0.1 BPM. D-pad up/down adjusts at the current resolution. D-pad left exits the editor.
 
-The cursor on the LCD blinks on the field that up/down currently controls.
+**Tempo range:** 10–250 BPM.
 
-| Mode (D-pad left/right) | Up/Down adjusts                                  | LCD location                 |
-| ----------------------- | ------------------------------------------------ | ---------------------------- |
-| 1                       | Pattern (wraps; 1–4 in Simple, 1–16 in Advanced) | Line 1 — pattern digit       |
-| 2                       | Tempo ±10 BPM                                    | Line 1 — tempo hundreds/tens |
-| 3                       | Tempo ±1 BPM                                     | Line 1 — tempo units         |
-| 4                       | Tempo ±0.1 BPM                                   | Line 1 — tempo tenths        |
+You can also bind D-pad up/down directly to ±1 BPM tempo bumps without opening the menu — see **D-pad Up/Down Behavior** below.
 
-**Tempo range:** 10–250 BPM
-
-Swing, MIDI channel, and clock source are all in the **Config Menu** — double-tap Enter to open it.
+Swing, MIDI channel, and clock source are also in the Config Menu.
 
 > **Note:** When swing is active, the MIDI clock output (0xF8) also swings. If you are syncing an external device to the sequencer's MIDI clock, set swing to 0.
+
+---
+
+## D-pad Up/Down Behavior
+
+By default, **D-pad up/down on the main screen selects the active pattern**. You can re-bind it to adjust other values without opening the config menu — useful for tweaking tempo, octave, swing, etc. on the fly.
+
+**To change the binding:**
+
+1. Double-tap **Enter** to open the Config Menu.
+2. Scroll to **D-pad:** (between **Clock** and **Diagnostics**). The current target is shown inline, e.g. `D-pad:Pattern `.
+3. Press **Enter** to start editing.
+4. **D-pad up/down** cycles through available targets (skips any whose underlying feature is disabled).
+5. Press **Enter** or **D-pad left** to exit editing.
+
+**Available targets:**
+
+| Target          | Range / step             | LCD line 2 indicator           |
+| --------------- | ------------------------ | ------------------------------ |
+| **Pattern**     | wraps 1–4 / 1–16         | (keeps normal step feedback)   |
+| **Octave**      | ±1 octave, −5..+5         | `Octave: +2`                   |
+| **Note**        | ±1 semitone, −12..+12     | `Note shft: +5`                |
+| **Tempo**       | ±1 BPM, 10..250          | `Tempo: 124.0`                 |
+| **Swing**       | 0..5                     | `Swing: 3`                     |
+| **Drift**       | 0..7 semitones           | `Pitch drift: 4`               |
+| **PatLen**      | 1..16 steps              | `Pat length: 12`               |
+| **PatDir**      | cycle 8 directions       | `Pat dir: Pong`                |
+| **MIDIch**      | 1..16                    | `MIDI ch: 10`                  |
+| **LvCCch**      | 1..16                    | `Live CC ch: 16`               |
+| **CC#**         | next/prev valid CC       | `CC:074 Cutoff`                |
+
+When the binding is anything other than **Pattern**, LCD line 2 is replaced by a persistent indicator showing the bound target's current value. Switching back to Pattern restores the normal step-trigger feedback on line 2.
+
+**Notes:**
+
+- Special main-screen modes (LV lane editing, advanced pattern-nav, pattern copy phases) still intercept d-pad up/down first — they're unaffected by this setting.
+- If you bind to a feature and later disable that feature, the d-pad silently falls back to Pattern until you re-enable the feature or pick a different target.
+- The setting is saved with **Config Menu → Save** (SD + EEPROM).
 
 ---
 
@@ -192,6 +224,8 @@ Example: `♪045 ♩127 G4♩064`
 - `♩064` — CC value 64 (shows `---` if no CC is enabled for this step)
 
 This display makes it easy to see exactly what each step is playing in real time, regardless of which slider mode is active.
+
+> **Line 2 priority**: If the D-pad up/down binding is set to anything other than Pattern (see **D-pad Up/Down Behavior**), line 2 instead shows a persistent indicator of the bound target's current value (e.g. `Octave: +2`, `Tempo: 124.0`). LV mode and the slider-pickup overlay still take priority over both displays.
 
 ---
 
@@ -497,7 +531,7 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 
 **Navigation**: D-pad up/down scrolls through items. Line 1 shows the selected item, line 2 shows the next item as a preview.
 
-**Exit**: D-pad left exits from anywhere. When `> Exit` is selected, Enter or D-pad right also exit.
+**Exit**: D-pad left exits from anywhere. When `> Exit` is selected, Enter also exits.
 
 **Menu items:**
 
@@ -507,6 +541,7 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Channel               | MIDI output channel 1–16; up/down to change, Enter or Left to exit                                                                                                                                                        |
 | Clear/Reset           | Opens the Reset/Clear submenu — Clear all pats, Clear pattern, Reset sliders (all require confirmation)                                                                                                                   |
 | Clock: int/ext        | Toggle internal clock / external USB-MIDI clock                                                                                                                                                                           |
+| D-pad up/dn           | What D-pad up/down does on the main screen — Pattern (default), Octave, Note, Tempo, Swing, Drift, PatLen, PatDir, MIDIch, LvCCch, or CC#. See **D-pad Up/Down Behavior** for details.                                    |
 | Diagnostics           | Opens the Diagnostics submenu: LED test (sequential LED chase), Input test (button/slider tester), Hi trim (slider high-end calibration offset 0–4)                                                       |
 | Exit                  | Leave the config menu                                                                                                                                                                                                     |
 | Features              | Enter the Features submenu to toggle individual feature flags on/off                                                                                                                                                      |
@@ -731,11 +766,12 @@ Connect at **57600 baud** to see:
 | Set CC controller number    | Config menu → CC number                                                    |
 | MIDI Learn (sequenced CC)   | Config menu → CC number → wiggle knob on external controller               |
 | MIDI Learn (LV lane)        | LV mode → tap step to edit lane → wiggle knob on external controller       |
-| Select pattern (d-pad)      | D-pad left to mode 1, up/down cycles patterns                              |
+| Select pattern (d-pad)      | D-pad up/down (when D-pad target is Pattern, the default)                  |
 | Select pattern (simple)     | Pattern button 1–4                                                         |
 | Select pattern (advanced)   | Single-click pattern button 1 (nav mode on), tap step button               |
-| Adjust tempo (coarse)       | D-pad right to mode 2–3, then up/down                                      |
-| Adjust tempo (fine)         | D-pad right to mode 4, then up/down                                        |
+| Re-bind D-pad up/down       | Config menu → D-pad up/dn                                                  |
+| Adjust tempo                | Config menu → Tempo (Enter cycles resolution ±10/±1/±0.1)                  |
+| Adjust tempo (live)         | Bind D-pad to Tempo → D-pad up/down on main screen (±1 BPM)                |
 | Adjust swing                | Config menu → Swing                                                        |
 | Set clock source            | Config menu → Clock                                                        |
 | Set MIDI channel            | Config menu → Channel                                                      |

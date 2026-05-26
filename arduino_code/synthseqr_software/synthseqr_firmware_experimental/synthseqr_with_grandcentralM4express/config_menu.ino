@@ -57,6 +57,65 @@ const char* cc_name(uint8_t n) {
   }
 }
 
+// dpad_main_mode_short_name()
+//
+// Returns a 7-char-max name for the D-pad target mode. Used in the menu label
+// after "D-pad:" (which leaves 8 chars). Non-static — also referenced from
+// navigation.ino's serial diagnostics and LCD.ino's line 2 indicator.
+//
+const char* dpad_main_mode_short_name(uint8_t mode) {
+  switch (mode) {
+    case DPAD_MAIN_MODE_PATTERN:     return "Pattern";
+    case DPAD_MAIN_MODE_OCTAVE:      return "Octave";
+    case DPAD_MAIN_MODE_NOTE_SHIFT:  return "Note";
+    case DPAD_MAIN_MODE_TEMPO:       return "Tempo";
+    case DPAD_MAIN_MODE_SWING:       return "Swing";
+    case DPAD_MAIN_MODE_PITCH_DRIFT: return "Drift";
+    case DPAD_MAIN_MODE_PAT_LENGTH:  return "PatLen";
+    case DPAD_MAIN_MODE_PAT_DIR:     return "PatDir";
+    case DPAD_MAIN_MODE_MIDI_CH:     return "MIDIch";
+    case DPAD_MAIN_MODE_LIVE_CC_CH:  return "LvCCch";
+    case DPAD_MAIN_MODE_CC_NUM:      return "CC#";
+    default:                         return "?";
+  }
+}
+
+// dpad_main_mode_enabled()
+//
+// True when the underlying feature for a D-pad target is currently available.
+// Used by the menu's skip-disabled cycle helper and as a fallback guard in
+// the main-screen dispatch (if the user disables a feature after binding the
+// d-pad to it, the d-pad falls back to Pattern instead of doing nothing).
+//
+bool dpad_main_mode_enabled(uint8_t mode) {
+  switch (mode) {
+    case DPAD_MAIN_MODE_OCTAVE:      return ft_octave_note_shift;
+    case DPAD_MAIN_MODE_NOTE_SHIFT:  return ft_octave_note_shift;
+    case DPAD_MAIN_MODE_TEMPO:       return !external_clock_mode;
+    case DPAD_MAIN_MODE_SWING:       return ft_swing;
+    case DPAD_MAIN_MODE_PITCH_DRIFT: return ft_pitch_drift;
+    case DPAD_MAIN_MODE_PAT_LENGTH:  return ft_variable_pat_length;
+    case DPAD_MAIN_MODE_PAT_DIR:     return ft_pattern_direction;
+    case DPAD_MAIN_MODE_LIVE_CC_CH:  return ft_live_cc_mode;
+    case DPAD_MAIN_MODE_CC_NUM:      return ft_cc_mode;
+    default:                         return true;  // Pattern, MIDIch always available
+  }
+}
+
+// next_dpad_main_mode()
+//
+// Cycle through D-pad target modes, skipping any whose feature is disabled.
+// Mirrors next_slider_mode()'s structure.
+//
+static uint8_t next_dpad_main_mode(uint8_t from, int dir) {
+  uint8_t cur = from;
+  for (uint8_t i = 0; i < DPAD_MAIN_MODE_COUNT; i++) {
+    cur = (uint8_t)((cur + DPAD_MAIN_MODE_COUNT + dir) % DPAD_MAIN_MODE_COUNT);
+    if (dpad_main_mode_enabled(cur)) return cur;
+  }
+  return DPAD_MAIN_MODE_PATTERN;
+}
+
 // next_valid_cc()
 //
 // Advance CC number by dir (+1 or -1), wrapping within 1–119 and skipping
@@ -90,23 +149,24 @@ uint8_t next_valid_cc(uint8_t current, int dir) {
 //   2  Channel
 //   3  Clear/Reset     (opens Reset/Clear submenu)
 //   4  Clock
-//   5  Diagnostics
-//   6  Exit
-//   7  Features
-//   8  Live CC ch      (hidden when ft_live_cc_mode is off)
-//   9  Mode            (toggles Simple / Advanced; confirmation required)
-//  10  Note range
-//  11  Note scales
-//  12  Note shift
-//  13  Octave shift
-//  14  Pat dir
-//  15  Pat length
-//  16  Pitch drift
-//  17  Save
-//  18  Slider takeover  (Catch / Jump / Relative)
-//  19  Step prob
-//  20  Swing
-//  21  Tempo
+//   5  D-pad up/dn     (configures what d-pad up/down does on the main screen)
+//   6  Diagnostics
+//   7  Exit
+//   8  Features
+//   9  Live CC ch      (hidden when ft_live_cc_mode is off)
+//  10  Mode            (toggles Simple / Advanced; confirmation required)
+//  11  Note range
+//  12  Note scales
+//  13  Note shift
+//  14  Octave shift
+//  15  Pat dir
+//  16  Pat length
+//  17  Pitch drift
+//  18  Save
+//  19  Slider takeover  (Catch / Jump / Relative)
+//  20  Step prob
+//  21  Swing
+//  22  Tempo
 
 // Reset/Clear submenu items (alphabetical):
 //   0  Clear all pats  (confirmation required)
@@ -118,24 +178,25 @@ uint8_t next_valid_cc(uint8_t current, int dir) {
 #define CONFIG_ITEM_CHANNEL       2
 #define CONFIG_ITEM_CLEAR_RESET   3
 #define CONFIG_ITEM_CLOCK         4
-#define CONFIG_ITEM_DIAGNOSTICS   5
-#define CONFIG_ITEM_EXIT          6
-#define CONFIG_ITEM_FEATURES      7
-#define CONFIG_ITEM_LIVE_CC_CHAN  8
-#define CONFIG_ITEM_MODE          9
-#define CONFIG_ITEM_NOTE_RANGE    10
-#define CONFIG_ITEM_NOTE_SCALES   11
-#define CONFIG_ITEM_NOTE_SHIFT    12
-#define CONFIG_ITEM_OCTAVE_SHIFT  13
-#define CONFIG_ITEM_PAT_DIR       14
-#define CONFIG_ITEM_PAT_LENGTH    15
-#define CONFIG_ITEM_PITCH_DRIFT   16
-#define CONFIG_ITEM_SAVE             17
-#define CONFIG_ITEM_SLIDER_TAKEOVER  18
-#define CONFIG_ITEM_STEP_PROB        19
-#define CONFIG_ITEM_SWING            20
-#define CONFIG_ITEM_TEMPO            21
-#define CONFIG_MENU_ITEM_COUNT       22
+#define CONFIG_ITEM_DPAD_MAIN     5
+#define CONFIG_ITEM_DIAGNOSTICS   6
+#define CONFIG_ITEM_EXIT          7
+#define CONFIG_ITEM_FEATURES      8
+#define CONFIG_ITEM_LIVE_CC_CHAN  9
+#define CONFIG_ITEM_MODE          10
+#define CONFIG_ITEM_NOTE_RANGE    11
+#define CONFIG_ITEM_NOTE_SCALES   12
+#define CONFIG_ITEM_NOTE_SHIFT    13
+#define CONFIG_ITEM_OCTAVE_SHIFT  14
+#define CONFIG_ITEM_PAT_DIR       15
+#define CONFIG_ITEM_PAT_LENGTH    16
+#define CONFIG_ITEM_PITCH_DRIFT   17
+#define CONFIG_ITEM_SAVE             18
+#define CONFIG_ITEM_SLIDER_TAKEOVER  19
+#define CONFIG_ITEM_STEP_PROB        20
+#define CONFIG_ITEM_SWING            21
+#define CONFIG_ITEM_TEMPO            22
+#define CONFIG_MENU_ITEM_COUNT       23
 
 #define RESET_ITEM_CLEAR_ALL  0
 #define RESET_ITEM_CLEAR_PAT  1
@@ -164,23 +225,24 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Channel:      ",   //  2 CHANNEL       — value overwritten at draw time
   "Clear/Reset   ",   //  3 CLEAR_RESET   — opens Reset/Clear submenu
   "Clock:        ",   //  4 CLOCK         — value overwritten at draw time
-  "Diagnostics   ",   //  5 DIAGNOSTICS
-  "Exit          ",   //  6 EXIT
-  "Features      ",   //  7 FEATURES
-  "Live CC ch:   ",   //  8 LIVE_CC_CHAN  — value overwritten at draw time
-  "Mode:         ",   //  9 MODE          — value overwritten at draw time
-  "Note range    ",   // 10 NOTE_RANGE
-  "Note scales   ",   // 11 NOTE_SCALES   — * appended when non-default
-  "Note shift    ",   // 12 NOTE_SHIFT    — * appended when non-zero
-  "Octave shift  ",   // 13 OCTAVE_SHIFT  — * appended when non-zero
-  "Pat dir:      ",   // 14 PAT_DIR       — value overwritten at draw time
-  "Pat length    ",   // 15 PAT_LENGTH    — * appended when not 16
-  "Pitch drift   ",   // 16 PITCH_DRIFT   — * appended when non-zero
-  "Save          ",   // 17 SAVE
-  "Takeover:     ",   // 18 SLIDER_TAKEOVER — value overwritten at draw time
-  "Step prob     ",   // 19 STEP_PROB       — * appended if any step < 100
-  "Swing:        ",   // 20 SWING           — value overwritten at draw time
-  "Tempo         "    // 21 TEMPO           — value overwritten at draw time; hidden when ext clock
+  "D-pad:        ",   //  5 DPAD_MAIN     — value overwritten at draw time
+  "Diagnostics   ",   //  6 DIAGNOSTICS
+  "Exit          ",   //  7 EXIT
+  "Features      ",   //  8 FEATURES
+  "Live CC ch:   ",   //  9 LIVE_CC_CHAN  — value overwritten at draw time
+  "Mode:         ",   // 10 MODE          — value overwritten at draw time
+  "Note range    ",   // 11 NOTE_RANGE
+  "Note scales   ",   // 12 NOTE_SCALES   — * appended when non-default
+  "Note shift    ",   // 13 NOTE_SHIFT    — * appended when non-zero
+  "Octave shift  ",   // 14 OCTAVE_SHIFT  — * appended when non-zero
+  "Pat dir:      ",   // 15 PAT_DIR       — value overwritten at draw time
+  "Pat length    ",   // 16 PAT_LENGTH    — * appended when not 16
+  "Pitch drift   ",   // 17 PITCH_DRIFT   — * appended when non-zero
+  "Save          ",   // 18 SAVE
+  "Takeover:     ",   // 19 SLIDER_TAKEOVER — value overwritten at draw time
+  "Step prob     ",   // 20 STEP_PROB       — * appended if any step < 100
+  "Swing:        ",   // 21 SWING           — value overwritten at draw time
+  "Tempo         "    // 22 TEMPO           — value overwritten at draw time; hidden when ext clock
 };
 
 // Tempo resolution index while editing: 0=±10, 1=±1, 2=±0.1.
@@ -263,6 +325,10 @@ void print_config_label(uint8_t item) {
     }
     // "Takeover:Catch" — 9 + 5 = 14 chars.
     snprintf(_buf, sizeof(_buf), "Takeover:%-5s", tname);
+    lcd.print(_buf);
+  } else if (item == CONFIG_ITEM_DPAD_MAIN) {
+    // "D-pad:%-8s" — 6 + 8 = 14 chars
+    snprintf(_buf, sizeof(_buf), "D-pad:%-8s", dpad_main_mode_short_name(dpad_main_mode));
     lcd.print(_buf);
   } else {
     lcd.print(config_labels[item]);
@@ -413,6 +479,12 @@ void draw_config_menu() {
     }
     char line2[17];
     int len = snprintf(line2, sizeof(line2), "  %s", full);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_DPAD_MAIN) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Up/dn:%s", dpad_main_mode_short_name(dpad_main_mode));
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
@@ -621,6 +693,9 @@ void run_config_menu() {
         }
         slider_pickup_overlay_active = (slider_mode != 6 && slider_takeover == 0);
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_DPAD_MAIN) {
+        dpad_main_mode = next_dpad_main_mode(dpad_main_mode, +1);
+        draw_config_menu();
       }
     }
     if (dpad_down_flag) {
@@ -693,6 +768,9 @@ void run_config_menu() {
           slider_pickup_dir[i] = 0;
         }
         slider_pickup_overlay_active = (slider_mode != 6 && slider_takeover == 0);
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_DPAD_MAIN) {
+        dpad_main_mode = next_dpad_main_mode(dpad_main_mode, -1);
         draw_config_menu();
       }
     }
@@ -894,6 +972,10 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_SLIDER_TAKEOVER:
+        config_editing_value = true;
+        draw_config_menu();
+        break;
+      case CONFIG_ITEM_DPAD_MAIN:
         config_editing_value = true;
         draw_config_menu();
         break;
