@@ -184,6 +184,31 @@ uint8_t pattern_step_pitches[16][16] = {
 // When true for a step, that slider must physically reach the stored pitch
 // before it takes control. Set on pattern switch; cleared per-slider on pickup.
 bool slider_needs_pickup[16];
+
+// Slider takeover behavior — chosen by user from config menu.
+// 0 = Catch    : slider must cross the stored value before taking over (default)
+// 1 = Jump     : slider takes over instantly on first movement after mode switch
+// 2 = Relative : slider movement adds a delta to the stored value (1:1, full
+//                physical travel = full value range); no abrupt jump.
+// LV mode (6) is unaffected — it's inherently jump-like (the slider IS the value).
+uint8_t slider_takeover = 0;
+
+// Per-slider raw 12-bit ADC reading from the previous read. Used by Relative
+// takeover to compute deltas, and seeded at every mode/pattern entry so the
+// first read produces no phantom movement.
+uint16_t slider_last_raw[16];
+
+// Per-slider arrow direction for the Catch-mode LCD pickup overlay:
+//   0 = engaged (no arrow)
+//   1 = slider physically below stored value — push up to catch  ('^')
+//   2 = slider physically above stored value — pull down to catch ('v')
+uint8_t slider_pickup_dir[16];
+
+// When true, line 2 of the LCD shows the per-slider pickup-direction overlay
+// instead of the normal step-trigger feedback. Set by set_slider_mode() when
+// entering a Catch-mode-applicable mode; cleared by run_voice_slider_routine()
+// once every slider is engaged.
+bool slider_pickup_overlay_active = false;
 int voice_slider_midichannel[16] = {1, 1, 1, 1, 1, 1, 1, 1,
                                     1, 1, 1, 1, 1, 1, 1, 1};
 

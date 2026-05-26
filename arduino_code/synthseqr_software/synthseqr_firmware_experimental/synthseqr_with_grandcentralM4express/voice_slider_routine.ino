@@ -10,12 +10,17 @@ void set_slider_mode(uint8_t mode) {
   slider_mode = mode;
   // LV mode has no stored slider value to "pick up" — sliders only transmit on
   // movement, and the last-sent sentinel ensures the first move always fires.
-  // Other modes need pickup guards so a physical position mismatch doesn't
-  // silently overwrite stored data when the mode is entered.
-  bool needs_pickup = (mode != 6);
+  // Catch mode arms pickup guards so a physical position mismatch doesn't
+  // silently overwrite stored data; Jump/Relative bypass pickup entirely.
+  bool needs_pickup = (mode != 6 && slider_takeover == 0);
   for (int i = 0; i < 16; i++) {
     slider_needs_pickup[i] = needs_pickup;
+    slider_pickup_dir[i]   = 0;
+    // Seed last_raw from the current physical position so Relative mode
+    // doesn't see a phantom delta on the first read after a mode switch.
+    slider_last_raw[i] = voice_sliders[i].getValue();
   }
+  slider_pickup_overlay_active = needs_pickup;  // overlay only useful in Catch
   update_line1 = true;
   update_line2 = true;
   // Update step LEDs to reflect the data type for the new mode.
@@ -56,94 +61,199 @@ void run_voice_slider_routine()
 
   // voice select sliders
 
+  // Jump-mode movement threshold from the seed raw recorded at mode entry.
+  // ~0.8% of full 12-bit range — above ADC jitter, well below an intentional touch.
+  const int JUMP_RAW_THRESHOLD = 32;
+
   for (int j = 0; j <= 15; j++)
   {
-    int sector = voice_sliders[j].getSector();
+    int sector      = voice_sliders[j].getSector();
+    uint16_t raw    = voice_sliders[j].getValue();
+    int raw_delta   = (int)raw - (int)slider_last_raw[j];
+    bool jump_moved = (abs(raw_delta) > JUMP_RAW_THRESHOLD);
 
     if (slider_mode == 1)
     {
       // NN mode: map to scale note pool when active, else full chromatic range.
-      // Pickup guard protects stored pitch across mode/pattern switches.
+      uint8_t new_value;
       if (scale_note_count > 0) {
         int pool_top = (int)scale_note_count - 1 + (int)slider_hi_trim;
         uint8_t idx = (uint8_t)map(sector, 0, 255, 0, pool_top);
         if (idx >= scale_note_count) idx = (uint8_t)(scale_note_count - 1);
-        raw_voice_slider_values[j] = scale_note_pool[idx];
+        new_value = scale_note_pool[idx];
       } else {
         int eff_hi = (int)slider_map_high_value + (int)slider_hi_trim;
         if (eff_hi > 127) eff_hi = 127;
-        raw_voice_slider_values[j] = (uint8_t)map(sector, 0, 255, slider_map_low_value, (uint8_t)eff_hi);
+        new_value = (uint8_t)map(sector, 0, 255, slider_map_low_value, (uint8_t)eff_hi);
       }
+      raw_voice_slider_values[j] = new_value;
+      uint8_t stored = voice_slider_midinotenum[j];
 
-      if (slider_needs_pickup[j])
-      {
-        // After a pattern switch the slider is locked to the stored pitch.
-        // Unlock when the physical position comes within 1 note of that pitch.
-        if (abs((int)raw_voice_slider_values[j] - (int)voice_slider_midinotenum[j]) <= 1)
-        {
+      if (slider_takeover == 2) {
+        // Relative — scale ADC delta to value units, accumulate sub-unit motion
+        // in slider_last_raw so small moves still add up over time.
+        int range;
+        if (scale_note_count > 0) range = (int)scale_note_count + (int)slider_hi_trim;
+        else range = (int)slider_map_high_value + (int)slider_hi_trim - (int)slider_map_low_value + 1;
+        if (range < 2) range = 2;
+        int adc_per_unit = 4096 / range; if (adc_per_unit < 1) adc_per_unit = 1;
+        int value_delta = raw_delta / adc_per_unit;
+        if (value_delta != 0) {
+          int new_stored;
+          if (scale_note_count > 0) {
+            // Move by value_delta scale steps from current pool index.
+            int idx = 0;
+            for (int k = 0; k < (int)scale_note_count; k++) {
+              if (scale_note_pool[k] == stored) { idx = k; break; }
+            }
+            idx += value_delta;
+            int pool_top = (int)scale_note_count - 1;
+            if (idx < 0) idx = 0;
+            if (idx > pool_top) idx = pool_top;
+            new_stored = scale_note_pool[idx];
+          } else {
+            int eff_lo = (int)slider_map_low_value;
+            int eff_hi = (int)slider_map_high_value + (int)slider_hi_trim;
+            if (eff_hi > 127) eff_hi = 127;
+            new_stored = (int)stored + value_delta;
+            if (new_stored < eff_lo) new_stored = eff_lo;
+            if (new_stored > eff_hi) new_stored = eff_hi;
+          }
+          int remainder = raw_delta - value_delta * adc_per_unit;
+          slider_last_raw[j] = (uint16_t)((int)raw - remainder);
+          if ((uint8_t)new_stored != stored) {
+            voice_slider_midinotenum[j] = (uint8_t)new_stored;
+            voice_slider_values[j] = new_stored;
+            pattern_step_pitches[pattern_value][j] = (uint8_t)new_stored;
+          }
+        }
+      } else if (slider_needs_pickup[j]) {
+        if (slider_takeover == 0) {
+          int diff = (int)new_value - (int)stored;
+          if (abs(diff) <= 1) { slider_needs_pickup[j] = false; slider_pickup_dir[j] = 0; }
+          else                 slider_pickup_dir[j] = (diff < 0) ? 1 : 2;
+        } else if (jump_moved) {
           slider_needs_pickup[j] = false;
         }
-      }
-      else if (raw_voice_slider_values[j] != voice_slider_midinotenum[j])
-      {
-        voice_slider_midinotenum[j] = raw_voice_slider_values[j];
-        voice_slider_values[j] = raw_voice_slider_values[j];
-        // Persist pitch for this pattern so it survives future pattern switches.
-        pattern_step_pitches[pattern_value][j] = (uint8_t)raw_voice_slider_values[j];
+      } else if (new_value != stored) {
+        voice_slider_midinotenum[j] = new_value;
+        voice_slider_values[j] = new_value;
+        pattern_step_pitches[pattern_value][j] = new_value;
       }
     }
     else if (slider_mode == 2 && ft_velocity_mode)
     {
-      // VL mode: map to velocity range 1-127, pickup guard prevents writes
-      // until the slider physically reaches the stored velocity.
       uint8_t vel = (uint8_t)map(sector, 0, 255, 1, 127);
-      if (slider_needs_pickup[j]) {
-        if (abs((int)vel - (int)voice_slider_midivelocity[j]) <= 1) {
+      uint8_t stored = voice_slider_midivelocity[j];
+
+      if (slider_takeover == 2) {
+        int range = 127;
+        int adc_per_unit = 4096 / range; if (adc_per_unit < 1) adc_per_unit = 1;
+        int value_delta = raw_delta / adc_per_unit;
+        if (value_delta != 0) {
+          int nv = (int)stored + value_delta;
+          if (nv < 1) nv = 1; if (nv > 127) nv = 127;
+          int remainder = raw_delta - value_delta * adc_per_unit;
+          slider_last_raw[j] = (uint16_t)((int)raw - remainder);
+          if ((uint8_t)nv != stored) {
+            voice_slider_midivelocity[j] = (uint8_t)nv;
+            pattern_step_velocities[pattern_value][j] = (uint8_t)nv;
+          }
+        }
+      } else if (slider_needs_pickup[j]) {
+        if (slider_takeover == 0) {
+          int diff = (int)vel - (int)stored;
+          if (abs(diff) <= 1) { slider_needs_pickup[j] = false; slider_pickup_dir[j] = 0; }
+          else                 slider_pickup_dir[j] = (diff < 0) ? 1 : 2;
+        } else if (jump_moved) {
           slider_needs_pickup[j] = false;
         }
-      } else if (vel != voice_slider_midivelocity[j]) {
+      } else if (vel != stored) {
         voice_slider_midivelocity[j] = vel;
         pattern_step_velocities[pattern_value][j] = vel;
       }
     }
     else if (slider_mode == 3 && ft_gate_mode)
     {
-      // GT mode: map to gate range 1-16, pickup guard prevents writes until
-      // the slider physically reaches the stored gate value.
       uint8_t gate = (uint8_t)map(sector, 0, 255, 1, 16);
-      if (gate < 1) gate = 1;
-      if (gate > 16) gate = 16;
-      if (slider_needs_pickup[j]) {
-        if (gate == step_gate[pattern_value][j]) {
+      if (gate < 1) gate = 1; if (gate > 16) gate = 16;
+      uint8_t stored = step_gate[pattern_value][j];
+
+      if (slider_takeover == 2) {
+        int range = 16;
+        int adc_per_unit = 4096 / range; if (adc_per_unit < 1) adc_per_unit = 1;
+        int value_delta = raw_delta / adc_per_unit;
+        if (value_delta != 0) {
+          int nv = (int)stored + value_delta;
+          if (nv < 1) nv = 1; if (nv > 16) nv = 16;
+          int remainder = raw_delta - value_delta * adc_per_unit;
+          slider_last_raw[j] = (uint16_t)((int)raw - remainder);
+          if ((uint8_t)nv != stored) step_gate[pattern_value][j] = (uint8_t)nv;
+        }
+      } else if (slider_needs_pickup[j]) {
+        if (slider_takeover == 0) {
+          if (gate == stored) { slider_needs_pickup[j] = false; slider_pickup_dir[j] = 0; }
+          else                  slider_pickup_dir[j] = (gate < stored) ? 1 : 2;
+        } else if (jump_moved) {
           slider_needs_pickup[j] = false;
         }
-      } else if (gate != step_gate[pattern_value][j]) {
+      } else if (gate != stored) {
         step_gate[pattern_value][j] = gate;
       }
     }
     else if (slider_mode == 4 && ft_cc_mode)
     {
-      // CC mode: map to CC value range 0-127, pickup guard prevents writes
-      // until the slider physically reaches the stored CC value.
       uint8_t ccval = (uint8_t)map(sector, 0, 255, 0, 127);
-      if (slider_needs_pickup[j]) {
-        if (abs((int)ccval - (int)cc_step_values[pattern_value][j]) <= 1) {
+      uint8_t stored = cc_step_values[pattern_value][j];
+
+      if (slider_takeover == 2) {
+        int range = 128;
+        int adc_per_unit = 4096 / range; if (adc_per_unit < 1) adc_per_unit = 1;
+        int value_delta = raw_delta / adc_per_unit;
+        if (value_delta != 0) {
+          int nv = (int)stored + value_delta;
+          if (nv < 0) nv = 0; if (nv > 127) nv = 127;
+          int remainder = raw_delta - value_delta * adc_per_unit;
+          slider_last_raw[j] = (uint16_t)((int)raw - remainder);
+          if ((uint8_t)nv != stored) cc_step_values[pattern_value][j] = (uint8_t)nv;
+        }
+      } else if (slider_needs_pickup[j]) {
+        if (slider_takeover == 0) {
+          int diff = (int)ccval - (int)stored;
+          if (abs(diff) <= 1) { slider_needs_pickup[j] = false; slider_pickup_dir[j] = 0; }
+          else                 slider_pickup_dir[j] = (diff < 0) ? 1 : 2;
+        } else if (jump_moved) {
           slider_needs_pickup[j] = false;
         }
-      } else if (ccval != cc_step_values[pattern_value][j]) {
+      } else if (ccval != stored) {
         cc_step_values[pattern_value][j] = ccval;
       }
     }
     else if (slider_mode == 5)
     {
-      // PR mode: map to probability range 0-100, pickup guard prevents writes
-      // until the slider physically reaches the stored probability value.
       uint8_t prob = (uint8_t)map(sector, 0, 255, 0, 100);
-      if (slider_needs_pickup[j]) {
-        if (abs((int)prob - (int)step_probability[pattern_value][j]) <= 1) {
+      uint8_t stored = step_probability[pattern_value][j];
+
+      if (slider_takeover == 2) {
+        int range = 101;
+        int adc_per_unit = 4096 / range; if (adc_per_unit < 1) adc_per_unit = 1;
+        int value_delta = raw_delta / adc_per_unit;
+        if (value_delta != 0) {
+          int nv = (int)stored + value_delta;
+          if (nv < 0) nv = 0; if (nv > 100) nv = 100;
+          int remainder = raw_delta - value_delta * adc_per_unit;
+          slider_last_raw[j] = (uint16_t)((int)raw - remainder);
+          if ((uint8_t)nv != stored) step_probability[pattern_value][j] = (uint8_t)nv;
+        }
+      } else if (slider_needs_pickup[j]) {
+        if (slider_takeover == 0) {
+          int diff = (int)prob - (int)stored;
+          if (abs(diff) <= 1) { slider_needs_pickup[j] = false; slider_pickup_dir[j] = 0; }
+          else                 slider_pickup_dir[j] = (diff < 0) ? 1 : 2;
+        } else if (jump_moved) {
           slider_needs_pickup[j] = false;
         }
-      } else if (prob != step_probability[pattern_value][j]) {
+      } else if (prob != stored) {
         step_probability[pattern_value][j] = prob;
       }
     }
@@ -152,8 +262,7 @@ void run_voice_slider_routine()
       // LV mode: send MIDI CC live on movement. Read raw 12-bit ADC directly
       // (bypass the 256-sector quantization) and scale to 0–127. Each lane
       // transmits on its own CC#; channel is independent of the note channel.
-      // No pickup guard — first movement past last_sent fires immediately.
-      uint16_t raw = voice_sliders[j].getValue();
+      // No pickup guard and no takeover mode — first movement past last_sent fires.
       uint8_t value = (uint8_t)(raw >> 5);  // 0..4095 -> 0..127
       if (value != live_cc_last_sent[j]) {
         controlChange(live_cc_channel - 1, live_cc_number[j], value);
@@ -164,22 +273,46 @@ void run_voice_slider_routine()
     }
     else if (slider_mode == 7 && ft_drift_mode)
     {
-      // D mode: per-step drift amount 0–12 semitones. Step buttons toggle
-      // step_drift_enabled; the slider sets step_drift_amount. Pickup guard
-      // prevents physical-position mismatch from corrupting other patterns'
-      // drift values across mode/pattern switches.
       uint8_t drift = (uint8_t)map(sector, 0, 255, 0, 12);
       if (drift > 12) drift = 12;
-      if (slider_needs_pickup[j]) {
-        if (abs((int)drift - (int)step_drift_amount[pattern_value][j]) <= 1) {
+      uint8_t stored = step_drift_amount[pattern_value][j];
+
+      if (slider_takeover == 2) {
+        int range = 13;
+        int adc_per_unit = 4096 / range; if (adc_per_unit < 1) adc_per_unit = 1;
+        int value_delta = raw_delta / adc_per_unit;
+        if (value_delta != 0) {
+          int nv = (int)stored + value_delta;
+          if (nv < 0) nv = 0; if (nv > 12) nv = 12;
+          int remainder = raw_delta - value_delta * adc_per_unit;
+          slider_last_raw[j] = (uint16_t)((int)raw - remainder);
+          if ((uint8_t)nv != stored) step_drift_amount[pattern_value][j] = (uint8_t)nv;
+        }
+      } else if (slider_needs_pickup[j]) {
+        if (slider_takeover == 0) {
+          int diff = (int)drift - (int)stored;
+          if (abs(diff) <= 1) { slider_needs_pickup[j] = false; slider_pickup_dir[j] = 0; }
+          else                 slider_pickup_dir[j] = (diff < 0) ? 1 : 2;
+        } else if (jump_moved) {
           slider_needs_pickup[j] = false;
         }
-      } else if (drift != step_drift_amount[pattern_value][j]) {
+      } else if (drift != stored) {
         step_drift_amount[pattern_value][j] = drift;
       }
     }
 
     last_voice_slider_values[j] = voice_slider_values[j];
+  }
+
+  // Auto-dismiss the Catch-mode pickup overlay once every slider is engaged,
+  // and ask the LCD to redraw the arrow row while it's still active.
+  if (slider_pickup_overlay_active) {
+    bool any_pending = false;
+    for (int i = 0; i < 16; i++) {
+      if (slider_needs_pickup[i]) { any_pending = true; break; }
+    }
+    if (!any_pending) slider_pickup_overlay_active = false;
+    update_line2 = true;
   }
 }
 

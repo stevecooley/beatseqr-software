@@ -172,6 +172,7 @@ bool save_to_sd() {
   _f.print("  \"scale_type\": ");        _f.print(scale_type);           _f.println(",");
   _f.print("  \"pitch_drift\": ");       _f.print(pitch_drift);          _f.println(",");
   _f.print("  \"hi_trim\": ");           _f.print(slider_hi_trim);       _f.println(",");
+  _f.print("  \"slider_takeover\": ");   _f.print(slider_takeover);      _f.println(",");
   _f.print("  \"ft_advanced_mode\": ");       _f.print(ft_advanced_mode ? 1 : 0);       _f.println(",");
   _f.print("  \"ft_cc_mode\": ");             _f.print(ft_cc_mode ? 1 : 0);             _f.println(",");
   _f.print("  \"ft_probability\": ");         _f.print(ft_probability ? 1 : 0);         _f.println(",");
@@ -381,6 +382,12 @@ bool load_from_sd() {
   if (sd_find("\"hi_trim\":")) {
     int v = (int)sd_parse_number();
     if (v >= 0 && v <= 4) slider_hi_trim = (uint8_t)v;
+  }
+
+  _f.seekSet(0);
+  if (sd_find("\"slider_takeover\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v <= 2) slider_takeover = (uint8_t)v;
   }
 
   // Feature flags — optional keys; old files without them default to true.

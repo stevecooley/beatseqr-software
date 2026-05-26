@@ -43,6 +43,7 @@
 //  1348    1      ft_drift_mode (bool)
 //  1349    256    step_drift_enabled[16][16]
 //  1605    256    step_drift_amount[16][16] (0–12)
+//  1861    1      slider_takeover (0=Catch 1=Jump 2=Relative)
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -75,8 +76,9 @@
 #define EEPROM_FT_DRIFT_ADDR         1348   // 1 byte: ft_drift_mode (bool)
 #define EEPROM_DRIFT_ENABLED_ADDR    1349   // 256 bytes: step_drift_enabled[16][16]
 #define EEPROM_DRIFT_AMOUNT_ADDR     1605   // 256 bytes: step_drift_amount[16][16]
+#define EEPROM_SLIDER_TAKEOVER_ADDR  1861   // 1 byte: slider_takeover (0–2)
 
-#define EEPROM_MAGIC_VALUE  0xCF  // bumped: per-step drift fields added
+#define EEPROM_MAGIC_VALUE  0xD0  // bumped: slider_takeover added
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -170,6 +172,8 @@ void save_to_eeprom() {
       for (int s = 0; s < 16; s++)
         EEPROM.write(addr++, step_drift_amount[p][s]);
   }
+
+  EEPROM.write(EEPROM_SLIDER_TAKEOVER_ADDR, slider_takeover);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -348,6 +352,11 @@ bool load_from_eeprom() {
         uint8_t v = EEPROM.read(addr++);
         step_drift_amount[p][s] = (v <= 12) ? v : 0;
       }
+  }
+
+  {
+    uint8_t v = EEPROM.read(EEPROM_SLIDER_TAKEOVER_ADDR);
+    if (v <= 2) slider_takeover = v;
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm

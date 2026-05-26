@@ -103,9 +103,10 @@ uint8_t next_valid_cc(uint8_t current, int dir) {
 //  15  Pat length
 //  16  Pitch drift
 //  17  Save
-//  18  Step prob
-//  19  Swing
-//  20  Tempo
+//  18  Slider takeover  (Catch / Jump / Relative)
+//  19  Step prob
+//  20  Swing
+//  21  Tempo
 
 // Reset/Clear submenu items (alphabetical):
 //   0  Clear all pats  (confirmation required)
@@ -129,11 +130,12 @@ uint8_t next_valid_cc(uint8_t current, int dir) {
 #define CONFIG_ITEM_PAT_DIR       14
 #define CONFIG_ITEM_PAT_LENGTH    15
 #define CONFIG_ITEM_PITCH_DRIFT   16
-#define CONFIG_ITEM_SAVE          17
-#define CONFIG_ITEM_STEP_PROB     18
-#define CONFIG_ITEM_SWING         19
-#define CONFIG_ITEM_TEMPO         20
-#define CONFIG_MENU_ITEM_COUNT    21
+#define CONFIG_ITEM_SAVE             17
+#define CONFIG_ITEM_SLIDER_TAKEOVER  18
+#define CONFIG_ITEM_STEP_PROB        19
+#define CONFIG_ITEM_SWING            20
+#define CONFIG_ITEM_TEMPO            21
+#define CONFIG_MENU_ITEM_COUNT       22
 
 #define RESET_ITEM_CLEAR_ALL  0
 #define RESET_ITEM_CLEAR_PAT  1
@@ -175,9 +177,10 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Pat length    ",   // 15 PAT_LENGTH    — * appended when not 16
   "Pitch drift   ",   // 16 PITCH_DRIFT   — * appended when non-zero
   "Save          ",   // 17 SAVE
-  "Step prob     ",   // 18 STEP_PROB     — * appended if any step < 100
-  "Swing:        ",   // 19 SWING         — value overwritten at draw time
-  "Tempo         "    // 20 TEMPO         — value overwritten at draw time; hidden when ext clock
+  "Takeover:     ",   // 18 SLIDER_TAKEOVER — value overwritten at draw time
+  "Step prob     ",   // 19 STEP_PROB       — * appended if any step < 100
+  "Swing:        ",   // 20 SWING           — value overwritten at draw time
+  "Tempo         "    // 21 TEMPO           — value overwritten at draw time; hidden when ext clock
 };
 
 // Tempo resolution index while editing: 0=±10, 1=±1, 2=±0.1.
@@ -251,6 +254,16 @@ void print_config_label(uint8_t item) {
     lcd.print(non_default ? "Step prob    *" : "Step prob     ");
   } else if (item == CONFIG_ITEM_PITCH_DRIFT) {
     lcd.print(pitch_drift != 0 ? "Pitch drift  *" : "Pitch drift   ");
+  } else if (item == CONFIG_ITEM_SLIDER_TAKEOVER) {
+    const char* tname;
+    switch (slider_takeover) {
+      case 1:  tname = "Jump "; break;
+      case 2:  tname = "Relat"; break;
+      default: tname = "Catch"; break;
+    }
+    // "Takeover:Catch" — 9 + 5 = 14 chars.
+    snprintf(_buf, sizeof(_buf), "Takeover:%-5s", tname);
+    lcd.print(_buf);
   } else {
     lcd.print(config_labels[item]);
   }
@@ -388,6 +401,18 @@ void draw_config_menu() {
   } else if (config_editing_value && config_menu_item == CONFIG_ITEM_PITCH_DRIFT) {
     char line2[17];
     int len = snprintf(line2, sizeof(line2), "  Drift: %d", pitch_drift);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_SLIDER_TAKEOVER) {
+    const char* full;
+    switch (slider_takeover) {
+      case 1:  full = "Jump (instant)"; break;
+      case 2:  full = "Relative      "; break;
+      default: full = "Catch (cross) "; break;
+    }
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  %s", full);
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
@@ -584,6 +609,18 @@ void run_config_menu() {
       } else if (config_menu_item == CONFIG_ITEM_PITCH_DRIFT && pitch_drift < 7) {
         pitch_drift++;
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_SLIDER_TAKEOVER) {
+        slider_takeover = (slider_takeover + 1) % 3;
+        // Re-seed slider state so the new behavior takes effect cleanly:
+        // Catch arms pickup guards; Jump/Relative clear them and refresh
+        // the raw baseline so first reads don't see phantom deltas.
+        for (int i = 0; i < 16; i++) {
+          slider_last_raw[i] = voice_sliders[i].getValue();
+          slider_needs_pickup[i] = (slider_mode != 6 && slider_takeover == 0);
+          slider_pickup_dir[i] = 0;
+        }
+        slider_pickup_overlay_active = (slider_mode != 6 && slider_takeover == 0);
+        draw_config_menu();
       }
     }
     if (dpad_down_flag) {
@@ -647,6 +684,15 @@ void run_config_menu() {
         draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_PITCH_DRIFT && pitch_drift > 0) {
         pitch_drift--;
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_SLIDER_TAKEOVER) {
+        slider_takeover = (slider_takeover + 3 - 1) % 3;
+        for (int i = 0; i < 16; i++) {
+          slider_last_raw[i] = voice_sliders[i].getValue();
+          slider_needs_pickup[i] = (slider_mode != 6 && slider_takeover == 0);
+          slider_pickup_dir[i] = 0;
+        }
+        slider_pickup_overlay_active = (slider_mode != 6 && slider_takeover == 0);
         draw_config_menu();
       }
     }
@@ -844,6 +890,10 @@ void run_config_menu() {
         set_slider_mode(5);
         break;
       case CONFIG_ITEM_PITCH_DRIFT:
+        config_editing_value = true;
+        draw_config_menu();
+        break;
+      case CONFIG_ITEM_SLIDER_TAKEOVER:
         config_editing_value = true;
         draw_config_menu();
         break;

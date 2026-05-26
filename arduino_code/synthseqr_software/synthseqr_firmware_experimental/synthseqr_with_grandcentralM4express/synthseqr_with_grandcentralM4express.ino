@@ -56,6 +56,9 @@ void setup() {
   // Restore saved state. SD is tried first (all 16 patterns + settings);
   // falls back to EEPROM (4 patterns) if no card or no autosave found.
   boot_load();
+  // Seed slider_last_raw[] from current physical positions so Relative-mode
+  // takeover doesn't see a phantom delta against a default-zero baseline.
+  for (int i = 0; i < 16; i++) slider_last_raw[i] = voice_sliders[i].getValue();
   // Apply loaded pattern_length to FifteenStep (default is 16; may differ after load).
   seq.setSteps(pattern_length);
   // If shuffle mode was saved, prime the permutation array for pattern_length.

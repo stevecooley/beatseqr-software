@@ -90,6 +90,10 @@ uint8_t pitch_drift                   // semitones of random pitch wander at sen
 uint8_t step_drift_enabled[16][16]    // per-step drift on/off (D mode); default 0
 uint8_t step_drift_amount[16][16]     // per-step drift amount in semitones (0–12); default 0 — additive with pitch_drift
 uint8_t slider_hi_trim                // extra notes added to slider_map_high_value at mapping time for physical calibration (0–4); default 0
+uint8_t slider_takeover               // 0=Catch (cross stored value), 1=Jump (engage on first movement), 2=Relative (delta from stored); default 0
+uint16_t slider_last_raw[16]          // last 12-bit ADC reading per slider; used by Jump-movement detection and Relative deltas
+uint8_t slider_pickup_dir[16]         // overlay direction per slider: 0=engaged, 1=push up ('^'), 2=pull down ('v')
+bool slider_pickup_overlay_active     // when true, LCD line 2 shows the per-slider catch-direction overlay instead of step feedback
 uint8_t lcdflag                       // LCD display mode selector
 bool external_clock_mode              // false = internal TC4, true = follow USB-MIDI clock
 bool advanced_mode                    // false = Simple (4 patterns, buttons select), true = Advanced (16 patterns, buttons are function keys)
@@ -214,7 +218,15 @@ The 16 voice sliders operate in one of seven modes:
 
 **`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders **except mode 6 (LV)** which has no pickup, sets `update_line1 = update_line2 = true`, and switches step LED display: entering CC mode calls `read_cc_step_memory()` (LEDs show `cc_step_enabled`); entering D mode calls `read_drift_step_memory()` (LEDs show `step_drift_enabled`); entering LV mode clears all step LEDs (lit only for the lane currently being edited); leaving CC/D/LV mode restores the appropriate display. Entering LV also resets `live_cc_editing_lane`, `live_cc_last_lane`, and seeds `live_cc_last_sent[i] = 255` so the first move on any lane transmits. Always call this function — never set `slider_mode` directly.
 
-**Pickup guard (modes 1–5, 7)**: `slider_needs_pickup[s]` prevents a slider from overwriting stored data until the physical slider crosses through the stored value for the current mode. This prevents mode switches from silently corrupting pattern data when sliders are at different physical positions for each mode. Tolerance: ±1 note (NN), ±1 velocity unit (VL), exact match (GT, range 1–8), ±1 CC unit (CC), ±1 probability unit (PR), ±1 semitone (D). **LV mode (6) has no pickup** — the slider's position IS the value, and the 255 sentinel in `live_cc_last_sent[]` ensures the first move on any lane always transmits.
+**Slider takeover modes (`slider_takeover`)**: Global setting in the Takeover config menu item; persisted to EEPROM (addr 1861) and SD (`"slider_takeover"` key). LV mode (6) is exempt from this setting — it's always Jump-like.
+
+- **0 = Catch** (default): slider must physically cross within the per-mode tolerance of the stored value before it takes over. Tolerances: ±1 note (NN), ±1 velocity unit (VL), exact match (GT), ±1 CC unit (CC), ±1 probability unit (PR), ±1 semitone (D). While any slider is still pending after a mode switch, LCD line 2 shows a 16-character overlay with `^` (push up), `v` (pull down), or space (engaged) per slider — gated by `slider_pickup_overlay_active`, auto-clears when all sliders engage. Overlay does NOT appear on pattern switches.
+- **1 = Jump**: pickup is armed on mode switch, but the unlock criterion is "any movement of the physical slider past `JUMP_RAW_THRESHOLD` (32 ADC units) from the seed position." Once a slider is touched its current value overwrites the stored value immediately. No overlay.
+- **2 = Relative**: pickup is bypassed entirely; every read computes `raw_delta = raw - slider_last_raw[i]`, converts it to value units (1:1 — full physical travel = full mode range), and adds the delta to the stored value (clamped). Sub-unit movement accumulates in `slider_last_raw` via the standard remainder pattern (`last_raw = raw - (raw_delta % adc_per_unit)`). For NN with a scale active, the delta moves by N indices through `scale_note_pool`. No overlay.
+
+`slider_needs_pickup[s]` is the pickup-armed flag (Catch and Jump both consult it; Relative ignores it). Pattern switches always arm pickup regardless of takeover mode but never raise the overlay — that's reserved for explicit mode changes via `set_slider_mode()` and the in-menu takeover-mode change.
+
+**LV mode (6) has no pickup** — the slider's position IS the value, and the 255 sentinel in `live_cc_last_sent[]` ensures the first move on any lane always transmits.
 
 **CC mode step buttons**: In CC mode, step buttons toggle `cc_step_enabled[p][s]` on/off (independent of `step_data`). A step can have CC enabled without having a note, and vice versa. The step LED reflects `cc_step_enabled` state while in CC mode.
 
@@ -366,9 +378,10 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 15. **Pat length** — enter editing sub-state; up/down adjust 1–16; tap any step button sets length to N+1; step LEDs show active length while editing; `seq.setSteps()` called on every change; label shows `*` when not 16. Hidden when `ft_variable_pat_length` is off
 16. **Pitch drift** — enter editing sub-state; up/down adjust 0–7 semitones; label shows `*` when non-zero. Hidden when `ft_pitch_drift` is off
 17. **Save** — saves to SD (primary) + EEPROM (backup); blocked while playing (shows `Stop first!` on line 2); exits menu and shows `saved!` on success
-18. **Step prob** — exits menu immediately and activates PR slider mode; label shows `*` if any step probability < 100. Hidden when `ft_probability` is off
-19. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing. Hidden when `ft_swing` is off
-20. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
+18. **Slider takeover (Takeover:)** — enter editing sub-state; up/down cycles Catch / Jump / Relative; line 1 shows current value. Changing the value re-seeds `slider_last_raw[]` from current ADC reads and clears/sets `slider_needs_pickup[]` according to the new mode. Always visible.
+19. **Step prob** — exits menu immediately and activates PR slider mode; label shows `*` if any step probability < 100. Hidden when `ft_probability` is off
+20. **Swing** — enter editing sub-state; up/down adjust 0–5; Enter or Left exits editing. Hidden when `ft_swing` is off
+21. **Tempo** — only visible when external clock is OFF; Enter starts editing (line 2 shows resolution); Enter again cycles resolution ±10 → ±1 → ±0.1 BPM; up/down adjusts at current resolution; Left exits. Calls `seq.setTempo()` and `setSequencerTimerPeriod()` on every change
 
 **Reset/Clear submenu**: Scrolled with up/down, Enter shows confirmation (`Entr=ok  Lft=no`), Enter again executes, Left cancels confirmation or exits submenu back to main menu. Items: Clear all pats, Clear pattern, Reset live CCs, Reset sliders. **Reset live CCs** restores `live_cc_number[]` to the default 102–117 (MIDI "Undefined" range) and zeroes `live_cc_last_sent[]` to 255 so the next slider move retransmits — does not touch `live_cc_channel` or any other state.
 
@@ -497,6 +510,7 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 1348    | 1    | `ft_drift_mode` (bool)                         |
 | 1349    | 256  | `step_drift_enabled[16][16]`                   |
 | 1605    | 256  | `step_drift_amount[16][16]` (0–12)             |
+| 1861    | 1    | `slider_takeover` (uint8_t, 0=Catch 1=Jump 2=Relative) |
 
 **Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100; `step_drift_amount` validated 0–12; `step_drift_enabled` coerced to 0/1.
 

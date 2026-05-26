@@ -405,6 +405,32 @@ void run_LCD_update() {
       if (update_line2 == true) {
         update_line2 = false;
         did_redraw = true;
+        // Catch-mode pickup overlay owns line 2 while any slider is still
+        // waiting to engage. 16 chars, one per slider, left-to-right:
+        //   '^' = slider below stored value, push up to catch
+        //   'v' = slider above stored value, pull down to catch
+        //   ' ' = engaged. Cleared by run_voice_slider_routine() when all 16
+        //         sliders are engaged.
+        if (slider_pickup_overlay_active && slider_takeover == 0 && slider_mode != 6) {
+          char line2[17];
+          for (int i = 0; i < 16; i++) {
+            if (!slider_needs_pickup[i])            line2[i] = ' ';
+            else if (slider_pickup_dir[i] == 1)     line2[i] = '^';
+            else if (slider_pickup_dir[i] == 2)     line2[i] = 'v';
+            else                                    line2[i] = ' ';
+          }
+          line2[16] = '\0';
+          lcd.print("?x00?y1");
+          Serial.print("?x00?y1");
+          lcd.print(line2);
+          Serial.println(line2);
+          if (cursor_flag || did_redraw) {
+            cursor_flag = false;
+            set_lcd_cursor(cursor_y, cursor_x);
+          }
+          next_lcdflag = 255;
+          break;
+        }
         // LV mode owns line 2: editing shows focused lane + CC# + name,
         // idle shows last-touched lane + CC# + last-sent value, or a
         // placeholder until any slider has moved.
