@@ -27,7 +27,13 @@ The 16 sliders change function depending on the active slider mode. The current 
 | PR   | ♪P        | Fire probability per step (0–100%) |
 | LV   | ♪L        | **Live** MIDI CC — sliders transmit CC continuously on movement |
 
-**Pickup guard**: when you switch modes, sliders won't overwrite stored values until the physical slider passes through the saved value. This prevents accidental data loss when sliders are at different positions for each mode. LV mode has no pickup — the slider position IS the value and only transmits when you move it.
+**Slider takeover**: when you switch modes, the physical slider position won't match the stored value. Choose how sliders re-engage from **Config menu → Takeover**:
+
+- **Catch** (default): the slider must physically pass through the stored value before taking over. While any slider is still waiting to engage, LCD line 2 shows a 16-character overlay (one position per slider): `^` = push the slider up to catch, `v` = pull it down, blank = already engaged. The overlay clears automatically once every slider is engaged.
+- **Jump**: touch a slider and it immediately takes over — its current position becomes the new stored value. No overlay.
+- **Relative**: every slider movement adds a delta to the stored value (1:1 — full physical travel covers the full mode range). No abrupt jump and no waiting. The slider position no longer corresponds to the stored value, but small movements accumulate so you can dial in fine changes.
+
+LV mode is exempt from this setting — the slider position IS the value and only transmits when you move it.
 
 **Single-tap Enter** cycles through all enabled modes in both Simple and Advanced mode: NN → VL → GT → CC → PR → LV → NN. In Advanced mode, pattern buttons 1/2/3 also jump straight to NN/VL/PR.
 
@@ -111,6 +117,7 @@ Only items whose feature is active appear in the list. Disabled features hide th
 | Live CC ch | Set the MIDI channel used by LV (live CC) mode — independent of the main MIDI channel |
 | Step prob | Switch sliders to PR (probability) mode |
 | Pitch drift | Add random pitch wander ±0–7 semitones per note-on |
+| Takeover | How sliders re-engage after a mode switch: Catch / Jump / Relative (see Slider Modes) |
 | Features | Open the Features submenu |
 
 ---
