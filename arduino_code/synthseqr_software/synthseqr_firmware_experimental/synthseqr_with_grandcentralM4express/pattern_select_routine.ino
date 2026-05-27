@@ -297,10 +297,14 @@ void go_to_pattern(int pattern, int silent) {
       read_cc_step_memory();
     } else if (slider_mode == 7) {
       read_drift_step_memory();
+    } else if (slider_mode == 8) {
+      read_chord_step_memory();
     } else
 #else
     if (slider_mode == 7) {
       read_drift_step_memory();
+    } else if (slider_mode == 8) {
+      read_chord_step_memory();
     } else
 #endif
     {
@@ -367,6 +371,8 @@ void listen_for_copy_command() {
                 step_drift_enabled[current_pattern][step];
             step_drift_amount[copy_pattern_to][step] =
                 step_drift_amount[current_pattern][step];
+            step_chord_type[copy_pattern_to][step] =
+                step_chord_type[current_pattern][step];
           }
         }
 #if FEATURE_CC_MODE

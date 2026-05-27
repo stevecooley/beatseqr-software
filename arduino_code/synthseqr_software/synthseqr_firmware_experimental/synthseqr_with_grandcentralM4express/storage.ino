@@ -1,10 +1,11 @@
 // SAMD51 has no native EEPROM; use FlashStorage_SAMD for a compatible API.
 // The library's default EEPROM_EMULATION_SIZE is 1024 bytes — smaller than our
-// 1316-byte layout. Writes past 1024 overflow the library's RAM buffer and
-// corrupt adjacent globals (seen symptom: `advanced_mode` and
-// `adv_pat_nav_active` bools getting set to 100, the default value of
-// step_probability bytes being written past the buffer end).
-#define EEPROM_EMULATION_SIZE 2048
+// 2121-byte layout. Writes past the buffer overflow into adjacent globals
+// (seen symptom: `advanced_mode` and `adv_pat_nav_active` bools getting set
+// to 100, the default value of step_probability bytes being written past the
+// buffer end). Bumped to 4096 to give chord-mode fields (256 + 1 + 1 bytes)
+// headroom plus room for future per-step arrays without another resize.
+#define EEPROM_EMULATION_SIZE 4096
 #include <FlashAsEEPROM_SAMD.h>
 
 // EEPROM layout — 1862 bytes total.
@@ -45,6 +46,9 @@
 //  1605    256    step_drift_amount[16][16] (0–12)
 //  1861    1      slider_takeover (0=Catch 1=Jump 2=Relative)
 //  1862    1      dpad_main_mode (0..DPAD_MAIN_MODE_COUNT-1)
+//  1863    256    step_chord_type[16][16]  (0=single note, 1..CHORD_COUNT-1)
+//  2119    1      current_chord_type (paint-active chord type, 0..CHORD_COUNT-1)
+//  2120    1      ft_chord_mode (bool)
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -79,8 +83,11 @@
 #define EEPROM_DRIFT_AMOUNT_ADDR     1605   // 256 bytes: step_drift_amount[16][16]
 #define EEPROM_SLIDER_TAKEOVER_ADDR  1861   // 1 byte: slider_takeover (0–2)
 #define EEPROM_DPAD_MAIN_MODE_ADDR   1862   // 1 byte: dpad_main_mode (0..N-1)
+#define EEPROM_CHORD_TYPES_ADDR      1863   // 256 bytes: step_chord_type[16][16]
+#define EEPROM_CURRENT_CHORD_ADDR    2119   // 1 byte: current_chord_type
+#define EEPROM_FT_CHORD_ADDR         2120   // 1 byte: ft_chord_mode
 
-#define EEPROM_MAGIC_VALUE  0xD1  // bumped: dpad_main_mode added
+#define EEPROM_MAGIC_VALUE  0xD2  // bumped: chord mode (step_chord_type/current_chord_type/ft_chord_mode)
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -177,6 +184,15 @@ void save_to_eeprom() {
 
   EEPROM.write(EEPROM_SLIDER_TAKEOVER_ADDR, slider_takeover);
   EEPROM.write(EEPROM_DPAD_MAIN_MODE_ADDR, dpad_main_mode);
+
+  {
+    int addr = EEPROM_CHORD_TYPES_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int s = 0; s < 16; s++)
+        EEPROM.write(addr++, step_chord_type[p][s]);
+  }
+  EEPROM.write(EEPROM_CURRENT_CHORD_ADDR, current_chord_type);
+  EEPROM.write(EEPROM_FT_CHORD_ADDR, (uint8_t)ft_chord_mode);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -365,6 +381,23 @@ bool load_from_eeprom() {
   {
     uint8_t v = EEPROM.read(EEPROM_DPAD_MAIN_MODE_ADDR);
     if (v < DPAD_MAIN_MODE_COUNT) dpad_main_mode = v;
+  }
+
+  {
+    int addr = EEPROM_CHORD_TYPES_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int s = 0; s < 16; s++) {
+        uint8_t v = EEPROM.read(addr++);
+        step_chord_type[p][s] = (v < CHORD_COUNT) ? v : 0;
+      }
+  }
+  {
+    uint8_t v = EEPROM.read(EEPROM_CURRENT_CHORD_ADDR);
+    if (v < CHORD_COUNT) current_chord_type = v;
+  }
+  {
+    uint8_t v = EEPROM.read(EEPROM_FT_CHORD_ADDR);
+    if (v <= 1) ft_chord_mode = (bool)v;
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm

@@ -76,6 +76,7 @@ const char* dpad_main_mode_short_name(uint8_t mode) {
     case DPAD_MAIN_MODE_MIDI_CH:     return "MIDIch";
     case DPAD_MAIN_MODE_LIVE_CC_CH:  return "LvCCch";
     case DPAD_MAIN_MODE_CC_NUM:      return "CC#";
+    case DPAD_MAIN_MODE_CHORD:       return "Chord";
     default:                         return "?";
   }
 }
@@ -98,6 +99,7 @@ bool dpad_main_mode_enabled(uint8_t mode) {
     case DPAD_MAIN_MODE_PAT_DIR:     return ft_pattern_direction;
     case DPAD_MAIN_MODE_LIVE_CC_CH:  return ft_live_cc_mode;
     case DPAD_MAIN_MODE_CC_NUM:      return ft_cc_mode;
+    case DPAD_MAIN_MODE_CHORD:       return ft_chord_mode;
     default:                         return true;  // Pattern, MIDIch always available
   }
 }
@@ -554,11 +556,13 @@ void exit_config_menu() {
   }
   // Restore step LEDs for the active slider mode (in case PAT_LENGTH was editing).
   // CC mode shows cc_step_enabled; D mode shows step_drift_enabled;
-  // LV mode shows only the editing lane (if any).
+  // CH mode shows step_chord_type > 0; LV mode shows only the editing lane (if any).
   if (slider_mode == 4) {
     read_cc_step_memory();
   } else if (slider_mode == 7) {
     read_drift_step_memory();
+  } else if (slider_mode == 8) {
+    read_chord_step_memory();
   } else if (slider_mode == 6) {
     clear_step_leds();
     if (live_cc_editing_lane >= 0) step_leds[live_cc_editing_lane].on();

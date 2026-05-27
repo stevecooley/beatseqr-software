@@ -139,8 +139,9 @@ void run_chase_lights(unsigned int this_step) {
           else                    step_leds[i].off();
         }
       } else {
-        if (ft_cc_mode && slider_mode == 4)        read_cc_step_memory();
+        if (ft_cc_mode && slider_mode == 4)         read_cc_step_memory();
         else if (ft_drift_mode && slider_mode == 7) read_drift_step_memory();
+        else if (ft_chord_mode && slider_mode == 8) read_chord_step_memory();
         else                                        read_step_memory(0, pattern_value);
       }
       step_leds[this_step].toggle();  // chase lights!
@@ -148,8 +149,9 @@ void run_chase_lights(unsigned int this_step) {
     }
   } else {
     if (!editing_pat_len) {
-      if (ft_cc_mode && slider_mode == 4)        read_cc_step_memory();
+      if (ft_cc_mode && slider_mode == 4)         read_cc_step_memory();
       else if (ft_drift_mode && slider_mode == 7) read_drift_step_memory();
+      else if (ft_chord_mode && slider_mode == 8) read_chord_step_memory();
       else                                        read_step_memory(0, pattern_value);
     }
   }
@@ -163,9 +165,11 @@ void run_chase_lights(unsigned int this_step) {
 //
 void allNotesOff() {
   for (int i = 0; i < 16; i++) {
-    if (sounding_notes[i] >= 0) {
-      noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[i], 0);
-      sounding_notes[i] = -1;
+    for (int n = 0; n < MAX_CHORD_NOTES; n++) {
+      if (sounding_chord[i][n] >= 0) {
+        noteOff(MIDICHANNEL - 1, (uint8_t)sounding_chord[i][n], 0);
+        sounding_chord[i][n] = -1;
+      }
     }
     sounding_note_end_step[i] = -1;
   }
@@ -263,10 +267,15 @@ void stepsend(int current_step, int last_step) {
   // Note-off scan: turn off any notes whose gate expires at this step.
   // Gate end steps are stored as hardware clock steps (current_step-based),
   // so this scan always uses current_step regardless of direction.
+  // All notes of a chord share one end_step entry — walk the chord slots.
   for (int i = 0; i < 16; i++) {
-    if (sounding_notes[i] >= 0 && sounding_note_end_step[i] == (int8_t)current_step) {
-      noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[i], 0);
-      sounding_notes[i] = -1;
+    if (sounding_note_end_step[i] == (int8_t)current_step) {
+      for (int n = 0; n < MAX_CHORD_NOTES; n++) {
+        if (sounding_chord[i][n] >= 0) {
+          noteOff(MIDICHANNEL - 1, (uint8_t)sounding_chord[i][n], 0);
+          sounding_chord[i][n] = -1;
+        }
+      }
       sounding_note_end_step[i] = -1;
     }
   }
@@ -279,57 +288,75 @@ void stepsend(int current_step, int last_step) {
     }
     if (fires) {
       // If this slot is still sounding (e.g. random mode re-triggered it),
-      // send note-off before the new note-on.
-      if (sounding_notes[play_step] >= 0) {
-        noteOff(MIDICHANNEL - 1, (uint8_t)sounding_notes[play_step], 0);
-        sounding_notes[play_step] = -1;
-        sounding_note_end_step[play_step] = -1;
+      // send note-off for every chord slot before the new note-on(s).
+      for (int n = 0; n < MAX_CHORD_NOTES; n++) {
+        if (sounding_chord[play_step][n] >= 0) {
+          noteOff(MIDICHANNEL - 1, (uint8_t)sounding_chord[play_step][n], 0);
+          sounding_chord[play_step][n] = -1;
+        }
       }
+      sounding_note_end_step[play_step] = -1;
+
+      // Compute root pitch: shift + scale-quantize. Drift is applied per chord
+      // note below so each note in a chord can wobble independently.
       int16_t shifted = (int16_t)voice_slider_midinotenum[play_step];
       if (ft_octave_note_shift) {
         shifted += (int16_t)(octave_shift * 12) + (int16_t)note_shift;
       }
-      // Apply scale quantization to the base pitch (non-destructive: raw stored
-      // values are preserved; the scale is always applied fresh at playback time).
       if (ft_scale_quantization && scale_type != 0 && scale_note_count > 0) {
         if (shifted < 0)   shifted = 0;
         if (shifted > 127) shifted = 127;
         shifted = (int16_t)quantize_to_scale((uint8_t)shifted);
       }
-      // Apply pitch drift: random wander ±total_drift semitones, then clamp
-      // to note range and re-quantize to the active scale. Total drift =
-      // global pitch_drift (if enabled) + per-step step_drift_amount (if its
-      // enable bit is set). The two are independent/additive — global drifts
-      // every step, per-step adds on top for selected steps only.
+      if (shifted < 0)   shifted = 0;
+      if (shifted > 127) shifted = 127;
+      uint8_t root = (uint8_t)shifted;
+
+      // Build chord pitches from the root. step_chord_type defaults to 0
+      // (single note); the build function returns just the root, so single-note
+      // playback is identical to the pre-chord-mode behavior.
+      uint8_t chord_out[MAX_CHORD_NOTES];
+      uint8_t chord_n = build_chord_pitches(root, step_chord_type[pattern_value][play_step], chord_out);
+
+      // Total drift = global pitch_drift (if enabled) + per-step drift (if
+      // step_drift_enabled is set). Applied per chord note so clusters shimmer.
       int total_drift = 0;
       if (ft_pitch_drift) total_drift += (int)pitch_drift;
       if (ft_drift_mode && step_drift_enabled[pattern_value][play_step]) {
         total_drift += (int)step_drift_amount[pattern_value][play_step];
       }
-      if (total_drift > 0) {
-        shifted += (int16_t)random(-(long)total_drift, (long)total_drift + 1);
-        if (shifted < (int16_t)slider_map_low_value)  shifted = (int16_t)slider_map_low_value;
-        if (shifted > (int16_t)slider_map_high_value) shifted = (int16_t)slider_map_high_value;
-        if (ft_scale_quantization && scale_type != 0 && scale_note_count > 0)
-          shifted = (int16_t)quantize_to_scale((uint8_t)shifted);
-      }
-      if (shifted < 0)   shifted = 0;
-      if (shifted > 127) shifted = 127;
-      uint8_t pitch = (uint8_t)shifted;
+
       uint8_t vel = voice_slider_midivelocity[play_step];
-      noteOn(MIDICHANNEL - 1, pitch, vel);
-      sounding_notes[play_step] = (int8_t)pitch;  // store actual pitch for correct note-off
+      uint8_t last_pitch = root;  // shown on LCD line 2
+      for (uint8_t n = 0; n < chord_n; n++) {
+        int16_t p = (int16_t)chord_out[n];
+        if (total_drift > 0) {
+          p += (int16_t)random(-(long)total_drift, (long)total_drift + 1);
+          // Clamp to MIDI range only, not slider sweep range — drift wander
+          // should follow the octave/note-shifted playback position, not snap
+          // back to the slider's stored range.
+          if (p < 0)   p = 0;
+          if (p > 127) p = 127;
+          if (ft_scale_quantization && scale_type != 0 && scale_note_count > 0)
+            p = (int16_t)quantize_to_scale((uint8_t)p);
+        }
+        if (p < 0)   p = 0;
+        if (p > 127) p = 127;
+        uint8_t pitch = (uint8_t)p;
+        noteOn(MIDICHANNEL - 1, pitch, vel);
+        sounding_chord[play_step][n] = (int8_t)pitch;
+        last_pitch = pitch;
+      }
+
       // Schedule note-off: gate steps later in hardware clock time.
-      // step_gate defaults to 1, so this is always correct whether gates were
-      // set via key-combo or slider mode.
+      // All notes in a chord share the same gate (one end_step entry).
       sounding_note_end_step[play_step] =
           (int8_t)((current_step + step_gate[pattern_value][play_step]) % pattern_length);
-      // Update LCD lines with this step's trigger info —
-      // but only when the config menu isn't using line 2.
+
       if (!config_menu_active) {
         last_triggered_step = (int8_t)play_step;
-        last_triggered_pitch = pitch;
-        update_line1 = true;  // step counter on line 1
+        last_triggered_pitch = last_pitch;
+        update_line1 = true;
         update_line2 = true;
       }
     }

@@ -387,7 +387,7 @@ void run_LCD_update() {
         Serial.println(lcd_line1);
 
         // Slider mode indicator at cols 14-15: ?5 (slider-mode icon) + mode char.
-        // ?4=NN  ?2=VL  G=gate  ?3=CC  P=PR  L=LV  D=drift
+        // ?4=NN  ?2=VL  G=gate  ?3=CC  P=PR  L=LV  D=drift  C=chord
         lcd.print("?5");
         Serial.print("?5");
         switch (slider_mode) {
@@ -398,6 +398,7 @@ void run_LCD_update() {
           case 5: lcd.print("P");  Serial.println("P");  break;
           case 6: lcd.print("L");  Serial.println("L");  break;
           case 7: lcd.print("D");  Serial.println("D");  break;
+          case 8: lcd.print("C");  Serial.println("C");  break;
           default: lcd.print("?4"); Serial.println("?4"); break;
         }
       }
@@ -517,6 +518,12 @@ void run_LCD_update() {
             case DPAD_MAIN_MODE_CC_NUM: {
               uint8_t cc = cc_number[pattern_value];
               len = snprintf(line2, sizeof(line2), "CC:%03d %s", cc, cc_name(cc));
+              break;
+            }
+            case DPAD_MAIN_MODE_CHORD: {
+              const char* cname = (current_chord_type < CHORD_COUNT)
+                                  ? CHORDS[current_chord_type].name3 : "---";
+              len = snprintf(line2, sizeof(line2), "Chord: %s", cname);
               break;
             }
             default: len = 0; break;

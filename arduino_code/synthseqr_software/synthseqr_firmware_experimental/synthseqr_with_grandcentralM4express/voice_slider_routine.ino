@@ -24,13 +24,15 @@ void set_slider_mode(uint8_t mode) {
   update_line1 = true;
   update_line2 = true;
   // Update step LEDs to reflect the data type for the new mode.
-  // CC (4), D (7), and LV (6) all override the default step_data display.
+  // CC (4), D (7), CH (8), and LV (6) all override the default step_data display.
   if (mode == 4 && ft_cc_mode) {
     read_cc_step_memory();
   } else if (mode == 7 && ft_drift_mode) {
     read_drift_step_memory();
-  } else if ((old_mode == 4 || old_mode == 7) && mode != 6) {
-    // Leaving CC or D for a step_data mode: restore step LEDs.
+  } else if (mode == 8 && ft_chord_mode) {
+    read_chord_step_memory();
+  } else if ((old_mode == 4 || old_mode == 7 || old_mode == 8) && mode != 6) {
+    // Leaving CC/D/CH for a step_data mode: restore step LEDs.
     read_step_memory(0, pattern_value);
   }
   // LV mode: clear edit state, reset send-history so first move on any lane
@@ -45,6 +47,7 @@ void set_slider_mode(uint8_t mode) {
     live_cc_editing_lane = -1;
     if (mode == 4)      read_cc_step_memory();
     else if (mode == 7) read_drift_step_memory();
+    else if (mode == 8) read_chord_step_memory();
     else                read_step_memory(0, pattern_value);
   }
 }
@@ -300,6 +303,50 @@ void run_voice_slider_routine()
         step_drift_amount[pattern_value][j] = drift;
       }
     }
+    else if (slider_mode == 8 && ft_chord_mode)
+    {
+      // CH mode: slider sets per-step chord type (0..CHORD_COUNT-1).
+      // 0 = single note (LED off). >0 = chord assigned (LED on).
+      uint8_t max_type = (uint8_t)(CHORD_COUNT - 1);
+      uint8_t ctype = (uint8_t)map(sector, 0, 255, 0, max_type);
+      if (ctype > max_type) ctype = max_type;
+      uint8_t stored = step_chord_type[pattern_value][j];
+
+      if (slider_takeover == 2) {
+        int range = (int)CHORD_COUNT;
+        int adc_per_unit = 4096 / range; if (adc_per_unit < 1) adc_per_unit = 1;
+        int value_delta = raw_delta / adc_per_unit;
+        if (value_delta != 0) {
+          int nv = (int)stored + value_delta;
+          if (nv < 0) nv = 0; if (nv > max_type) nv = max_type;
+          int remainder = raw_delta - value_delta * adc_per_unit;
+          slider_last_raw[j] = (uint16_t)((int)raw - remainder);
+          if ((uint8_t)nv != stored) {
+            step_chord_type[pattern_value][j] = (uint8_t)nv;
+            if ((stored == 0) != (nv == 0)) {
+              if (nv > 0) step_leds[j].on();
+              else        step_leds[j].off();
+            }
+            update_line2 = true;
+          }
+        }
+      } else if (slider_needs_pickup[j]) {
+        if (slider_takeover == 0) {
+          int diff = (int)ctype - (int)stored;
+          if (abs(diff) <= 1) { slider_needs_pickup[j] = false; slider_pickup_dir[j] = 0; }
+          else                 slider_pickup_dir[j] = (diff < 0) ? 1 : 2;
+        } else if (jump_moved) {
+          slider_needs_pickup[j] = false;
+        }
+      } else if (ctype != stored) {
+        step_chord_type[pattern_value][j] = ctype;
+        if ((stored == 0) != (ctype == 0)) {
+          if (ctype > 0) step_leds[j].on();
+          else           step_leds[j].off();
+        }
+        update_line2 = true;
+      }
+    }
 
     last_voice_slider_values[j] = voice_slider_values[j];
   }
@@ -332,6 +379,7 @@ void resetSliders()
     step_probability[pattern_value][i] = 100;
     step_drift_enabled[pattern_value][i] = 0;
     step_drift_amount[pattern_value][i] = 0;
+    step_chord_type[pattern_value][i] = 0;
     slider_needs_pickup[i] = false;
     slider_serial_message_factory("NN", i);
     slider_serial_message_factory("CC", i);

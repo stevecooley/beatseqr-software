@@ -189,6 +189,8 @@ bool save_to_sd() {
   _f.print("  \"ft_velocity_mode\": ");       _f.print(ft_velocity_mode ? 1 : 0);       _f.println(",");
   _f.print("  \"ft_live_cc_mode\": ");        _f.print(ft_live_cc_mode ? 1 : 0);        _f.println(",");
   _f.print("  \"ft_drift_mode\": ");          _f.print(ft_drift_mode ? 1 : 0);          _f.println(",");
+  _f.print("  \"ft_chord_mode\": ");          _f.print(ft_chord_mode ? 1 : 0);          _f.println(",");
+  _f.print("  \"current_chord_type\": ");     _f.print(current_chord_type);             _f.println(",");
   _f.print("  \"live_cc_channel\": ");        _f.print(live_cc_channel);                _f.println(",");
   _f.print("  \"live_cc_numbers\": [");
   for (int i = 0; i < 16; i++) {
@@ -247,6 +249,11 @@ bool save_to_sd() {
     _f.print("],\"drift_amounts\":[");
     for (int s = 0; s < 16; s++) {
       _f.print(step_drift_amount[p][s]);
+      if (s < 15) _f.print(",");
+    }
+    _f.print("],\"chord_types\":[");
+    for (int s = 0; s < 16; s++) {
+      _f.print(step_chord_type[p][s]);
       if (s < 15) _f.print(",");
     }
     _f.print("]}");
@@ -415,6 +422,13 @@ bool load_from_sd() {
     _f.seekSet(0); if (sd_find("\"ft_velocity_mode\":"))       { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_velocity_mode       = (bool)v; }
     _f.seekSet(0); if (sd_find("\"ft_live_cc_mode\":"))        { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_live_cc_mode        = (bool)v; }
     _f.seekSet(0); if (sd_find("\"ft_drift_mode\":"))          { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_drift_mode          = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_chord_mode\":"))          { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_chord_mode          = (bool)v; }
+  }
+
+  _f.seekSet(0);
+  if (sd_find("\"current_chord_type\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v < (int)CHORD_COUNT) current_chord_type = (uint8_t)v;
   }
 
   _f.seekSet(0);
@@ -576,6 +590,21 @@ bool load_from_sd() {
             sd_skip_ws();
             int v = (int)sd_parse_number();
             if (v >= 0 && v <= 12) step_drift_amount[p][s] = (uint8_t)v;
+            sd_skip_ws();
+            char c = (char)_f.peek();
+            if (c == ',' || c == ']') _f.read();
+          }
+        }
+      } else { _f.seekSet(pos); }
+    }
+    {
+      uint32_t pos = _f.position();
+      if (sd_find_bounded("\"chord_types\":", 400)) {
+        if (sd_read_until('[')) {
+          for (int s = 0; s < 16; s++) {
+            sd_skip_ws();
+            int v = (int)sd_parse_number();
+            if (v >= 0 && v < (int)CHORD_COUNT) step_chord_type[p][s] = (uint8_t)v;
             sd_skip_ws();
             char c = (char)_f.peek();
             if (c == ',' || c == ']') _f.read();

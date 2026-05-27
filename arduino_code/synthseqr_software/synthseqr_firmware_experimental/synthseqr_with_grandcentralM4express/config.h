@@ -158,6 +158,32 @@ uint8_t step_probability[16][16] = {
 uint8_t step_drift_enabled[16][16];
 uint8_t step_drift_amount[16][16];
 
+// Per-step chord type (chord mode). 0 = single note, 1..CHORD_COUNT-1 = chord
+// from the CHORDS[] table in chords.ino. Default 0 everywhere = single-note
+// playback identical to pre-chord-mode behavior.
+uint8_t step_chord_type[16][16];
+
+// Active chord type used when "painting" chords onto newly activated steps.
+// Adjusted by d-pad up/down when dpad_main_mode == DPAD_MAIN_MODE_CHORD; also
+// editable per-step via the CH slider mode. Default 0 = single note, so step
+// toggles preserve pre-chord-mode behavior until the user changes this.
+uint8_t current_chord_type = 0;
+
+// Max simultaneous notes per step (chord size limit). Drives the second
+// dimension of sounding_chord[][].
+#define MAX_CHORD_NOTES 6
+
+// Forward declarations for the chord engine defined in chords.ino. Declared
+// here so any .ino file (regardless of alphabetical compile order) can read
+// the CHORDS[] table and CHORD_COUNT for chord-name display and bounds checks.
+struct ChordDef {
+  const char* name3;
+  uint8_t     count;
+  int8_t      iv[MAX_CHORD_NOTES];
+};
+extern const ChordDef CHORDS[];
+extern const uint8_t  CHORD_COUNT;
+
 int voice_slider_midinotenum[16] = {36, 37, 38, 39, 40, 41, 42, 43,
                                     44, 45, 46, 47, 48, 49, 50, 51};
 
@@ -213,8 +239,8 @@ int voice_slider_midichannel[16] = {1, 1, 1, 1, 1, 1, 1, 1,
                                     1, 1, 1, 1, 1, 1, 1, 1};
 
 int last_voice_slider_values[16];
-uint8_t slider_mode = 1;  // 1=NN  2=VL  3=GT  4=CC  5=PR  6=LV  7=D
-uint8_t slider_mode_total = 7;
+uint8_t slider_mode = 1;  // 1=NN  2=VL  3=GT  4=CC  5=PR  6=LV  7=D  8=CH
+uint8_t slider_mode_total = 8;
 uint8_t slider_reset_counter = 0;
 const char* slider_message_header = "NN";
 uint8_t slider_map_low_value = 36;
@@ -450,14 +476,20 @@ uint8_t lastInByte;
 uint8_t current_step;
 uint8_t last_step = 15;
 
-// Tracks the MIDI pitch actually sent for each step so note-off always
-// uses the exact pitch from the note-on, regardless of slider changes.
-// -1 means the step is not currently sounding.
-int8_t sounding_notes[16] = {-1, -1, -1, -1, -1, -1, -1, -1,
-                             -1, -1, -1, -1, -1, -1, -1, -1};
+// Tracks the MIDI pitches actually sent for each step so note-off always
+// uses the exact pitches from the note-on, regardless of slider changes.
+// 2D so a step can hold up to MAX_CHORD_NOTES simultaneous notes (chord mode).
+// -1 in a slot means that slot is empty. A single-note step uses slot 0 only.
+int8_t sounding_chord[16][MAX_CHORD_NOTES] = {
+  {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1},
+  {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1},
+  {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1},
+  {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1}
+};
 
-// Which step number triggers the note-off for each sounding note.
-// (current_step + gate) % 16. -1 means not scheduled.
+// Which step number triggers the note-off for the whole step.
+// (current_step + gate) % pattern_length. -1 means not scheduled.
+// One entry per step — all notes in a chord share the same gate.
 int8_t sounding_note_end_step[16] = {-1, -1, -1, -1, -1, -1, -1, -1,
                                      -1, -1, -1, -1, -1, -1, -1, -1};
 
@@ -603,6 +635,7 @@ bool ft_velocity_mode       = true;
 bool ft_note_audition       = true;   // ON by default
 bool ft_live_cc_mode        = true;   // ON by default — slider mode 6 (LV)
 bool ft_drift_mode          = true;   // ON by default — slider mode 7 (D, per-step drift)
+bool ft_chord_mode          = true;   // ON by default — slider mode 8 (CH, per-step chord)
 
 // Live CC slider mode (mode 6) state.
 // Sliders transmit MIDI CC live (not sequenced). Each of the 16 lanes has its
@@ -660,6 +693,7 @@ bool    config_about_active        = false;
 #define DPAD_MAIN_MODE_MIDI_CH     8
 #define DPAD_MAIN_MODE_LIVE_CC_CH  9
 #define DPAD_MAIN_MODE_CC_NUM      10
-#define DPAD_MAIN_MODE_COUNT       11
+#define DPAD_MAIN_MODE_CHORD       11
+#define DPAD_MAIN_MODE_COUNT       12
 
 uint8_t dpad_main_mode = DPAD_MAIN_MODE_PATTERN;

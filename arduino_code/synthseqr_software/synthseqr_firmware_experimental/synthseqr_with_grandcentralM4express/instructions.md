@@ -55,22 +55,24 @@ The 16 sliders control different data depending on the active **slider mode**. S
 
 ## Slider Modes
 
-Each step has several editable values: **pitch**, **velocity**, **gate length**, **CC value**, and **probability**. A sixth mode (**LV**) turns sliders into live MIDI CC controllers that bypass the sequencer entirely.
+Each step has several editable values: **pitch**, **velocity**, **gate length**, **CC value**, **probability**, **per-step drift**, and **chord type**. An additional mode (**LV**) turns sliders into live MIDI CC controllers that bypass the sequencer entirely.
 
 | Mode                    | LCD indicator               | What sliders control                                                |
 | ----------------------- | --------------------------- | ------------------------------------------------------------------- |
 | **NN** (note number)    | `♪N` at top-right of line 1 | MIDI pitch for each step                                            |
 | **VL** (velocity)       | `♪V` at top-right of line 1 | MIDI velocity (1–127) for each step                                 |
-| **GT** (gate)           | `♪G` at top-right of line 1 | Gate length (1–8 steps) for each step                               |
+| **GT** (gate)           | `♪G` at top-right of line 1 | Gate length (1–16 steps) for each step                              |
 | **CC** (control change) | `♪♩` at top-right of line 1 | MIDI CC value (0–127) per step; step buttons toggle CC steps on/off |
 | **PR** (probability)    | `♪P` at top-right of line 1 | Fire probability (0–100%) for each step                             |
 | **LV** (live CC)        | `♪L` at top-right of line 1 | Live MIDI CC — sliders transmit continuously on movement; step buttons select which lane's CC# is being edited |
+| **D** (per-step drift)  | `♪D` at top-right of line 1 | Per-step pitch wander (0–12 semitones); step buttons toggle drift on/off per step |
+| **CH** (chord)          | `♪C` at top-right of line 1 | Per-step chord type (single note + 10 chord shapes); step button taps clear chord back to single note |
 
 The current mode is always shown in the top-right corner of LCD line 1.
 
 ### Switching Modes
 
-**Both Simple and Advanced mode:** single-tap the **Enter button** to cycle NN → VL → GT → CC → PR → LV → NN, skipping any mode whose feature flag is off. The mode change fires ~400 ms after the tap so the sequencer can confirm it isn't the start of a double-tap.
+**Both Simple and Advanced mode:** single-tap the **Enter button** to cycle NN → VL → GT → CC → PR → LV → D → CH → NN, skipping any mode whose feature flag is off. The mode change fires ~400 ms after the tap so the sequencer can confirm it isn't the start of a double-tap.
 
 **Advanced mode shortcuts:** pattern buttons 1/2/3 jump straight to NN/VL/PR respectively, without cycling through the others.
 
@@ -137,6 +139,44 @@ In LV mode each slider becomes a **live MIDI CC controller**. Slider movements t
 
 LV runs concurrently with the existing sequenced CC mode — they use independent CC channels by default and won't collide.
 
+### Chord Mode (CH)
+
+In CH mode each step plays a chord rather than a single note. The step's stored pitch is the **root**; the chord type determines the intervals stacked on top.
+
+**Available chord types** (selected by slider sweep in CH mode, or by D-pad when bound to Chord — see below):
+
+| Index | Name | Intervals | Notes |
+| ----- | ---- | --------- | ----- |
+| 0     | `---` | (root only) | Single note — no chord |
+| 1     | `Maj` | 0, 4, 7   | Major triad |
+| 2     | `Min` | 0, 3, 7   | Minor triad |
+| 3     | `Sus2`| 0, 2, 7   | Suspended 2nd |
+| 4     | `Sus4`| 0, 5, 7   | Suspended 4th |
+| 5     | `Maj7`| 0, 4, 7, 11 | Major 7th |
+| 6     | `Min7`| 0, 3, 7, 10 | Minor 7th |
+| 7     | `Dom7`| 0, 4, 7, 10 | Dominant 7th |
+| 8     | `Dim` | 0, 3, 6   | Diminished triad |
+| 9     | `Pow5`| 0, 7      | Power chord (root + 5th) |
+| 10    | `Oct` | 0, 12     | Root + octave |
+
+**Two ways to assign chords to steps:**
+
+1. **D-pad "paint" mode (recommended):** Open Config Menu (double-tap Enter), set **D-pad up/dn** to **Chord**. Line 2 of the main screen now shows `Chord: ---`. Cycle types with D-pad up/down. With the chord type you want selected, activate a step (press a step button) — that step is now assigned the chord. Change chord type and activate more steps to paint different chords across the pattern.
+2. **CH slider mode (fine control):** Tap Enter until the mode indicator shows `♪C`. Each slider directly sets its step's chord type (0..10) across slider travel. The step LED reflects "has chord" — lit when the step is using anything other than `---`. **Tapping a step button in CH mode clears that step back to `---` (single note)** without affecting `step_data`.
+
+**Notes:**
+
+- **The chord plays only if the step itself is on.** Setting a chord type for an off step has no audible effect until you activate the step.
+- **All chord notes share one gate.** They start together (or with strum spread once that lands — currently simultaneous) and stop together at the end of the step's gate length.
+- **Octave shift, note shift, and scale quantization apply to the root first**, then chord intervals are added. Chord notes clamp to the MIDI range (0–127), not the slider sweep range — so octave-shifted chords ring out correctly instead of collapsing at the high cap.
+- **Pitch drift and per-step drift apply independently to each chord note** — clusters shimmer rather than translating as a unit.
+- **Re-activating a step picks up the current chord type** (whatever the D-pad / paint cursor was set to most recently). Toggling a step OFF resets its chord type to `---`.
+- **Pattern copy includes chord assignments.** Both simple and advanced copy paths.
+- **Chord data is saved** to SD (per-pattern `chord_types` array, global `current_chord_type`) and EEPROM. Existing pre-chord JSON saves load cleanly — every step defaults to `---` until you paint a chord.
+- **Maximum 6 notes per chord.** Currently no chord type exceeds 4 notes; the cap is for future user-defined chords.
+
+To disable chord mode entirely (slider mode 8 and D-pad Chord target both hidden), open Config Menu → **Features** → **Chord mode** → Enter to toggle.
+
 ---
 
 ## Tempo
@@ -180,6 +220,7 @@ By default, **D-pad up/down on the main screen selects the active pattern**. You
 | **MIDIch**      | 1..16                    | `MIDI ch: 10`                  |
 | **LvCCch**      | 1..16                    | `Live CC ch: 16`               |
 | **CC#**         | next/prev valid CC       | `CC:074 Cutoff`                |
+| **Chord**       | cycle 11 chord types     | `Chord: Maj`                   |
 
 When the binding is anything other than **Pattern**, LCD line 2 is replaced by a persistent indicator showing the bound target's current value. Switching back to Pattern restores the normal step-trigger feedback on line 2.
 
@@ -641,7 +682,7 @@ Open the config menu (double-tap Enter), scroll to **Save**, and press Enter. Th
 
 The following are saved:
 
-- All 16 patterns (step on/off, pitch, velocity, gate length, CC on/off, CC value, CC controller number, and step probability per pattern)
+- All 16 patterns (step on/off, pitch, velocity, gate length, CC on/off, CC value, CC controller number, step probability, per-step drift, and per-step chord type)
 - Pitch drift (global)
 - Tempo, swing, MIDI channel
 - Active pattern, chain mode on/off, clock source (INT/EXT)
@@ -649,6 +690,8 @@ The following are saved:
 - Note scale (type and root note)
 - Simple / Advanced mode
 - Pattern length and Pattern direction
+- Live CC channel + per-lane CC numbers (LV mode)
+- Active chord type (CH "paint" cursor) and feature flag
 
 **Primary storage**: SD card (`/synthseqr/autosave.json`). The file is human-readable JSON and can be edited or generated externally with any tool you prefer.
 
@@ -758,6 +801,9 @@ Connect at **57600 baud** to see:
 | Set step probability        | Voice slider (PR mode)                                                     |
 | Enter PR mode               | Config menu → Step prob                                                    |
 | Set pitch drift             | Config menu → Pitch drift, up/down                                         |
+| Set per-step drift          | Voice slider (D mode); step button toggles drift on/off                    |
+| Set per-step chord type     | Voice slider (CH mode); step button clears step's chord                    |
+| Paint chord onto new steps  | Bind D-pad to Chord → D-pad up/down picks type → activate steps            |
 | Toggle note audition        | Config menu → Features → Note audition → Enter (on by default)             |
 | Cycle slider mode (simple)  | Enter button                                                               |
 | Slider mode → NN (advanced) | Pattern button 2                                                           |

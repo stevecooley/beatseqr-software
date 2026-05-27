@@ -87,6 +87,7 @@ void run_step_button_routine()
           step_probability[i][s] = step_probability[current_pattern][s];
           step_drift_enabled[i][s] = step_drift_enabled[current_pattern][s];
           step_drift_amount[i][s] = step_drift_amount[current_pattern][s];
+          step_chord_type[i][s] = step_chord_type[current_pattern][s];
         }
 #if FEATURE_CC_MODE
         cc_number[i] = cc_number[current_pattern];
@@ -131,6 +132,9 @@ void do_step_on(int i)
     pattern_step_pitches[pattern_value][i] = live_pitch;
     slider_needs_pickup[i] = false;
   }
+  // Paint the active chord type onto this newly activated step so the
+  // gate-set source step picks up the current "Chord" d-pad binding.
+  if (ft_chord_mode) step_chord_type[pattern_value][i] = current_chord_type;
   seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[i], 127, i);
 }
 
@@ -166,12 +170,19 @@ void do_step_toggle(int i)
       pattern_step_pitches[pattern_value][i] = live_pitch;
       slider_needs_pickup[i] = false;
     }
+    // Paint the active chord type onto this newly activated step. With
+    // dpad_main_mode == DPAD_MAIN_MODE_CHORD the d-pad cycles current_chord_type,
+    // so step toggles inherit whatever chord the user has selected.
+    if (ft_chord_mode) step_chord_type[pattern_value][i] = current_chord_type;
     seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[i], 127, i);
 #if FEATURE_NOTE_AUDITION
     if (ft_note_audition && !playstatus) audition_step_note(i, 1);
 #endif
   } else {
     step_gate[pattern_value][i] = 1;  // gate resets when step is turned off
+    // Clear chord type too — keeps step_chord_type aligned with step_data
+    // so re-activating the step starts from a clean slate.
+    if (ft_chord_mode) step_chord_type[pattern_value][i] = 0;
     seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[i], 0, i);
   }
 }
@@ -204,10 +215,12 @@ void detect_step_button_presses()
 #if FEATURE_CC_MODE
     if (slider_mode == 4)      read_cc_step_memory();
     else if (slider_mode == 7) read_drift_step_memory();
+    else if (slider_mode == 8) read_chord_step_memory();
     else                       read_step_memory(0, pattern_value);
 #else
-    if (slider_mode == 7) read_drift_step_memory();
-    else                  read_step_memory(0, pattern_value);
+    if (slider_mode == 7)      read_drift_step_memory();
+    else if (slider_mode == 8) read_chord_step_memory();
+    else                       read_step_memory(0, pattern_value);
 #endif
   }
 
@@ -256,6 +269,16 @@ void detect_step_button_presses()
       step_drift_enabled[pattern_value][i] = step_drift_enabled[pattern_value][i] ? 0 : 1;
       if (step_drift_enabled[pattern_value][i]) step_leds[i].on();
       else                                      step_leds[i].off();
+      continue;
+    }
+
+    if (slider_mode == 8 && ft_chord_mode) {
+      // CH mode: step buttons clear the per-step chord type back to 0 (single
+      // note). Sliders set non-zero values. LED reflects "has chord" state.
+      // No step_data toggling, no gate-set gesture, no audition.
+      step_chord_type[pattern_value][i] = 0;
+      step_leds[i].off();
+      update_line2 = true;
       continue;
     }
 
@@ -329,6 +352,19 @@ void read_drift_step_memory() {
   }
 }
 
+// read_chord_step_memory()
+//
+// Sets step LEDs to reflect "has chord" (step_chord_type[][] > 0) for the
+// current pattern. Called when in CH slider mode (mode 8). A lit LED means
+// the step has a chord type assigned; an unlit LED means single-note (type 0).
+//
+void read_chord_step_memory() {
+  for (int i = 0; i < 16; i++) {
+    if (step_chord_type[pattern_value][i] > 0) step_leds[i].on();
+    else                                       step_leds[i].off();
+  }
+}
+
 void read_step_memory(int voice, int pattern)
 {
   for (int i = 0; i <= 15; i++)
@@ -396,6 +432,7 @@ void clear_pattern_memory_for_voice(int voice)
     step_probability[pattern_value][i] = 100;
     step_drift_enabled[pattern_value][i] = 0;
     step_drift_amount[pattern_value][i] = 0;
+    step_chord_type[pattern_value][i] = 0;
     step_leds[i].off();
   }
   return;
@@ -420,6 +457,7 @@ void clear_pattern_memory()
         step_probability[p][i] = 100;
         step_drift_enabled[p][i] = 0;
         step_drift_amount[p][i] = 0;
+        step_chord_type[p][i] = 0;
       }
     }
   }
