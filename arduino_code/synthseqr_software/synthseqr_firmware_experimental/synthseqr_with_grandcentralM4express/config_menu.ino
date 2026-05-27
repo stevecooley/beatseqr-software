@@ -217,7 +217,8 @@ uint8_t next_valid_cc(uint8_t current, int dir) {
 #define DIAG_ITEM_LED_TEST    0
 #define DIAG_ITEM_INPUT_TEST  1
 #define DIAG_ITEM_HI_TRIM     2
-#define DIAG_ITEM_COUNT       3
+#define DIAG_ITEM_NOISE       3
+#define DIAG_ITEM_COUNT       4
 
 // line1_label: 14 chars printed after "> " on line 1.
 // Items with inline values are rendered dynamically in print_config_label().
@@ -539,6 +540,7 @@ void exit_config_menu() {
   config_diag_submenu_active = false;
   config_diag_item           = 0;
   config_diag_editing_trim   = false;
+  config_diag_editing_noise  = false;
   config_about_active        = false;
   // Drop any pattern-button state that may have been accumulated while the
   // menu was open. Without this, a stray uniquePress() during menu navigation
@@ -918,6 +920,7 @@ void run_config_menu() {
         config_diag_submenu_active = true;
         config_diag_item           = 0;
         config_diag_editing_trim   = false;
+        config_diag_editing_noise  = false;
         draw_diag_submenu();
         break;
       case CONFIG_ITEM_CHANNEL:
@@ -1353,14 +1356,26 @@ void run_note_range_submenu() {
 // Diagnostics submenu
 // ---------------------------------------------------------------------------
 
+// Map the stored slider_noise_threshold (raw ADC) to its preset label.
+// Unknown values fall back to "Med" since 24 is the default after a magic-byte mismatch.
+static const char* _noise_label_for(uint8_t v) {
+  if (v <= 12) return "Low";
+  if (v >= 48) return "High";
+  return "Med";
+}
+
 static void _diag_item_label(uint8_t item, char* buf) {
   int len;
   if (item == DIAG_ITEM_LED_TEST) {
     memcpy(buf, "LED test        ", 16); buf[16] = '\0';
   } else if (item == DIAG_ITEM_INPUT_TEST) {
     memcpy(buf, "Input test      ", 16); buf[16] = '\0';
-  } else {
+  } else if (item == DIAG_ITEM_HI_TRIM) {
     len = snprintf(buf, 17, "Hi trim: +%d", slider_hi_trim);
+    while (len < 16) buf[len++] = ' ';
+    buf[16] = '\0';
+  } else {  // DIAG_ITEM_NOISE
+    len = snprintf(buf, 17, "Noise: %s", _noise_label_for(slider_noise_threshold));
     while (len < 16) buf[len++] = ' ';
     buf[16] = '\0';
   }
@@ -1378,6 +1393,12 @@ void draw_diag_submenu() {
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
+  } else if (config_diag_editing_noise) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Noise: %s", _noise_label_for(slider_noise_threshold));
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
   } else {
     _diag_item_label((uint8_t)((config_diag_item + 1) % DIAG_ITEM_COUNT), buf);
     lcd.print(buf);
@@ -1391,6 +1412,9 @@ void run_diag_submenu() {
     dpad_left_flag = false;
     if (config_diag_editing_trim) {
       config_diag_editing_trim = false;
+      draw_diag_submenu();
+    } else if (config_diag_editing_noise) {
+      config_diag_editing_noise = false;
       draw_diag_submenu();
     } else {
       config_diag_submenu_active = false;
@@ -1411,6 +1435,29 @@ void run_diag_submenu() {
     if (enterbutton_flag) {
       enterbutton_flag = false;
       config_diag_editing_trim = false;
+      draw_diag_submenu();
+    }
+    return;
+  }
+
+  if (config_diag_editing_noise) {
+    // Cycle 12 (Low) → 24 (Med) → 48 (High). No wrap on edges so the user can
+    // see when they're at the limit.
+    if (dpad_up_flag) {
+      dpad_up_flag = false;
+      if (slider_noise_threshold < 24) slider_noise_threshold = 24;
+      else if (slider_noise_threshold < 48) slider_noise_threshold = 48;
+      draw_diag_submenu();
+    }
+    if (dpad_down_flag) {
+      dpad_down_flag = false;
+      if (slider_noise_threshold > 24) slider_noise_threshold = 24;
+      else if (slider_noise_threshold > 12) slider_noise_threshold = 12;
+      draw_diag_submenu();
+    }
+    if (enterbutton_flag) {
+      enterbutton_flag = false;
+      config_diag_editing_noise = false;
       draw_diag_submenu();
     }
     return;
@@ -1437,6 +1484,10 @@ void run_diag_submenu() {
         break;
       case DIAG_ITEM_HI_TRIM:
         config_diag_editing_trim = true;
+        draw_diag_submenu();
+        break;
+      case DIAG_ITEM_NOISE:
+        config_diag_editing_noise = true;
         draw_diag_submenu();
         break;
     }

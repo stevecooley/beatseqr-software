@@ -93,6 +93,7 @@ uint8_t step_drift_amount[16][16]     // per-step drift amount in semitones (0�
 uint8_t step_chord_type[16][16]       // per-step chord type index (CH mode); 0 = single note, 1..CHORD_COUNT-1 = chord from CHORDS[]
 uint8_t current_chord_type            // "paint-active" chord type — written into step_chord_type when activating a step; adjusted via DPAD_MAIN_MODE_CHORD or CH-mode sliders
 uint8_t slider_hi_trim                // extra notes added to slider_map_high_value at mapping time for physical calibration (0–4); default 0
+uint8_t slider_noise_threshold        // raw ADC counts a slider must move from its rest snapshot to register overlay activity; presets 12 (Low) / 24 (Med, default) / 48 (High)
 uint8_t slider_takeover               // 0=Catch (cross stored value), 1=Jump (engage on first movement), 2=Relative (delta from stored); default 0
 uint16_t slider_last_raw[16]          // last 12-bit ADC reading per slider; used by Jump-movement detection and Relative deltas
 uint8_t slider_pickup_dir[16]         // overlay direction per slider: 0=engaged, 1=push up ('^'), 2=pull down ('v')
@@ -226,6 +227,8 @@ The 16 voice sliders operate in one of eight modes:
 **Slider takeover modes (`slider_takeover`)**: Global setting in the Takeover config menu item; persisted to EEPROM (addr 1861) and SD (`"slider_takeover"` key). LV mode (6) is exempt from this setting — it's always Jump-like.
 
 - **0 = Catch** (default): slider must physically cross within the per-mode tolerance of the stored value before it takes over. Tolerances: ±1 note (NN), ±1 velocity unit (VL), exact match (GT), ±1 CC unit (CC), ±1 probability unit (PR), ±1 semitone (D). While any slider is still pending after a mode switch, LCD line 2 shows a 16-character overlay with `^` (push up), `v` (pull down), or space (engaged) per slider — gated by `slider_pickup_overlay_active`. The overlay auto-hides after 2 s of no slider activity so line 2 can return to its normal display, and pops back as soon as any slider moves while pickup is still pending. It clears permanently when every slider engages. Overlay does NOT appear on pattern switches.
+
+**Overlay activity detection**: Each slider keeps a per-loop "rest" snapshot of its raw 12-bit ADC reading (`overlay_rest_raw[16]`, local-static in `run_voice_slider_routine`). On every 20 ms read, if the new raw value differs from the rest by more than `slider_noise_threshold` ADC counts, activity is reported AND the rest snapshot advances to the new value. Sub-threshold jitter sits inside a deadband around rest and never triggers activity, so a physically still slider with ADC noise won't keep the overlay alive. Threshold is user-configurable via Diagnostics → Noise: 12 (Low), 24 (Med, default), 48 (High) raw counts. Persisted to EEPROM (addr 2121) and SD (`"slider_noise_threshold"`). Separate from `slider_last_raw[]`, which Jump/Relative modes drive.
 - **1 = Jump**: pickup is armed on mode switch, but the unlock criterion is "any movement of the physical slider past `JUMP_RAW_THRESHOLD` (32 ADC units) from the seed position." Once a slider is touched its current value overwrites the stored value immediately. No overlay.
 - **2 = Relative**: pickup is bypassed entirely; every read computes `raw_delta = raw - slider_last_raw[i]`, converts it to value units (1:1 — full physical travel = full mode range), and adds the delta to the stored value (clamped). Sub-unit movement accumulates in `slider_last_raw` via the standard remainder pattern (`last_raw = raw - (raw_delta % adc_per_unit)`). For NN with a scale active, the delta moves by N indices through `scale_note_pool`. No overlay.
 
@@ -385,7 +388,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 3. **Clear/Reset** — enters the Reset/Clear submenu (see below)
 4. **Clock: int/ext** — toggles immediately via `setExternalClockMode()`; value shown inline on line 1. Hidden when `ft_external_clock` is off
 5. **D-pad up/dn (D-pad:)** — enter editing sub-state; up/down cycles through enabled targets (Pattern / Octave / Note / Tempo / Swing / Drift / PatLen / PatDir / MIDIch / LvCCch / CC# / Chord); Enter or Left exits editing. Selects what d-pad up/down does on the main screen. Pattern keeps the original step-feedback line 2; any other choice replaces line 2 with a persistent indicator showing the bound target's current value. Always visible.
-6. **Diagnostics** — opens the Diagnostics submenu (LED test, Input test, Hi trim — see below). Hidden when `ft_diagnostics` is off
+6. **Diagnostics** — opens the Diagnostics submenu (LED test, Input test, Hi trim, Noise — see below). Hidden when `ft_diagnostics` is off
 7. **Exit** — Enter, left, or right all exit
 8. **Features** — enters the Features submenu (see below)
 9. **Live CC ch** — enter editing sub-state; up/down adjust 1–16; Enter or Left exits editing. Sets the MIDI channel used by LV slider mode (independent of `MIDICHANNEL`). Hidden when `ft_live_cc_mode` is off
@@ -407,7 +410,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 
 **Note range submenu**: Scrolled with up/down, Left exits back to main menu. Line 1 shows `> {current item}`, line 2 shows next item preview. Items: Custom, 16 notes (36–51), 12 notes (36–47), 8 notes (36–43), 6 notes (36–41), 4 notes (36–39). Selecting a preset immediately sets `slider_map_low_value=36` and `slider_map_high_value` to the preset top, calls `init_blank_patterns_to_range()` and `build_scale_notes()`, then returns to the main menu. Selecting Custom enters a two-phase inline editor: Enter advances lo→hi, Enter again exits; Left returns to the preset list. All presets anchor the low note at 36.
 
-**Diagnostics submenu**: Scrolled with up/down, Left exits back to main menu. Items: LED test, Input test, Hi trim. LED test enters `diag_submode=1` (non-blocking sequential LED chase through 16 step + 4 pattern + play + enter LEDs at 80 ms/LED; Left exits back to submenu). Input test enters `diag_submode=0` (existing button/slider display; Left or double-tap Enter exits back to submenu). Hi trim enters an inline editor: up/down adjusts `slider_hi_trim` 0–4; Enter or Left exits. Both diag submodes set `diag_mode=true` which gates the main loop; on exit they call `draw_diag_submenu()` and leave `config_menu_active=true` so normal LCD updates are suppressed (the LCD.ino `config_menu_active` guard prevents overwriting the submenu display).
+**Diagnostics submenu**: Scrolled with up/down, Left exits back to main menu. Items: LED test, Input test, Hi trim, Noise. LED test enters `diag_submode=1` (non-blocking sequential LED chase through 16 step + 4 pattern + play + enter LEDs at 80 ms/LED; Left exits back to submenu). Input test enters `diag_submode=0` (existing button/slider display; Left or double-tap Enter exits back to submenu). Hi trim enters an inline editor: up/down adjusts `slider_hi_trim` 0–4; Enter or Left exits. Noise enters an inline editor: up/down cycles `slider_noise_threshold` through 12 (Low) / 24 (Med, default) / 48 (High); Enter or Left exits. Both diag submodes set `diag_mode=true` which gates the main loop; on exit they call `draw_diag_submenu()` and leave `config_menu_active=true` so normal LCD updates are suppressed (the LCD.ino `config_menu_active` guard prevents overwriting the submenu display).
 
 **Features submenu**: Scrolled with up/down, Enter toggles on/off, Left exits. Shows all `ft_*` flags by name. Toggling a flag off has side effects via `_apply_feature_disable()`: switching slider mode off while active falls back to NN mode; disabling advanced mode resets nav state; disabling note audition cancels any currently sounding audition note. Flags are NOT saved automatically — use Save after making changes.
 
@@ -471,6 +474,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
   "live_cc_channel": 1,
   "live_cc_numbers": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],
   "dpad_main_mode": 0,
+  "slider_noise_threshold": 24,
   "patterns": [
     {
       "steps":[1,0,...16 values],
@@ -500,11 +504,11 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 **On boot**: `load_from_eeprom()` is called only if `load_from_sd()` returns false. Checks for a magic sentinel byte at address 0. If missing (first boot or layout change), globals keep compiled-in defaults.
 
-**EEPROM layout** (2121 bytes, defined as `#define` constants in `storage.ino`; `EEPROM_EMULATION_SIZE = 4096` to leave headroom):
+**EEPROM layout** (2122 bytes, defined as `#define` constants in `storage.ino`; `EEPROM_EMULATION_SIZE = 4096` to leave headroom):
 
 | Address | Size | Content                                        |
 | ------- | ---- | ---------------------------------------------- |
-| 0       | 1    | Magic byte `0xD2`                              |
+| 0       | 1    | Magic byte `0xD3`                              |
 | 1       | 1    | `MIDICHANNEL`                                  |
 | 2       | 1    | `SWING`                                        |
 | 3       | 4    | `TEMPO` (float)                                |
@@ -540,12 +544,13 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 1863    | 256  | `step_chord_type[16][16]` (0=single note, 1..CHORD_COUNT-1) |
 | 2119    | 1    | `current_chord_type` (uint8_t, 0..CHORD_COUNT-1)       |
 | 2120    | 1    | `ft_chord_mode` (bool)                                 |
+| 2121    | 1    | `slider_noise_threshold` (uint8_t; 12=Low, 24=Med, 48=High) |
 
-**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100; `step_drift_amount` validated 0–12; `step_drift_enabled` coerced to 0/1; `step_chord_type` and `current_chord_type` validated < `CHORD_COUNT` (out-of-range values default to 0).
+**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100; `step_drift_amount` validated 0–12; `step_drift_enabled` coerced to 0/1; `step_chord_type` and `current_chord_type` validated < `CHORD_COUNT` (out-of-range values default to 0); `slider_noise_threshold` accepted only if exactly 12, 24, or 48 (anything else keeps the default 24).
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xD2` (bumped from `0xD1` for chord-mode fields). Existing EEPROM-only saves from before the bump are ignored on first boot after the upgrade and globals fall back to compiled defaults; SD saves still load cleanly because the new keys are all optional.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xD3` (bumped from `0xD2` for `slider_noise_threshold`). Existing EEPROM-only saves from before the bump are ignored on first boot after the upgrade and globals fall back to compiled defaults; SD saves still load cleanly because the new keys are all optional.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.
 

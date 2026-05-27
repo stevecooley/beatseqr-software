@@ -49,6 +49,7 @@
 //  1863    256    step_chord_type[16][16]  (0=single note, 1..CHORD_COUNT-1)
 //  2119    1      current_chord_type (paint-active chord type, 0..CHORD_COUNT-1)
 //  2120    1      ft_chord_mode (bool)
+//  2121    1      slider_noise_threshold (raw ADC; 12=Low 24=Med 48=High)
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -86,8 +87,9 @@
 #define EEPROM_CHORD_TYPES_ADDR      1863   // 256 bytes: step_chord_type[16][16]
 #define EEPROM_CURRENT_CHORD_ADDR    2119   // 1 byte: current_chord_type
 #define EEPROM_FT_CHORD_ADDR         2120   // 1 byte: ft_chord_mode
+#define EEPROM_SLIDER_NOISE_ADDR     2121   // 1 byte: slider_noise_threshold (12/24/48)
 
-#define EEPROM_MAGIC_VALUE  0xD2  // bumped: chord mode (step_chord_type/current_chord_type/ft_chord_mode)
+#define EEPROM_MAGIC_VALUE  0xD3  // bumped: slider_noise_threshold added at 2121
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -193,6 +195,8 @@ void save_to_eeprom() {
   }
   EEPROM.write(EEPROM_CURRENT_CHORD_ADDR, current_chord_type);
   EEPROM.write(EEPROM_FT_CHORD_ADDR, (uint8_t)ft_chord_mode);
+
+  EEPROM.write(EEPROM_SLIDER_NOISE_ADDR, slider_noise_threshold);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -398,6 +402,10 @@ bool load_from_eeprom() {
   {
     uint8_t v = EEPROM.read(EEPROM_FT_CHORD_ADDR);
     if (v <= 1) ft_chord_mode = (bool)v;
+  }
+  {
+    uint8_t v = EEPROM.read(EEPROM_SLIDER_NOISE_ADDR);
+    if (v == 12 || v == 24 || v == 48) slider_noise_threshold = v;
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm

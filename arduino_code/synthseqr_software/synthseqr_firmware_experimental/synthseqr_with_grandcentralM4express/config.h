@@ -246,6 +246,10 @@ const char* slider_message_header = "NN";
 uint8_t slider_map_low_value = 36;
 uint8_t slider_map_high_value = 52;
 uint8_t slider_hi_trim = 0;  // extra notes above slider_map_high_value for physical calibration (0–4)
+// Pickup-overlay noise gate. Raw ADC counts a sample must exceed from its
+// rest snapshot before the slider is treated as "moving" for overlay activity
+// detection. Presets via Diagnostics → Noise: Low=12, Med=24 (default), High=48.
+uint8_t slider_noise_threshold = 24;
 
 uint8_t slider_step_value = 2;
 
@@ -671,6 +675,7 @@ bool    config_nr_custom_active  = false;
 bool    config_diag_submenu_active = false;
 uint8_t config_diag_item           = 0;
 bool    config_diag_editing_trim   = false;
+bool    config_diag_editing_noise  = false;
 
 // About screen state. While true, the config menu is displaying the firmware
 // version splash. Any Enter or Left press returns to the main config menu.

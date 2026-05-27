@@ -61,14 +61,16 @@ void run_voice_slider_routine()
   if (now_ms - last_slider_ms < 20) return;
   last_slider_ms = now_ms;
 
-  // Per-slider raw snapshot for pickup-overlay activity detection. Separate
-  // from slider_last_raw[] (which Jump/Relative modes drive). Threshold is
-  // ~0.2% of 12-bit range — above ADC jitter but well below any unit step in
-  // every mode (smallest unit step is NN with full chromatic range = 256 raw).
-  static uint16_t      overlay_last_raw[16] = {0};
+  // Per-slider "rest" snapshot for pickup-overlay activity detection. Separate
+  // from slider_last_raw[] (which Jump/Relative modes drive). The snapshot is
+  // only advanced when a sample exceeds slider_noise_threshold from the rest
+  // point — so jitter around a stationary value sits inside a deadband and
+  // never trips activity, while a real touch crosses the band and updates the
+  // rest. Threshold is user-configurable via Diagnostics → Noise (Low/Med/High
+  // = 12 / 24 / 48 raw ADC counts; default 24 ≈ 0.6% of 12-bit range).
+  static uint16_t      overlay_rest_raw[16] = {0};
   static bool          overlay_seeded = false;
   bool                 overlay_activity = false;
-  const uint16_t       OVERLAY_RAW_THRESHOLD = 8;
 
   // voice select sliders
 
@@ -84,11 +86,15 @@ void run_voice_slider_routine()
     bool jump_moved = (abs(raw_delta) > JUMP_RAW_THRESHOLD);
 
     if (overlay_seeded) {
-      int adiff = (int)raw - (int)overlay_last_raw[j];
+      int adiff = (int)raw - (int)overlay_rest_raw[j];
       if (adiff < 0) adiff = -adiff;
-      if (adiff > OVERLAY_RAW_THRESHOLD) overlay_activity = true;
+      if (adiff > (int)slider_noise_threshold) {
+        overlay_activity = true;
+        overlay_rest_raw[j] = raw;  // shift rest only when threshold is crossed
+      }
+    } else {
+      overlay_rest_raw[j] = raw;    // seed once on first pass
     }
-    overlay_last_raw[j] = raw;
 
     if (slider_mode == 1)
     {
