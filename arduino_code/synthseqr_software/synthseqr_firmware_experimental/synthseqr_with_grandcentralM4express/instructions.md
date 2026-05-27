@@ -282,9 +282,9 @@ Note audition lets you hear what each step sounds like while the sequencer is **
 
 When note audition is active and the sequencer is stopped:
 
-- **Turn a step ON** (press a step button whose LED is currently off): the step toggles on *and* a MIDI note plays immediately for one 16th note at the current tempo. The note uses that step's current pitch, velocity, and any active octave/note shift and scale — exactly what the sequencer would play.
+- **Turn a step ON** (press a step button whose LED is currently off): the step toggles on *and* a MIDI preview plays immediately for one 16th note at the current tempo. The preview uses that step's current pitch, velocity, any active octave/note shift and scale, and the chord type just assigned to the step — exactly what the sequencer would play (minus pitch drift). If chord mode is being used (CH slider mode or D-pad bound to Chord), you hear the full chord ring out, not just the root.
 - **Turn a step OFF** (press a step button whose LED is on): the step toggles off. No note plays.
-- **Gate-set gesture** (hold one step button ≥ 150 ms, tap a second step): the gate is set and the note plays again using the newly set gate length — so you hear the full ring time.
+- **Gate-set gesture** (hold one step button ≥ 150 ms, tap a second step): the gate is set and the preview plays again using the newly set gate length — so you hear the full ring time. Chord-assigned steps audition as chords here too; all notes share the gate envelope.
 
 ### What it doesn't do
 

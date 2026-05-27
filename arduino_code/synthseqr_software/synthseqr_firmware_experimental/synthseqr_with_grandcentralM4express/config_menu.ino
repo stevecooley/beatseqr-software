@@ -1162,13 +1162,9 @@ static void _apply_feature_disable(uint8_t idx) {
     case 6:  // live CC mode — if currently in LV mode, drop back to NN
       if (slider_mode == 6) set_slider_mode(1);
       break;
-    case 7:  // note audition — cancel any sounding audition note immediately
+    case 7:  // note audition — cancel any sounding audition immediately
 #if FEATURE_NOTE_AUDITION
-      if (audition_sounding_note >= 0) {
-        noteOff(MIDICHANNEL - 1, (uint8_t)audition_sounding_note, 0);
-        MidiUSB.flush();
-        audition_sounding_note = -1;
-      }
+      audition_cancel();
 #endif
       break;
     case 15:  // velocity sliders — if currently in VL mode, drop back to NN

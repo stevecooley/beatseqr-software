@@ -494,9 +494,10 @@ int8_t sounding_note_end_step[16] = {-1, -1, -1, -1, -1, -1, -1, -1,
                                      -1, -1, -1, -1, -1, -1, -1, -1};
 
 // Note audition state — managed by audition_step_note() in step_button_routine.ino.
-// Holds the MIDI pitch of the note currently sounding from an audition event,
-// or -1 when no audition note is active.
-int8_t         audition_sounding_note = -1;
+// Holds up to MAX_CHORD_NOTES MIDI pitches currently sounding from an audition
+// event so previews can ring full chords; -1 in a slot = empty. All notes
+// share one off-time so a chord auditions as a single envelope.
+int8_t         audition_sounding_chord[MAX_CHORD_NOTES] = {-1,-1,-1,-1,-1,-1};
 unsigned long  audition_note_off_ms   = 0;
 
 // The last step that actually fired a note-on (for LCD line 2 feedback).

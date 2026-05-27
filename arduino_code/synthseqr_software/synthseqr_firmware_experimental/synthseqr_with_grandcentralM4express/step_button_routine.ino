@@ -1,19 +1,35 @@
 #if FEATURE_NOTE_AUDITION
+// audition_cancel()
+//
+// Sends note-off for every currently-sounding audition pitch and clears the
+// state. Safe to call when no audition is active (slots will already be -1).
+//
+void audition_cancel() {
+  bool any = false;
+  for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++) {
+    if (audition_sounding_chord[n] >= 0) {
+      noteOff(MIDICHANNEL - 1, (uint8_t)audition_sounding_chord[n], 0);
+      audition_sounding_chord[n] = -1;
+      any = true;
+    }
+  }
+  if (any) MidiUSB.flush();
+}
+
 // audition_step_note()
 //
-// Plays a brief MIDI note for step i with gate_steps × 16th-note duration
-// at the current tempo. Applies octave/note shift and scale quantization
-// exactly as stepsend() does, but skips pitch drift so the preview is stable.
-// Cancels any previously-sounding audition note before sending the new one.
+// Plays a brief preview for step i with gate_steps × 16th-note duration at
+// the current tempo. Applies octave/note shift, scale quantization, and the
+// step's assigned chord type — exactly as stepsend() would, minus pitch drift
+// so the preview is deterministic. When step_chord_type[p][i] is 0 (single
+// note) this collapses to one note-on, identical to the pre-chord behavior.
+// Cancels any previously-sounding audition before sending the new chord.
 // Only called when ft_note_audition is true and the sequencer is stopped.
 //
 void audition_step_note(int step, uint8_t gate_steps) {
-  if (audition_sounding_note >= 0) {
-    noteOff(MIDICHANNEL - 1, (uint8_t)audition_sounding_note, 0);
-    MidiUSB.flush();
-    audition_sounding_note = -1;
-  }
+  audition_cancel();
 
+  // Compute root (shift + scale snap; matches stepsend's root computation).
   int16_t shifted = (int16_t)voice_slider_midinotenum[step];
   if (ft_octave_note_shift) {
     shifted += (int16_t)(octave_shift * 12) + (int16_t)note_shift;
@@ -25,28 +41,35 @@ void audition_step_note(int step, uint8_t gate_steps) {
   }
   if (shifted < 0)   shifted = 0;
   if (shifted > 127) shifted = 127;
+  uint8_t root = (uint8_t)shifted;
 
-  uint8_t pitch = (uint8_t)shifted;
-  uint8_t vel   = voice_slider_midivelocity[step];
+  // Build chord pitches from the root. step_chord_type defaults to 0 (single
+  // note); the build returns just the root in that case. Reading the array
+  // directly matches stepsend — no ft_chord_mode guard, so a step keeps its
+  // assigned chord even if the feature flag is later toggled off.
+  uint8_t chord_out[MAX_CHORD_NOTES];
+  uint8_t chord_n = build_chord_pitches(root, step_chord_type[pattern_value][step], chord_out);
 
+  uint8_t vel = voice_slider_midivelocity[step];
   unsigned long gate_ms = (unsigned long)((float)gate_steps * 60000.0f / TEMPO / 4.0f);
   if (gate_ms < 50) gate_ms = 50;
 
-  noteOn(MIDICHANNEL - 1, pitch, vel);
+  for (uint8_t n = 0; n < chord_n; n++) {
+    noteOn(MIDICHANNEL - 1, chord_out[n], vel);
+    audition_sounding_chord[n] = (int8_t)chord_out[n];
+  }
   MidiUSB.flush();
-  audition_sounding_note = (int8_t)pitch;
-  audition_note_off_ms   = millis() + gate_ms;
+  audition_note_off_ms = millis() + gate_ms;
 }
 #endif  // FEATURE_NOTE_AUDITION
 
 void run_step_button_routine()
 {
 #if FEATURE_NOTE_AUDITION
-  // Send note-off for any sounding audition note once its gate duration elapses.
-  if (audition_sounding_note >= 0 && (long)(millis() - audition_note_off_ms) >= 0) {
-    noteOff(MIDICHANNEL - 1, (uint8_t)audition_sounding_note, 0);
-    MidiUSB.flush();
-    audition_sounding_note = -1;
+  // Send note-off for every sounding audition pitch once the gate elapses.
+  // All notes of an auditioned chord share one off-time.
+  if (audition_sounding_chord[0] >= 0 && (long)(millis() - audition_note_off_ms) >= 0) {
+    audition_cancel();
   }
 #endif
 

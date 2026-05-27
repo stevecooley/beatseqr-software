@@ -128,8 +128,8 @@ bool ext_swing_pulse_pending          // true when a deferred external-clock ste
 unsigned long ext_swing_pulse_fire_us  // micros() value to fire it at
 bool          ext_clock_start_pending  // play pressed while ext clock running; waiting for next beat boundary to call seq.start()
 // Note audition state (step_button_routine.ino):
-int8_t         audition_sounding_note  // MIDI pitch of the currently sounding audition note; -1 = none
-unsigned long  audition_note_off_ms    // millis() timestamp when the audition note-off should fire
+int8_t         audition_sounding_chord[MAX_CHORD_NOTES]  // pitches currently sounding from audition; -1 in a slot = empty (supports chord auditions)
+unsigned long  audition_note_off_ms    // millis() timestamp when the audition off-time fires (all chord notes share one envelope)
 ```
 
 ## Sequencer Flow
@@ -553,20 +553,22 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 When `ft_note_audition` is true and the sequencer is stopped (`!playstatus`), step button presses trigger a live MIDI preview in addition to toggling the step.
 
-- **Step toggled ON**: `do_step_toggle()` calls `audition_step_note(i, 1)` — sends a note-on with gate = 1 × 16th note duration at `TEMPO`.
-- **Gate-set gesture fires**: after `do_step_on()` + gate assignment, `detect_step_button_presses()` calls `audition_step_note(src, gate)` — sends a note-on with the actual gate just set, so the full ring time is audible.
+- **Step toggled ON**: `do_step_toggle()` calls `audition_step_note(i, 1)` — sends note-on(s) with gate = 1 × 16th note duration at `TEMPO`. `do_step_toggle()` paints `current_chord_type` into `step_chord_type[p][i]` BEFORE calling audition, so the preview reflects the freshly painted chord assignment.
+- **Gate-set gesture fires**: after `do_step_on()` + gate assignment, `detect_step_button_presses()` calls `audition_step_note(src, gate)` — sends note-on(s) with the actual gate just set, so the full ring time is audible.
 - **Step toggled OFF**: no audition (the note is being silenced, not added).
 - **CC mode**: unaffected — CC step buttons always toggle `cc_step_enabled` immediately, no audition.
 
 **`audition_step_note(int step, uint8_t gate_steps)`** (in `step_button_routine.ino`):
-1. Cancels any currently sounding audition note (note-off + flush).
-2. Computes pitch from `voice_slider_midinotenum[step]` with `octave_shift`, `note_shift`, and scale quantization applied — same transforms as `stepsend()`, but **no pitch drift** (preview is deterministic).
-3. Sends note-on with `voice_slider_midivelocity[step]`.
-4. Sets `audition_sounding_note` and `audition_note_off_ms = millis() + gate_ms`. Minimum gate enforced at 50 ms.
+1. Calls `audition_cancel()` to silence any in-flight audition chord (walks `audition_sounding_chord[]`, note-off + flush).
+2. Computes root from `voice_slider_midinotenum[step]` with `octave_shift`, `note_shift`, and scale quantization applied — same transforms as `stepsend()`, but **no pitch drift** (preview is deterministic).
+3. Calls `build_chord_pitches(root, step_chord_type[pattern_value][step], chord_out)` to produce 1..6 MIDI pitches. With `step_chord_type == 0` this is just the root, byte-identical to the pre-chord audition.
+4. Sends note-on for each chord pitch using `voice_slider_midivelocity[step]`, stores them in `audition_sounding_chord[]`, and sets `audition_note_off_ms = millis() + gate_ms`. Minimum gate enforced at 50 ms; all chord notes share one envelope.
 
-**Note-off timer**: top of `run_step_button_routine()` checks `(long)(millis() - audition_note_off_ms) >= 0` and sends note-off when the gate expires.
+**`audition_cancel()`**: Helper that walks `audition_sounding_chord[]`, sends note-off for each non-empty slot, clears the slots, and flushes. Used by `audition_step_note()` for cancel-before-retrigger and by the note-off timer + feature disable path.
 
-**Disable side-effect**: `_apply_feature_disable(6)` in `config_menu.ino` immediately cancels any sounding audition note when the feature is toggled off.
+**Note-off timer**: top of `run_step_button_routine()` checks `audition_sounding_chord[0] >= 0 && (long)(millis() - audition_note_off_ms) >= 0` and calls `audition_cancel()` when the gate expires (slot 0 is the first slot filled; if it's empty, no audition is active).
+
+**Disable side-effect**: `_apply_feature_disable(7)` in `config_menu.ino` calls `audition_cancel()` to silence any sounding audition chord when the feature is toggled off.
 
 **Default**: `ft_note_audition = true` — the feature is on by default. Disable from Features submenu if you don't want step-toggle previews while stopped.
 
