@@ -556,13 +556,11 @@ void exit_config_menu() {
   }
   // Restore step LEDs for the active slider mode (in case PAT_LENGTH was editing).
   // CC mode shows cc_step_enabled; D mode shows step_drift_enabled;
-  // CH mode shows step_chord_type > 0; LV mode shows only the editing lane (if any).
+  // LV mode shows only the editing lane (if any); CH/NN/VL/GT/PR show step_data.
   if (slider_mode == 4) {
     read_cc_step_memory();
   } else if (slider_mode == 7) {
     read_drift_step_memory();
-  } else if (slider_mode == 8) {
-    read_chord_step_memory();
   } else if (slider_mode == 6) {
     clear_step_leds();
     if (live_cc_editing_lane >= 0) step_leds[live_cc_editing_lane].on();

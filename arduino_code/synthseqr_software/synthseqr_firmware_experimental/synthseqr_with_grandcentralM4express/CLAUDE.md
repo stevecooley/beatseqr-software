@@ -213,7 +213,7 @@ The 16 voice sliders operate in one of eight modes:
 | 5 — PR | `?5P`                  | Fire probability (0–100%) per step                                          | `step_probability[p][s]`                                        |
 | 6 — LV | `?5L`                  | **Live** MIDI CC (transmitted on movement, not sequenced)                   | `live_cc_number[s]` (global), `live_cc_last_sent[s]`            |
 | 7 — D  | `?5D`                  | Per-step drift amount (0–12 semitones); step buttons toggle `step_drift_enabled` on/off | `step_drift_amount[p][s]`, `step_drift_enabled[p][s]`           |
-| 8 — CH | `?5C`                  | Per-step chord type (0..CHORD_COUNT-1); step button taps clear chord back to 0 | `step_chord_type[p][s]`                                         |
+| 8 — CH | `?5C`                  | Per-step chord type (0..CHORD_COUNT-1); step buttons toggle step on/off as in NN/VL/GT/PR | `step_chord_type[p][s]`                                         |
 
 **Switching modes:**
 
@@ -221,7 +221,7 @@ The 16 voice sliders operate in one of eight modes:
 - **Advanced mode pattern buttons** remain as quick shortcuts: 1 = NN, 2 = VL, 3 = PR. CC, GT, LV, D, and CH are reachable from advanced mode only via the Enter cycle (or the relevant config menu shortcut for sequenced CC).
 - **Step prob** menu item still jumps directly to PR. There is no equivalent menu shortcut into LV/D/CH — use the Enter cycle.
 
-**`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders **except mode 6 (LV)** which has no pickup, sets `update_line1 = update_line2 = true`, and switches step LED display: entering CC mode calls `read_cc_step_memory()` (LEDs show `cc_step_enabled`); entering D mode calls `read_drift_step_memory()` (LEDs show `step_drift_enabled`); entering CH mode calls `read_chord_step_memory()` (LEDs show "has chord" — `step_chord_type > 0`); entering LV mode clears all step LEDs (lit only for the lane currently being edited); leaving CC/D/CH/LV mode restores the appropriate display. Entering LV also resets `live_cc_editing_lane`, `live_cc_last_lane`, and seeds `live_cc_last_sent[i] = 255` so the first move on any lane transmits. Always call this function — never set `slider_mode` directly.
+**`set_slider_mode(mode)`**: Central entry point for all slider mode changes. Sets `slider_mode`, arms `slider_needs_pickup[i] = true` for all 16 sliders **except mode 6 (LV)** which has no pickup, sets `update_line1 = update_line2 = true`, and switches step LED display: entering CC mode calls `read_cc_step_memory()` (LEDs show `cc_step_enabled`); entering D mode calls `read_drift_step_memory()` (LEDs show `step_drift_enabled`); entering LV mode clears all step LEDs (lit only for the lane currently being edited); CH/NN/VL/GT/PR all use the default `step_data` display via `read_step_memory()`; leaving CC/D/LV mode restores the appropriate display. Entering LV also resets `live_cc_editing_lane`, `live_cc_last_lane`, and seeds `live_cc_last_sent[i] = 255` so the first move on any lane transmits. Always call this function — never set `slider_mode` directly.
 
 **Slider takeover modes (`slider_takeover`)**: Global setting in the Takeover config menu item; persisted to EEPROM (addr 1861) and SD (`"slider_takeover"` key). LV mode (6) is exempt from this setting — it's always Jump-like.
 
@@ -249,9 +249,9 @@ The 16 voice sliders operate in one of eight modes:
 
 **D persistence**: `step_drift_enabled[16][16]` and `step_drift_amount[16][16]` are saved to both SD JSON (per-pattern `"drift_enabled":[16]` and `"drift_amounts":[16]`) and EEPROM (addresses 1349 and 1605). `ft_drift_mode` is also persisted (SD `"ft_drift_mode"`; EEPROM address 1348). The drift arrays are optional in JSON — older saves without them load cleanly and default to all-off. Bumping EEPROM_MAGIC_VALUE to 0xCF forces old saves without these fields to be re-defaulted on first boot after the upgrade.
 
-**CH mode step buttons**: In CH mode, step buttons **clear** `step_chord_type[p][s]` back to 0 (single note) and turn the LED off. Sliders are the only way to set a non-zero chord type per step. No `step_data` toggle, no gate-set gesture, no audition. The step LED reflects "has chord" — lit when `step_chord_type[p][s] > 0`.
+**CH mode step buttons**: In CH mode, step buttons toggle `step_data` on/off exactly like NN/VL/GT/PR — full normal behavior including the gate-set gesture and note audition (preview reflects the freshly painted chord). The step LED reflects `step_data`. Activating a step paints `current_chord_type` into `step_chord_type[p][s]` via `do_step_on()` / `do_step_toggle()`; deactivating clears it back to 0. Sliders are the way to set a non-zero chord type per step without changing `current_chord_type`.
 
-**CH mode slider read**: Each slider maps its sector (0..255) to `chord_type` in `[0, CHORD_COUNT-1]` using the standard takeover rules (Catch/Jump/Relative). On a 0↔non-0 crossing the matching step LED updates immediately. `read_chord_step_memory()` shows the binary "has chord" mask while in CH mode.
+**CH mode slider read**: Each slider maps its sector (0..255) to `chord_type` in `[0, CHORD_COUNT-1]` using the standard takeover rules (Catch/Jump/Relative). The slider writes `step_chord_type[p][s]` directly for any step whose slider moves — independent of whether `step_data` is on.
 
 **Chord painting via d-pad**: When `dpad_main_mode == DPAD_MAIN_MODE_CHORD`, d-pad up/down cycles `current_chord_type` through the full CHORDS[] table (wraps, includes 0 = "---" so chord-OFF is reachable without unbinding). LCD line 2 shows `Chord: {name3}`. `do_step_on()` and `do_step_toggle()` write `current_chord_type` into `step_chord_type[p][i]` when a step is activated (guarded by `ft_chord_mode`), and reset it to 0 when a step is toggled off — so step activation always paints the user's current chord choice.
 

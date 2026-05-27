@@ -24,15 +24,15 @@ void set_slider_mode(uint8_t mode) {
   update_line1 = true;
   update_line2 = true;
   // Update step LEDs to reflect the data type for the new mode.
-  // CC (4), D (7), CH (8), and LV (6) all override the default step_data display.
+  // CC (4), D (7), and LV (6) override the default step_data display.
+  // CH (8) uses normal step_data display — step buttons toggle the step on/off
+  // just like NN/VL/GT/PR, and chord type comes from the slider + current_chord_type.
   if (mode == 4 && ft_cc_mode) {
     read_cc_step_memory();
   } else if (mode == 7 && ft_drift_mode) {
     read_drift_step_memory();
-  } else if (mode == 8 && ft_chord_mode) {
-    read_chord_step_memory();
-  } else if ((old_mode == 4 || old_mode == 7 || old_mode == 8) && mode != 6) {
-    // Leaving CC/D/CH for a step_data mode: restore step LEDs.
+  } else if ((old_mode == 4 || old_mode == 7) && mode != 6) {
+    // Leaving CC/D for a step_data mode: restore step LEDs.
     read_step_memory(0, pattern_value);
   }
   // LV mode: clear edit state, reset send-history so first move on any lane
@@ -47,7 +47,6 @@ void set_slider_mode(uint8_t mode) {
     live_cc_editing_lane = -1;
     if (mode == 4)      read_cc_step_memory();
     else if (mode == 7) read_drift_step_memory();
-    else if (mode == 8) read_chord_step_memory();
     else                read_step_memory(0, pattern_value);
   }
 }
@@ -321,8 +320,9 @@ void run_voice_slider_routine()
     }
     else if (slider_mode == 8 && ft_chord_mode)
     {
-      // CH mode: slider sets per-step chord type (0..CHORD_COUNT-1).
-      // 0 = single note (LED off). >0 = chord assigned (LED on).
+      // CH mode: slider sets per-step chord type (0..CHORD_COUNT-1). Step LEDs
+      // reflect step_data (set by the step button), so the slider does not
+      // touch LEDs — it only writes step_chord_type.
       uint8_t max_type = (uint8_t)(CHORD_COUNT - 1);
       uint8_t ctype = (uint8_t)map(sector, 0, 255, 0, max_type);
       if (ctype > max_type) ctype = max_type;
@@ -339,10 +339,6 @@ void run_voice_slider_routine()
           slider_last_raw[j] = (uint16_t)((int)raw - remainder);
           if ((uint8_t)nv != stored) {
             step_chord_type[pattern_value][j] = (uint8_t)nv;
-            if ((stored == 0) != (nv == 0)) {
-              if (nv > 0) step_leds[j].on();
-              else        step_leds[j].off();
-            }
             update_line2 = true;
           }
         }
@@ -356,10 +352,6 @@ void run_voice_slider_routine()
         }
       } else if (ctype != stored) {
         step_chord_type[pattern_value][j] = ctype;
-        if ((stored == 0) != (ctype == 0)) {
-          if (ctype > 0) step_leds[j].on();
-          else           step_leds[j].off();
-        }
         update_line2 = true;
       }
     }

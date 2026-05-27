@@ -297,14 +297,10 @@ void go_to_pattern(int pattern, int silent) {
       read_cc_step_memory();
     } else if (slider_mode == 7) {
       read_drift_step_memory();
-    } else if (slider_mode == 8) {
-      read_chord_step_memory();
     } else
 #else
     if (slider_mode == 7) {
       read_drift_step_memory();
-    } else if (slider_mode == 8) {
-      read_chord_step_memory();
     } else
 #endif
     {

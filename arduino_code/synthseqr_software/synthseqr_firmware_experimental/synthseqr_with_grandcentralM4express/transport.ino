@@ -141,7 +141,6 @@ void run_chase_lights(unsigned int this_step) {
       } else {
         if (ft_cc_mode && slider_mode == 4)         read_cc_step_memory();
         else if (ft_drift_mode && slider_mode == 7) read_drift_step_memory();
-        else if (ft_chord_mode && slider_mode == 8) read_chord_step_memory();
         else                                        read_step_memory(0, pattern_value);
       }
       step_leds[this_step].toggle();  // chase lights!
@@ -151,7 +150,6 @@ void run_chase_lights(unsigned int this_step) {
     if (!editing_pat_len) {
       if (ft_cc_mode && slider_mode == 4)         read_cc_step_memory();
       else if (ft_drift_mode && slider_mode == 7) read_drift_step_memory();
-      else if (ft_chord_mode && slider_mode == 8) read_chord_step_memory();
       else                                        read_step_memory(0, pattern_value);
     }
   }

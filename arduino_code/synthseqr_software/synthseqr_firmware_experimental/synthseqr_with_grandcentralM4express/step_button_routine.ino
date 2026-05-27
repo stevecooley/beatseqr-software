@@ -238,11 +238,9 @@ void detect_step_button_presses()
 #if FEATURE_CC_MODE
     if (slider_mode == 4)      read_cc_step_memory();
     else if (slider_mode == 7) read_drift_step_memory();
-    else if (slider_mode == 8) read_chord_step_memory();
     else                       read_step_memory(0, pattern_value);
 #else
     if (slider_mode == 7)      read_drift_step_memory();
-    else if (slider_mode == 8) read_chord_step_memory();
     else                       read_step_memory(0, pattern_value);
 #endif
   }
@@ -292,16 +290,6 @@ void detect_step_button_presses()
       step_drift_enabled[pattern_value][i] = step_drift_enabled[pattern_value][i] ? 0 : 1;
       if (step_drift_enabled[pattern_value][i]) step_leds[i].on();
       else                                      step_leds[i].off();
-      continue;
-    }
-
-    if (slider_mode == 8 && ft_chord_mode) {
-      // CH mode: step buttons clear the per-step chord type back to 0 (single
-      // note). Sliders set non-zero values. LED reflects "has chord" state.
-      // No step_data toggling, no gate-set gesture, no audition.
-      step_chord_type[pattern_value][i] = 0;
-      step_leds[i].off();
-      update_line2 = true;
       continue;
     }
 
@@ -372,19 +360,6 @@ void read_drift_step_memory() {
   for (int i = 0; i < 16; i++) {
     if (step_drift_enabled[pattern_value][i]) step_leds[i].on();
     else                                      step_leds[i].off();
-  }
-}
-
-// read_chord_step_memory()
-//
-// Sets step LEDs to reflect "has chord" (step_chord_type[][] > 0) for the
-// current pattern. Called when in CH slider mode (mode 8). A lit LED means
-// the step has a chord type assigned; an unlit LED means single-note (type 0).
-//
-void read_chord_step_memory() {
-  for (int i = 0; i < 16; i++) {
-    if (step_chord_type[pattern_value][i] > 0) step_leds[i].on();
-    else                                       step_leds[i].off();
   }
 }
 
