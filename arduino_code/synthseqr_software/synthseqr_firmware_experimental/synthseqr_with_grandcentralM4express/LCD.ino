@@ -366,8 +366,8 @@ void run_LCD_update() {
         update_line1 = false;
         did_redraw = true;
 
-        // Line 1: "P01 >03 120.0 ♪N" — 16 chars total.
-        // Format: P{pat:02u} >{step:02d_or_--} {tempo:05.1f} [?5][mode]
+        // Line 1: "P01 >03 120.0 NN" — 16 chars total.
+        // Format: P{pat:02u} >{step:02d_or_--} {tempo:05.1f} [mode2]
         // In external clock mode, show detected BPM from avg 0xF8 interval.
         float bpm = (external_clock_mode && ext_clk_avg_interval_us > 0)
           ? 60000000.0f / ((float)ext_clk_avg_interval_us * 24.0f)
@@ -378,7 +378,7 @@ void run_LCD_update() {
         } else {
           strcpy(step_str, ">--");
         }
-        // "P01 >03 120.0 " = 14 chars + 2-char mode indicator = 16
+        // "P01 >03 120.0 " = 14 chars + 2-char mode abbreviation = 16
         sprintf(lcd_line1, "P%02u %s %05.1f ", current_pattern + 1, step_str, bpm);
         Serial.println(lcd_line1);
         lcd.print("?x00?y0");       // move cursor to beginning of line 0
@@ -386,21 +386,21 @@ void run_LCD_update() {
         lcd.print(lcd_line1);
         Serial.println(lcd_line1);
 
-        // Slider mode indicator at cols 14-15: ?5 (slider-mode icon) + mode char.
-        // ?4=NN  ?2=VL  G=gate  ?3=CC  P=PR  L=LV  D=drift  C=chord
-        lcd.print("?5");
-        Serial.print("?5");
+        // Slider mode 2-letter abbreviation at cols 14-15.
+        const char* mode_str;
         switch (slider_mode) {
-          case 1: lcd.print("?4"); Serial.println("?4"); break;
-          case 2: lcd.print("?2"); Serial.println("?2"); break;
-          case 3: lcd.print("G");  Serial.println("G");  break;
-          case 4: lcd.print("?3"); Serial.println("?3"); break;
-          case 5: lcd.print("P");  Serial.println("P");  break;
-          case 6: lcd.print("L");  Serial.println("L");  break;
-          case 7: lcd.print("D");  Serial.println("D");  break;
-          case 8: lcd.print("C");  Serial.println("C");  break;
-          default: lcd.print("?4"); Serial.println("?4"); break;
+          case 1: mode_str = "NN"; break;
+          case 2: mode_str = "VL"; break;
+          case 3: mode_str = "GT"; break;
+          case 4: mode_str = "CC"; break;
+          case 5: mode_str = "PR"; break;
+          case 6: mode_str = "LV"; break;
+          case 7: mode_str = "DR"; break;
+          case 8: mode_str = "CH"; break;
+          default: mode_str = "NN"; break;
         }
+        lcd.print(mode_str);
+        Serial.println(mode_str);
       }
 
       if (update_line2 == true) {

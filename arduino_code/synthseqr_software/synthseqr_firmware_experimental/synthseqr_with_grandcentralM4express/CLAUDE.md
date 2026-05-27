@@ -181,7 +181,7 @@ D-pad up/down on the main screen is **user-configurable** via the `D-pad up/dn` 
 
 **`timing_mode` variable has been removed.** `switch_timing_mode_events()` and `set_timing_resolution()` no longer exist. Swing, clock source, MIDI channel, and tempo have all moved to the config menu (double-tap Enter).
 
-**LCD line 1 format** (case 255): `P{pat:02u} >{step:02d} {tempo:05.1f} [?5][mode]` — 16 chars total. No play/stop icon. Pattern is 2 digits `P01`–`P16` (cols 0–2); step counter `>{01–16}` at cols 4–6, or `>--` when stopped/no step fired; tempo is `%05.1f` (zero-padded, 1 decimal) at cols 8–12; cols 14–15 show slider mode indicator: custom char `?5` + mode char (`?4`=NN, `?2`=VL, `G`=GT, `?3`=CC, `P`=PR, `L`=LV, `D`=drift, `C`=chord). Example: `P01 >03 120.0 ♪N`. `go_to_pattern()` sets `update_line1 = true` so the pattern number refreshes on every pattern switch.
+**LCD line 1 format** (case 255): `P{pat:02u} >{step:02d} {tempo:05.1f} [mode2]` — 16 chars total. No play/stop icon. Pattern is 2 digits `P01`–`P16` (cols 0–2); step counter `>{01–16}` at cols 4–6, or `>--` when stopped/no step fired; tempo is `%05.1f` (zero-padded, 1 decimal) at cols 8–12; cols 14–15 show a 2-letter slider mode abbreviation: `NN` (note), `VL` (velocity), `GT` (gate), `CC`, `PR` (probability), `LV` (live CC), `DR` (drift), `CH` (chord). Example: `P01 >03 120.0 NN`. `go_to_pattern()` sets `update_line1 = true` so the pattern number refreshes on every pattern switch.
 
 **LCD line 2 format** (case 255): Real-time step-trigger feedback. Format: `[note_icon]PPP [vel_icon]VVV G{gate}[cc_icon]{ccc}` (16 chars). Fields: note icon (`?4`) + 3-digit pitch + space (5 chars), velocity icon (`?2`) + 3-digit velocity + space (5 chars), `G` + gate digit (2 chars), CC icon (`?3`) + 3-digit CC value or `---` if cc_step_enabled is 0 (4 chars). Example: `♪045 ♩127 G4♩064`. Updates on every step trigger (`last_triggered_step` changes) or slider mode cycle. When no step has fired yet (`last_triggered_step == -1`), line 2 shows blanks or a default state.
 
@@ -192,7 +192,7 @@ D-pad up/down on the main screen is **user-configurable** via the `D-pad up/dn` 
 - `LCD_L1_X_TEMPO_10 = 9` — hundreds/tens digit of tempo
 - `LCD_L1_X_TEMPO_1 = 10` — units digit
 - `LCD_L1_X_TEMPO_01 = 12` — tenths digit (after decimal at col 11)
-- `LCD_L1_X_SLIDERMODE = 14` — slider mode indicator (cols 14–15)
+- `LCD_L1_X_SLIDERMODE = 14` — first char of 2-letter slider mode abbreviation (cols 14–15)
 - `LCD_L1_X_TEMPO_001` was removed (timing mode 5 removed)
 
 Switching clock source calls `setExternalClockMode()` which stops or starts TC4 as needed.
@@ -205,16 +205,16 @@ Switching clock source calls `setExternalClockMode()` which stops or starts TC4 
 
 The 16 voice sliders operate in one of eight modes:
 
-| Mode   | Display                | Slider controls                                                             | Storage                                                         |
-| ------ | ---------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| 1 — NN | `?5?4` (note icon)     | MIDI note number (mapped to `slider_map_low_value`–`slider_map_high_value`) | `pattern_step_pitches[p][s]`, `voice_slider_midinotenum[s]`     |
-| 2 — VL | `?5?2` (velocity icon) | MIDI velocity (1–127)                                                       | `pattern_step_velocities[p][s]`, `voice_slider_midivelocity[s]` |
-| 3 — GT | `?5G`                  | Gate length (1–16 steps)                                                    | `step_gate[p][s]`                                               |
-| 4 — CC | `?5?3` (CC icon)       | CC value (0–127) per step; step buttons toggle `cc_step_enabled` on/off     | `cc_step_values[p][s]`, `cc_step_enabled[p][s]`                 |
-| 5 — PR | `?5P`                  | Fire probability (0–100%) per step                                          | `step_probability[p][s]`                                        |
-| 6 — LV | `?5L`                  | **Live** MIDI CC (transmitted on movement, not sequenced)                   | `live_cc_number[s]` (global), `live_cc_last_sent[s]`            |
-| 7 — D  | `?5D`                  | Per-step drift amount (0–12 semitones); step buttons toggle `step_drift_enabled` on/off | `step_drift_amount[p][s]`, `step_drift_enabled[p][s]`           |
-| 8 — CH | `?5C`                  | Per-step chord type (0..CHORD_COUNT-1); step buttons toggle step on/off as in NN/VL/GT/PR | `step_chord_type[p][s]`                                         |
+| Mode   | LCD | Slider controls                                                             | Storage                                                         |
+| ------ | --- | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 1 — NN | `NN` | MIDI note number (mapped to `slider_map_low_value`–`slider_map_high_value`) | `pattern_step_pitches[p][s]`, `voice_slider_midinotenum[s]`     |
+| 2 — VL | `VL` | MIDI velocity (1–127)                                                       | `pattern_step_velocities[p][s]`, `voice_slider_midivelocity[s]` |
+| 3 — GT | `GT` | Gate length (1–16 steps)                                                    | `step_gate[p][s]`                                               |
+| 4 — CC | `CC` | CC value (0–127) per step; step buttons toggle `cc_step_enabled` on/off     | `cc_step_values[p][s]`, `cc_step_enabled[p][s]`                 |
+| 5 — PR | `PR` | Fire probability (0–100%) per step                                          | `step_probability[p][s]`                                        |
+| 6 — LV | `LV` | **Live** MIDI CC (transmitted on movement, not sequenced)                   | `live_cc_number[s]` (global), `live_cc_last_sent[s]`            |
+| 7 — DR | `DR` | Per-step drift amount (0–12 semitones); step buttons toggle `step_drift_enabled` on/off | `step_drift_amount[p][s]`, `step_drift_enabled[p][s]`           |
+| 8 — CH | `CH` | Per-step chord type (0..CHORD_COUNT-1); step buttons toggle step on/off as in NN/VL/GT/PR | `step_chord_type[p][s]`                                         |
 
 **Switching modes:**
 

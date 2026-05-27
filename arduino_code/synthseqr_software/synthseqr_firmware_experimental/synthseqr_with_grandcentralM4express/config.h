@@ -386,7 +386,7 @@ char* step_padding;
 #define lcd Serial1
 
 // LCD field cursor positions — update these if the display format changes.
-// Line 1: P{pat:02u} >{step:02d} {tempo:05.1f} [?5][mode]  (16 chars total)
+// Line 1: P{pat:02u} >{step:02d} {tempo:05.1f} [mode2]  (16 chars total)
 //   col:  0         4           8              14
 #define LCD_L1_X_PATTERN 1   // first (tens) digit of pattern in "P%02u" (col 1)
 #define LCD_L1_X_STEP 5      // first (tens) digit of step in ">%02d" (col 5)
@@ -395,7 +395,7 @@ char* step_padding;
 #define LCD_L1_X_TEMPO_01 \
   12  // tempo tenths digit, after decimal at col 11 (±0.1 BPM)
 #define LCD_L1_X_SLIDERMODE \
-  14  // first char of 2-char slider-mode indicator (?5 + mode)
+  14  // first char of 2-letter slider-mode abbreviation (NN/VL/GT/CC/PR/LV/DR/CH)
 // Line 2: ?4PPP ?2VVV G#?3CCC  — note, velocity, gate, CC value (16 chars
 // total) Swing, clock, and MIDI channel are now in the config menu.
 
