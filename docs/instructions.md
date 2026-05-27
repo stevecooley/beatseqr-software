@@ -29,7 +29,7 @@ The 16 sliders change function depending on the active slider mode. The current 
 
 **Slider takeover**: when you switch modes, the physical slider position won't match the stored value. Choose how sliders re-engage from **Config menu → Takeover**:
 
-- **Catch** (default): the slider must physically pass through the stored value before taking over. While any slider is still waiting to engage, LCD line 2 shows a 16-character overlay (one position per slider): `^` = push the slider up to catch, `v` = pull it down, blank = already engaged. The overlay clears automatically once every slider is engaged.
+- **Catch** (default): the slider must physically pass through the stored value before taking over. While any slider is still waiting to engage, LCD line 2 shows a 16-character overlay (one position per slider): `^` = push the slider up to catch, `v` = pull it down, blank = already engaged. The overlay hides after about 2 seconds of no slider activity so line 2 can show its normal display, and reappears the moment you move any slider while pickup is still pending. It clears for good once every slider is engaged.
 - **Jump**: touch a slider and it immediately takes over — its current position becomes the new stored value. No overlay.
 - **Relative**: every slider movement adds a delta to the stored value (1:1 — full physical travel covers the full mode range). No abrupt jump and no waiting. The slider position no longer corresponds to the stored value, but small movements accumulate so you can dial in fine changes.
 

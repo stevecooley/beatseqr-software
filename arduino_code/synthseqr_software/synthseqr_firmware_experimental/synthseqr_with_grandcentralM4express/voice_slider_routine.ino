@@ -62,6 +62,15 @@ void run_voice_slider_routine()
   if (now_ms - last_slider_ms < 20) return;
   last_slider_ms = now_ms;
 
+  // Per-slider raw snapshot for pickup-overlay activity detection. Separate
+  // from slider_last_raw[] (which Jump/Relative modes drive). Threshold is
+  // ~0.2% of 12-bit range — above ADC jitter but well below any unit step in
+  // every mode (smallest unit step is NN with full chromatic range = 256 raw).
+  static uint16_t      overlay_last_raw[16] = {0};
+  static bool          overlay_seeded = false;
+  bool                 overlay_activity = false;
+  const uint16_t       OVERLAY_RAW_THRESHOLD = 8;
+
   // voice select sliders
 
   // Jump-mode movement threshold from the seed raw recorded at mode entry.
@@ -74,6 +83,13 @@ void run_voice_slider_routine()
     uint16_t raw    = voice_sliders[j].getValue();
     int raw_delta   = (int)raw - (int)slider_last_raw[j];
     bool jump_moved = (abs(raw_delta) > JUMP_RAW_THRESHOLD);
+
+    if (overlay_seeded) {
+      int adiff = (int)raw - (int)overlay_last_raw[j];
+      if (adiff < 0) adiff = -adiff;
+      if (adiff > OVERLAY_RAW_THRESHOLD) overlay_activity = true;
+    }
+    overlay_last_raw[j] = raw;
 
     if (slider_mode == 1)
     {
@@ -351,15 +367,54 @@ void run_voice_slider_routine()
     last_voice_slider_values[j] = voice_slider_values[j];
   }
 
-  // Auto-dismiss the Catch-mode pickup overlay once every slider is engaged,
-  // and ask the LCD to redraw the arrow row while it's still active.
-  if (slider_pickup_overlay_active) {
-    bool any_pending = false;
-    for (int i = 0; i < 16; i++) {
-      if (slider_needs_pickup[i]) { any_pending = true; break; }
+  // Mark the activity tracker seeded after the first full pass so the very
+  // first iteration after boot/mode-switch doesn't trip a phantom delta.
+  overlay_seeded = true;
+
+  // Catch-mode pickup overlay visibility logic:
+  //   - Shown when any slider still needs pickup AND activity is recent.
+  //   - Auto-hides after OVERLAY_IDLE_MS so line 2 can return to its normal
+  //     step-trigger / mode display.
+  //   - Re-shows when any slider moves while pickup is still pending.
+  // The rising-edge seed below covers external activations (set_slider_mode
+  // and the config-menu Takeover change) so the initial display gets its
+  // full idle window even without movement.
+  static unsigned long last_overlay_activity_ms = 0;
+  static bool          prev_overlay = false;
+  const unsigned long  OVERLAY_IDLE_MS = 2000;
+
+  if (slider_pickup_overlay_active && !prev_overlay) {
+    last_overlay_activity_ms = now_ms;
+  }
+  prev_overlay = slider_pickup_overlay_active;
+
+  bool any_pending = false;
+  for (int i = 0; i < 16; i++) {
+    if (slider_needs_pickup[i]) { any_pending = true; break; }
+  }
+
+  if (!any_pending) {
+    if (slider_pickup_overlay_active) {
+      slider_pickup_overlay_active = false;
+      update_line2 = true;
     }
-    if (!any_pending) slider_pickup_overlay_active = false;
-    update_line2 = true;
+  } else {
+    if (overlay_activity) {
+      last_overlay_activity_ms = now_ms;
+      if (!slider_pickup_overlay_active) {
+        slider_pickup_overlay_active = true;
+        prev_overlay = true;
+        update_line2 = true;
+      }
+    }
+    if (slider_pickup_overlay_active) {
+      if (now_ms - last_overlay_activity_ms >= OVERLAY_IDLE_MS) {
+        slider_pickup_overlay_active = false;
+        update_line2 = true;
+      } else {
+        update_line2 = true;
+      }
+    }
   }
 }
 
