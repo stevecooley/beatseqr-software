@@ -184,6 +184,34 @@ struct ChordDef {
 extern const ChordDef CHORDS[];
 extern const uint8_t  CHORD_COUNT;
 
+// Per-step captured chord pitches from external MIDI keyboard programming.
+// When step_custom_chord[p][s][0] >= 0 the step plays these literal pitches
+// (still subject to octave/note shift, scale snap, and drift at playback
+// time) and the step_chord_type entry is ignored for that step. Slot 0 is
+// the lowest pitch (sorted on commit). -1 marks an empty slot. Initialised
+// to all -1 in setup() — a static initialiser for 1.5 KB would be noise.
+int8_t step_custom_chord[16][16][MAX_CHORD_NOTES];
+
+// MIDI keyboard programming capture state.
+// While midi_capture_step >= 0, USB-MIDI note-on bytes are accumulated into
+// midi_capture_buf (sorted by pitch, deduped, up to MAX_CHORD_NOTES). The
+// final buffer commits to step_custom_chord[pattern][step] on step-button
+// release, replacing any previous capture. midi_capture_held is a 128-bit
+// set tracking currently-held keyboard notes — used only for note-off
+// bookkeeping; the buffer itself persists across "all keys released" so
+// multiple strums during one hold accumulate into the same chord.
+int8_t  midi_capture_step           = -1;
+int8_t  midi_capture_buf[MAX_CHORD_NOTES] = {-1,-1,-1,-1,-1,-1};
+uint8_t midi_capture_count          = 0;
+uint8_t midi_capture_first_velocity = 127;
+bool    midi_capture_dirty          = false;
+uint8_t midi_capture_held[16];      // 128-bit set: bit (pitch & 7) of byte (pitch >> 3)
+
+// LCD feedback for the most recent MIDI capture commit. Set by
+// midi_capture_commit(); consumed by run_LCD_update() case 204.
+int8_t  midi_capture_lcd_step  = -1;
+uint8_t midi_capture_lcd_count = 0;
+
 int voice_slider_midinotenum[16] = {36, 37, 38, 39, 40, 41, 42, 43,
                                     44, 45, 46, 47, 48, 49, 50, 51};
 
@@ -641,6 +669,7 @@ bool ft_note_audition       = true;   // ON by default
 bool ft_live_cc_mode        = true;   // ON by default — slider mode 6 (LV)
 bool ft_drift_mode          = true;   // ON by default — slider mode 7 (D, per-step drift)
 bool ft_chord_mode          = true;   // ON by default — slider mode 8 (CH, per-step chord)
+bool ft_midi_program_mode   = true;   // ON by default — capture MIDI keyboard notes onto held step
 
 // Live CC slider mode (mode 6) state.
 // Sliders transmit MIDI CC live (not sequenced). Each of the 16 lanes has its

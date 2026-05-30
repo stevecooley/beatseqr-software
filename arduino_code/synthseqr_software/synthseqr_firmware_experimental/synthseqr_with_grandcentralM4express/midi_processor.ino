@@ -132,6 +132,56 @@ void read_midi()
           }
         }
       }
+      else if (ft_midi_program_mode && midi_capture_step >= 0 &&
+               ((rx.header & 0x0F) == 0x09 || (rx.header & 0x0F) == 0x08))
+      {
+        // MIDI keyboard programming: accumulate notes onto the held step.
+        // Note-on with velocity 0 is treated as note-off per MIDI convention.
+        // Channel is ignored. The buffer commits to step_custom_chord in
+        // detect_step_button_presses() when the step button is released.
+        uint8_t cin   = rx.header & 0x0F;
+        uint8_t pitch = rx.byte2  & 0x7F;
+        uint8_t vel   = rx.byte3  & 0x7F;
+        bool is_on  = (cin == 0x09 && vel > 0);
+        bool is_off = (cin == 0x08) || (cin == 0x09 && vel == 0);
+
+        if (is_on) {
+          // If every keyboard note had been released before this press AND
+          // the buffer already has content, treat the new note as the start
+          // of a replacement chord — wipe the buffer first. Lets the user
+          // fumble, lift everything, and replay during the same step hold.
+          bool held_was_empty = true;
+          for (uint8_t b = 0; b < 16; b++) {
+            if (midi_capture_held[b]) { held_was_empty = false; break; }
+          }
+          if (held_was_empty && midi_capture_count > 0) {
+            for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++) midi_capture_buf[n] = -1;
+            midi_capture_count = 0;
+          }
+          midi_capture_held[pitch >> 3] |= (uint8_t)(1u << (pitch & 7));
+
+          // Insertion-sort (ascending) with dedupe; cap at MAX_CHORD_NOTES.
+          bool exists = false;
+          for (uint8_t n = 0; n < midi_capture_count; n++) {
+            if (midi_capture_buf[n] == (int8_t)pitch) { exists = true; break; }
+          }
+          if (!exists && midi_capture_count < MAX_CHORD_NOTES) {
+            uint8_t ins = midi_capture_count;
+            for (uint8_t n = 0; n < midi_capture_count; n++) {
+              if (midi_capture_buf[n] > (int8_t)pitch) { ins = n; break; }
+            }
+            for (int8_t n = (int8_t)midi_capture_count; n > (int8_t)ins; n--) {
+              midi_capture_buf[n] = midi_capture_buf[n - 1];
+            }
+            midi_capture_buf[ins] = (int8_t)pitch;
+            midi_capture_count++;
+            if (midi_capture_count == 1) midi_capture_first_velocity = vel;
+            midi_capture_dirty = true;
+          }
+        } else if (is_off) {
+          midi_capture_held[pitch >> 3] &= (uint8_t)~(1u << (pitch & 7));
+        }
+      }
     }
 
   } while (rx.header != 0);

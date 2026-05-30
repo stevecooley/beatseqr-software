@@ -310,11 +310,38 @@ void stepsend(int current_step, int last_step) {
       if (shifted > 127) shifted = 127;
       uint8_t root = (uint8_t)shifted;
 
-      // Build chord pitches from the root. step_chord_type defaults to 0
-      // (single note); the build function returns just the root, so single-note
-      // playback is identical to the pre-chord-mode behavior.
+      // Chord source: a captured MIDI keyboard chord (step_custom_chord) wins
+      // over the standard root + step_chord_type path. Captured pitches are
+      // literal MIDI numbers from the keyboard; still subject to octave/note
+      // shift and scale snap so global offsets behave consistently across
+      // every step regardless of source.
       uint8_t chord_out[MAX_CHORD_NOTES];
-      uint8_t chord_n = build_chord_pitches(root, step_chord_type[pattern_value][play_step], chord_out);
+      uint8_t chord_n = 0;
+      if (step_custom_chord[pattern_value][play_step][0] >= 0) {
+        for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++) {
+          int8_t pp = step_custom_chord[pattern_value][play_step][n];
+          if (pp < 0) break;
+          int16_t sp = (int16_t)pp;
+          if (ft_octave_note_shift) {
+            sp += (int16_t)(octave_shift * 12) + (int16_t)note_shift;
+          }
+          if (sp < 0)   sp = 0;
+          if (sp > 127) sp = 127;
+          if (ft_scale_quantization && scale_type != 0 && scale_note_count > 0) {
+            sp = (int16_t)quantize_to_scale((uint8_t)sp);
+          }
+          chord_out[chord_n++] = (uint8_t)sp;
+        }
+        // Slot-0 of step_custom_chord is the lowest captured pitch; promote
+        // it to root so LCD line 2 + the chord-builder fallback below see a
+        // consistent value.
+        root = chord_out[0];
+      } else {
+        // Build chord pitches from the root. step_chord_type defaults to 0
+        // (single note); the build function returns just the root, so
+        // single-note playback is identical to the pre-chord-mode behavior.
+        chord_n = build_chord_pitches(root, step_chord_type[pattern_value][play_step], chord_out);
+      }
 
       // Total drift = global pitch_drift (if enabled) + per-step drift (if
       // step_drift_enabled is set). Applied per chord note so clusters shimmer.

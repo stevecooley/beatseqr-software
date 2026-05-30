@@ -50,6 +50,8 @@
 //  2119    1      current_chord_type (paint-active chord type, 0..CHORD_COUNT-1)
 //  2120    1      ft_chord_mode (bool)
 //  2121    1      slider_noise_threshold (raw ADC; 12=Low 24=Med 48=High)
+//  2122    1      ft_midi_program_mode (bool)
+//  2123    1536   step_custom_chord[16][16][6] (-1 stored as 0xFF; pitch 0..127 raw)
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -88,8 +90,10 @@
 #define EEPROM_CURRENT_CHORD_ADDR    2119   // 1 byte: current_chord_type
 #define EEPROM_FT_CHORD_ADDR         2120   // 1 byte: ft_chord_mode
 #define EEPROM_SLIDER_NOISE_ADDR     2121   // 1 byte: slider_noise_threshold (12/24/48)
+#define EEPROM_FT_MIDI_PROG_ADDR     2122   // 1 byte: ft_midi_program_mode (bool)
+#define EEPROM_CUSTOM_CHORD_ADDR     2123   // 1536 bytes: step_custom_chord[16][16][6]
 
-#define EEPROM_MAGIC_VALUE  0xD3  // bumped: slider_noise_threshold added at 2121
+#define EEPROM_MAGIC_VALUE  0xD4  // bumped: ft_midi_program_mode + step_custom_chord added
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -197,6 +201,15 @@ void save_to_eeprom() {
   EEPROM.write(EEPROM_FT_CHORD_ADDR, (uint8_t)ft_chord_mode);
 
   EEPROM.write(EEPROM_SLIDER_NOISE_ADDR, slider_noise_threshold);
+
+  EEPROM.write(EEPROM_FT_MIDI_PROG_ADDR, (uint8_t)ft_midi_program_mode);
+  {
+    int addr = EEPROM_CUSTOM_CHORD_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int s = 0; s < 16; s++)
+        for (int n = 0; n < MAX_CHORD_NOTES; n++)
+          EEPROM.write(addr++, (uint8_t)step_custom_chord[p][s][n]);
+  }
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -406,6 +419,22 @@ bool load_from_eeprom() {
   {
     uint8_t v = EEPROM.read(EEPROM_SLIDER_NOISE_ADDR);
     if (v == 12 || v == 24 || v == 48) slider_noise_threshold = v;
+  }
+
+  {
+    uint8_t v = EEPROM.read(EEPROM_FT_MIDI_PROG_ADDR);
+    if (v <= 1) ft_midi_program_mode = (bool)v;
+  }
+  {
+    // Stored as raw bytes: 0xFF = -1 (empty slot), 0..127 = pitch, anything
+    // else is corrupt and falls back to -1.
+    int addr = EEPROM_CUSTOM_CHORD_ADDR;
+    for (int p = 0; p < 16; p++)
+      for (int s = 0; s < 16; s++)
+        for (int n = 0; n < MAX_CHORD_NOTES; n++) {
+          uint8_t v = EEPROM.read(addr++);
+          step_custom_chord[p][s][n] = (v <= 127) ? (int8_t)v : (int8_t)-1;
+        }
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm

@@ -1088,7 +1088,7 @@ void run_reset_submenu() {
 // Features submenu
 // ---------------------------------------------------------------------------
 
-#define FEATURE_COUNT 16
+#define FEATURE_COUNT 17
 
 static const char* _feature_names[FEATURE_COUNT] = {
   "Advanced mode   ",
@@ -1098,6 +1098,7 @@ static const char* _feature_names[FEATURE_COUNT] = {
   "Ext clock       ",
   "Gate sliders    ",
   "Live CC mode    ",
+  "MIDI program    ",
   "Note audition   ",
   "Note scales     ",
   "Oct/note shift  ",
@@ -1117,6 +1118,7 @@ static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
   &ft_external_clock,
   &ft_gate_mode,
   &ft_live_cc_mode,
+  &ft_midi_program_mode,
   &ft_note_audition,
   &ft_scale_quantization,
   &ft_octave_note_shift,
@@ -1163,12 +1165,15 @@ static void _apply_feature_disable(uint8_t idx) {
     case 6:  // live CC mode — if currently in LV mode, drop back to NN
       if (slider_mode == 6) set_slider_mode(1);
       break;
-    case 7:  // note audition — cancel any sounding audition immediately
+    case 7:  // MIDI program — discard any in-flight capture
+      midi_capture_discard();
+      break;
+    case 8:  // note audition — cancel any sounding audition immediately
 #if FEATURE_NOTE_AUDITION
       audition_cancel();
 #endif
       break;
-    case 15:  // velocity sliders — if currently in VL mode, drop back to NN
+    case 16:  // velocity sliders — if currently in VL mode, drop back to NN
       if (slider_mode == 2) set_slider_mode(1);
       break;
     default: break;

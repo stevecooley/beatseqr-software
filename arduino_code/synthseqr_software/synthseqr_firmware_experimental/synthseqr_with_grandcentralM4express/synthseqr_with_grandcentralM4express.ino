@@ -53,6 +53,15 @@ void setup() {
   seq.setMidiHandler(midi);
   seq.setStepHandler(stepsend);
 
+  // Default all captured chord slots to -1 (empty) before load_from_*.
+  // Loaders only overwrite slots that were explicitly saved, so any pattern
+  // saved before this feature existed stays in the "no captured chord" state.
+  for (int p = 0; p < 16; p++)
+    for (int s = 0; s < 16; s++)
+      for (int n = 0; n < MAX_CHORD_NOTES; n++)
+        step_custom_chord[p][s][n] = -1;
+  for (int b = 0; b < 16; b++) midi_capture_held[b] = 0;
+
   // Restore saved state. SD is tried first (all 16 patterns + settings);
   // falls back to EEPROM (4 patterns) if no card or no autosave found.
   boot_load();

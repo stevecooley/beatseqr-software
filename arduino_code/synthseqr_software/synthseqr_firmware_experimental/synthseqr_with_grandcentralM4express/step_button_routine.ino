@@ -43,12 +43,28 @@ void audition_step_note(int step, uint8_t gate_steps) {
   if (shifted > 127) shifted = 127;
   uint8_t root = (uint8_t)shifted;
 
-  // Build chord pitches from the root. step_chord_type defaults to 0 (single
-  // note); the build returns just the root in that case. Reading the array
-  // directly matches stepsend — no ft_chord_mode guard, so a step keeps its
-  // assigned chord even if the feature flag is later toggled off.
+  // Chord source: a captured MIDI keyboard chord wins over the standard
+  // root + step_chord_type path — matches stepsend() so preview = playback.
   uint8_t chord_out[MAX_CHORD_NOTES];
-  uint8_t chord_n = build_chord_pitches(root, step_chord_type[pattern_value][step], chord_out);
+  uint8_t chord_n = 0;
+  if (step_custom_chord[pattern_value][step][0] >= 0) {
+    for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++) {
+      int8_t pp = step_custom_chord[pattern_value][step][n];
+      if (pp < 0) break;
+      int16_t sp = (int16_t)pp;
+      if (ft_octave_note_shift) {
+        sp += (int16_t)(octave_shift * 12) + (int16_t)note_shift;
+      }
+      if (sp < 0)   sp = 0;
+      if (sp > 127) sp = 127;
+      if (ft_scale_quantization && scale_type != 0 && scale_note_count > 0) {
+        sp = (int16_t)quantize_to_scale((uint8_t)sp);
+      }
+      chord_out[chord_n++] = (uint8_t)sp;
+    }
+  } else {
+    chord_n = build_chord_pitches(root, step_chord_type[pattern_value][step], chord_out);
+  }
 
   uint8_t vel = voice_slider_midivelocity[step];
   unsigned long gate_ms = (unsigned long)((float)gate_steps * 60000.0f / TEMPO / 4.0f);
@@ -111,6 +127,8 @@ void run_step_button_routine()
           step_drift_enabled[i][s] = step_drift_enabled[current_pattern][s];
           step_drift_amount[i][s] = step_drift_amount[current_pattern][s];
           step_chord_type[i][s] = step_chord_type[current_pattern][s];
+          for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++)
+            step_custom_chord[i][s][n] = step_custom_chord[current_pattern][s][n];
         }
 #if FEATURE_CC_MODE
         cc_number[i] = cc_number[current_pattern];
@@ -136,6 +154,76 @@ void run_step_button_routine()
   }
 }
 
+
+// Reset MIDI keyboard capture state (buffer, held mask, dirty flag, armed
+// step). Called when discarding a partial capture (gate-set gesture wins,
+// menu opens, etc.) and as part of the post-commit cleanup.
+void midi_capture_discard() {
+  for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++) midi_capture_buf[n] = -1;
+  for (uint8_t b = 0; b < 16; b++)              midi_capture_held[b] = 0;
+  midi_capture_count          = 0;
+  midi_capture_first_velocity = 127;
+  midi_capture_dirty          = false;
+  midi_capture_step           = -1;
+}
+
+// Arm MIDI keyboard capture for a step. If a DIFFERENT step already has a
+// pending dirty capture, commit it first — typically happens when the user
+// holds step A, plays a chord, then presses step B to define a gate range.
+// Returns true if a commit ran, so the caller can suppress a same-loop
+// deferred toggle that would otherwise undo the just-committed activation.
+bool midi_capture_arm(int step) {
+  bool committed = false;
+  if (midi_capture_step >= 0 && midi_capture_step != (int8_t)step && midi_capture_dirty) {
+    midi_capture_commit(midi_capture_step);
+    committed = true;
+  }
+  midi_capture_discard();
+  midi_capture_step = (int8_t)step;
+  return committed;
+}
+
+// Commit the current capture buffer to step_custom_chord[][] and activate
+// the step. Called when a step button is released and at least one MIDI
+// note was captured. Promotes the lowest captured pitch into the slider
+// pitch state so moving the NN slider afterwards erases the custom chord
+// cleanly. Also resets step_chord_type to 0 so the custom-chord branch
+// in stepsend() / audition_step_note() is the unambiguous winner.
+void midi_capture_commit(int step) {
+  if (midi_capture_count == 0) return;
+  for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++) {
+    step_custom_chord[pattern_value][step][n] =
+        (n < midi_capture_count) ? midi_capture_buf[n] : -1;
+  }
+  uint8_t low = (uint8_t)midi_capture_buf[0];
+  voice_slider_midinotenum[step]                = low;
+  pattern_step_pitches[pattern_value][step]     = low;
+  pattern_step_velocities[pattern_value][step]  = midi_capture_first_velocity;
+  if (ft_chord_mode) step_chord_type[pattern_value][step] = 0;
+  step_data[pattern_value][0][step] = 1;
+  step_leds[step].on();
+  seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[step], 127, step);
+  // Arm pickup for this slider — the physical NN slider is almost certainly
+  // NOT at the captured low pitch, and without this the next slider read
+  // would overwrite voice_slider_midinotenum (and trigger the custom-chord
+  // eraser) within 20 ms, wiping the capture before it ever played.
+  // For Catch mode: user must physically cross the captured pitch to engage.
+  // For Jump mode:  user must move past JUMP_RAW_THRESHOLD to engage.
+  // For Relative:   pickup is ignored; only an intentional value_delta clears.
+  // Seed last_raw too so Relative mode doesn't compute a phantom delta from
+  // any motion that happened during the capture session.
+  slider_needs_pickup[step] = true;
+  slider_last_raw[step]     = voice_sliders[step].getValue();
+
+  // LCD feedback: case 204 reads these and shows "Cap S{s} N{n}" briefly.
+  // Setting both lcdflag and next_lcdflag is required (LCD.ino syncs them
+  // at the top of every frame, so a bare lcdflag write is overwritten).
+  midi_capture_lcd_step  = (int8_t)step;
+  midi_capture_lcd_count = midi_capture_count;
+  lcdflag      = 204;
+  next_lcdflag = 204;
+  update_line2 = true;
+}
 
 // Turn a step ON if it isn't already. Seeds pitch from live slider position on
 // blank patterns. Used by the gate-set gesture so the source step is guaranteed
@@ -204,8 +292,11 @@ void do_step_toggle(int i)
   } else {
     step_gate[pattern_value][i] = 1;  // gate resets when step is turned off
     // Clear chord type too — keeps step_chord_type aligned with step_data
-    // so re-activating the step starts from a clean slate.
+    // so re-activating the step starts from a clean slate. Also discard
+    // any captured MIDI chord since the step is being silenced.
     if (ft_chord_mode) step_chord_type[pattern_value][i] = 0;
+    for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++)
+      step_custom_chord[pattern_value][i][n] = -1;
     seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[i], 0, i);
   }
 }
@@ -245,6 +336,21 @@ void detect_step_button_presses()
 #endif
   }
 
+  // MIDI keyboard capture release: if the armed step has been released and
+  // notes were captured, commit them and suppress any deferred toggle that
+  // would otherwise turn the step off (the commit already activates it).
+  // Runs in every slider mode — capture is armed on press regardless of mode.
+  if (midi_capture_step >= 0 && !step_buttons[midi_capture_step].wasPressed()) {
+    int8_t captured_step = midi_capture_step;
+    bool   committed     = midi_capture_dirty;
+    if (committed) midi_capture_commit(captured_step);
+    midi_capture_discard();
+    if (committed && gate_hold_step == captured_step) {
+      gate_hold_step     = -1;
+      gate_gesture_fired = false;
+    }
+  }
+
   // Release check: if the tracked hold step was released, fire its deferred
   // toggle unless a gate gesture already consumed this hold.
   if (gate_hold_step >= 0 && !step_buttons[gate_hold_step].wasPressed()) {
@@ -257,6 +363,13 @@ void detect_step_button_presses()
 
   for (int i = 0; i <= 15; i++) {
     if (!step_buttons[i].uniquePress()) continue;
+
+    // Arm MIDI keyboard capture for this step in every slider mode. If a
+    // pending capture on a DIFFERENT step gets committed here (gate-set
+    // sequence: hold A, play chord, tap B), suppress this loop's double-tap
+    // toggle below — the commit already activated that step.
+    bool just_committed_other = false;
+    if (ft_midi_program_mode) just_committed_other = midi_capture_arm(i);
 
 #if FEATURE_CC_MODE
     if (slider_mode == 4) {
@@ -310,6 +423,9 @@ void detect_step_button_presses()
         }
         gate_flash_end_ms = millis() + 300;
         gate_gesture_fired = true;
+        // Gate-set wins over MIDI capture — discard any partial capture so
+        // the release check doesn't commit to the wrong step.
+        midi_capture_discard();
 #if FEATURE_NOTE_AUDITION
         if (ft_note_audition && !playstatus) audition_step_note(src, gate);
 #endif
@@ -319,9 +435,11 @@ void detect_step_button_presses()
         Serial.print(" gate=");
         Serial.println(gate);
       } else {
-        // Two quick taps (< 150 ms): fire deferred toggle for held step, then
-        // start tracking the new step as the next potential hold source.
-        do_step_toggle(gate_hold_step);
+        // Two quick taps (< 150 ms): fire deferred toggle for held step,
+        // unless a MIDI capture for that same step just committed at the top
+        // of this loop iteration — committing already turned the step on,
+        // and toggling here would turn it back off and wipe the custom chord.
+        if (!just_committed_other) do_step_toggle(gate_hold_step);
         gate_hold_step = i;
         gate_hold_start_ms = millis();
         gate_gesture_fired = false;
@@ -431,6 +549,8 @@ void clear_pattern_memory_for_voice(int voice)
     step_drift_enabled[pattern_value][i] = 0;
     step_drift_amount[pattern_value][i] = 0;
     step_chord_type[pattern_value][i] = 0;
+    for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++)
+      step_custom_chord[pattern_value][i][n] = -1;
     step_leds[i].off();
   }
   return;
@@ -456,6 +576,8 @@ void clear_pattern_memory()
         step_drift_enabled[p][i] = 0;
         step_drift_amount[p][i] = 0;
         step_chord_type[p][i] = 0;
+        for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++)
+          step_custom_chord[p][i][n] = -1;
       }
     }
   }

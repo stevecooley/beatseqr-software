@@ -369,6 +369,9 @@ void listen_for_copy_command() {
                 step_drift_amount[current_pattern][step];
             step_chord_type[copy_pattern_to][step] =
                 step_chord_type[current_pattern][step];
+            for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++)
+              step_custom_chord[copy_pattern_to][step][n] =
+                  step_custom_chord[current_pattern][step][n];
           }
         }
 #if FEATURE_CC_MODE

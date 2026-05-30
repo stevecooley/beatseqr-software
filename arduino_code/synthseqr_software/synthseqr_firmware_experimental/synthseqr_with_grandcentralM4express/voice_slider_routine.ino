@@ -149,6 +149,10 @@ void run_voice_slider_routine()
             voice_slider_midinotenum[j] = (uint8_t)new_stored;
             voice_slider_values[j] = new_stored;
             pattern_step_pitches[pattern_value][j] = (uint8_t)new_stored;
+            // NN slider movement erases any captured MIDI chord so the
+            // standard root + chord_type path takes over again.
+            for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++)
+              step_custom_chord[pattern_value][j][n] = -1;
           }
         }
       } else if (slider_needs_pickup[j]) {
@@ -163,6 +167,10 @@ void run_voice_slider_routine()
         voice_slider_midinotenum[j] = new_value;
         voice_slider_values[j] = new_value;
         pattern_step_pitches[pattern_value][j] = new_value;
+        // NN slider movement erases any captured MIDI chord so the standard
+        // root + chord_type path takes over again.
+        for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++)
+          step_custom_chord[pattern_value][j][n] = -1;
       }
     }
     else if (slider_mode == 2 && ft_velocity_mode)
@@ -433,6 +441,8 @@ void resetSliders()
     step_drift_enabled[pattern_value][i] = 0;
     step_drift_amount[pattern_value][i] = 0;
     step_chord_type[pattern_value][i] = 0;
+    for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++)
+      step_custom_chord[pattern_value][i][n] = -1;
     slider_needs_pickup[i] = false;
     slider_serial_message_factory("NN", i);
     slider_serial_message_factory("CC", i);

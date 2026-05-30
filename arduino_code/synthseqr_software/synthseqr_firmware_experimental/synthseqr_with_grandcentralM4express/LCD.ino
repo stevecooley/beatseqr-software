@@ -349,6 +349,30 @@ void run_LCD_update() {
       next_lcdflag = 255;
       break;
     }
+    case 204:  // MIDI keyboard capture commit confirmation — line 2 for 800 ms
+    {
+      static unsigned long msg_until = 0;
+      if (msg_until == 0) {
+        msg_until = millis() + 800;
+        char buf[20];
+        snprintf(buf, sizeof(buf), "Cap S%02d N%u       ",
+                 midi_capture_lcd_step + 1, (unsigned)midi_capture_lcd_count);
+        buf[16] = '\0';
+        lcd.print("?x00?y1");
+        lcd.print(buf);
+        Serial.print("midi capture commit: ");
+        Serial.println(buf);
+      }
+      if (millis() >= msg_until) {
+        msg_until = 0;
+        update_line1 = true;
+        update_line2 = true;
+        next_lcdflag = 255;
+      } else {
+        next_lcdflag = 204;
+      }
+      break;
+    }
     case 255:
     default: {
       bool did_redraw = false;

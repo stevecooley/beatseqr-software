@@ -33,7 +33,7 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 | `synthseqr_with_grandcentralM4express.ino` | `setup()` and `loop()` — polls all subsystems in order                                                                                                                                                            |
 | `config.h`                                 | All global state: pin definitions, arrays, library includes                                                                                                                                                       |
 | `transport.ino`                            | Play/stop button, MIDI clock output, `stepsend()` callback, `allNotesOff()`                                                                                                                                       |
-| `midi_processor.ino`                       | MIDI input: clock sync (0xF8), start (0xFA), stop (0xFC)                                                                                                                                                          |
+| `midi_processor.ino`                       | MIDI input: clock sync (0xF8), start (0xFA), stop (0xFC); CC Learn; keyboard-programming note capture                                                                                                              |
 | `navigation.ino`                           | D-pad + enter button: adjusts tempo; enter cycles slider mode (NN/VL/GT)                                                                                                                                          |
 | `sequencer_timer.ino`                      | TC4 hardware timer driver: setup, period update, stop/start, ISR                                                                                                                                                  |
 | `step_button_routine.ino`                  | Step button presses, LED toggling, hold+tap gate-set gesture                                                                                                                                                      |
@@ -92,6 +92,15 @@ uint8_t step_drift_enabled[16][16]    // per-step drift on/off (D mode); default
 uint8_t step_drift_amount[16][16]     // per-step drift amount in semitones (0–12); default 0 — additive with pitch_drift
 uint8_t step_chord_type[16][16]       // per-step chord type index (CH mode); 0 = single note, 1..CHORD_COUNT-1 = chord from CHORDS[]
 uint8_t current_chord_type            // "paint-active" chord type — written into step_chord_type when activating a step; adjusted via DPAD_MAIN_MODE_CHORD or CH-mode sliders
+int8_t  step_custom_chord[16][16][MAX_CHORD_NOTES]  // per-step captured chord pitches from external MIDI keyboard programming; slot 0 = lowest pitch (sorted), -1 = empty. When slot 0 >= 0 the step plays these literal pitches (still subject to octave/note shift + scale snap + drift) and step_chord_type is ignored for that step.
+int8_t  midi_capture_step             // -1 idle; else step index currently being programmed via held-step + keyboard
+int8_t  midi_capture_buf[MAX_CHORD_NOTES]  // sorted (ascending), deduped capture buffer
+uint8_t midi_capture_count            // count of valid entries in midi_capture_buf
+uint8_t midi_capture_first_velocity   // velocity of the first note received; used as step velocity on commit
+bool    midi_capture_dirty            // true if any note has been captured during the current step hold
+uint8_t midi_capture_held[16]         // 128-bit set: bit (pitch & 7) of byte (pitch >> 3) — currently-held keyboard notes
+int8_t  midi_capture_lcd_step         // step index for case 204 "Cap S{s} N{n}" line-2 feedback (-1 idle)
+uint8_t midi_capture_lcd_count        // note count for case 204 feedback
 uint8_t slider_hi_trim                // extra notes added to slider_map_high_value at mapping time for physical calibration (0–4); default 0
 uint8_t slider_noise_threshold        // raw ADC counts a slider must move from its rest snapshot to register overlay activity; presets 12 (Low) / 24 (Med, default) / 48 (High)
 uint8_t slider_takeover               // 0=Catch (cross stored value), 1=Jump (engage on first movement), 2=Relative (delta from stored); default 0
@@ -138,7 +147,7 @@ unsigned long  audition_note_off_ms    // millis() timestamp when the audition o
 1. `seq.run()` (FifteenStep) ticks the sequencer on each `loop()` call
 2. Timing is driven by the **TC4 hardware timer** (internal mode) or **incoming USB-MIDI 0xF8** (external mode) — both call `seq.hardwareClockPulse()` which sets volatile flags; `seq.run()` processes those flags in main-loop context
 3. On each step change, `stepsend(current_step, last_step)` fires as the step callback
-4. `stepsend()` first computes `play_step` from `current_step` via the `pattern_direction` switch (Fwd=identity; Rev=mirror; Pong=ping_pong_step counter; Rand=random(); Shuf=shuffle_order[shuffle_pos]; E/O=even-then-odd interleave; In=outside-in; Quad=Q1,Q3,Q2,Q4 reordering). Then it scans all 16 `sounding_note_end_step[]` entries — any slot whose end-step equals `current_step` walks `sounding_chord[i][0..5]` and sends note-off for each non-empty slot (gate timing is always in hardware clock steps; all chord notes share one end-step). If `step_data[pattern][0][play_step]` is on, `step_probability[pattern][play_step]` is checked: the step fires only if `prob >= 100` or `random(100) < prob`. If it fires: (a) the root pitch is computed (slider stored pitch + octave/note shift + scale snap, clamped to 0..127); (b) `build_chord_pitches(root, step_chord_type[pattern][play_step], chord_out)` produces 1..6 MIDI pitches — with `step_chord_type == 0` this is just the root, byte-identical to single-note playback; (c) per-chord-note loop: each pitch gets independent drift applied (`total_drift = pitch_drift (if enabled) + step_drift_amount[pattern][play_step] (if step_drift_enabled is set and ft_drift_mode is on)`; one random offset in `[-total_drift, +total_drift]` per note), clamped to **0..127** (MIDI range, NOT slider range — slider range is for sweep, not playback after octave/note shift), and re-quantized to the active scale if any. Note-on is sent for each chord note and stored in `sounding_chord[play_step][n]`. `sounding_note_end_step[play_step]` is set to `(current_step + step_gate[pattern][play_step]) % pattern_length`. `last_triggered_step` is updated to `play_step` and `update_line2` is set for the LCD. If `cc_step_enabled[pattern][play_step]` is set, a CC message is sent using `cc_number[pattern]` and `cc_step_values[pattern][play_step]`; CC steps fire independently of note probability.
+4. `stepsend()` first computes `play_step` from `current_step` via the `pattern_direction` switch (Fwd=identity; Rev=mirror; Pong=ping_pong_step counter; Rand=random(); Shuf=shuffle_order[shuffle_pos]; E/O=even-then-odd interleave; In=outside-in; Quad=Q1,Q3,Q2,Q4 reordering). Then it scans all 16 `sounding_note_end_step[]` entries — any slot whose end-step equals `current_step` walks `sounding_chord[i][0..5]` and sends note-off for each non-empty slot (gate timing is always in hardware clock steps; all chord notes share one end-step). If `step_data[pattern][0][play_step]` is on, `step_probability[pattern][play_step]` is checked: the step fires only if `prob >= 100` or `random(100) < prob`. If it fires: (a) the root pitch is computed (slider stored pitch + octave/note shift + scale snap, clamped to 0..127); (b) the chord pitches are sourced — if `step_custom_chord[pattern][play_step][0] >= 0` the stored captured pitches are used (each shifted + scale-snapped same as the standard root path), and slot 0 is promoted to `root` for LCD/feedback; otherwise `build_chord_pitches(root, step_chord_type[pattern][play_step], chord_out)` produces 1..6 MIDI pitches from the table — with `step_chord_type == 0` this is just the root, byte-identical to single-note playback; (c) per-chord-note loop: each pitch gets independent drift applied (`total_drift = pitch_drift (if enabled) + step_drift_amount[pattern][play_step] (if step_drift_enabled is set and ft_drift_mode is on)`; one random offset in `[-total_drift, +total_drift]` per note), clamped to **0..127** (MIDI range, NOT slider range — slider range is for sweep, not playback after octave/note shift), and re-quantized to the active scale if any. Note-on is sent for each chord note and stored in `sounding_chord[play_step][n]`. `sounding_note_end_step[play_step]` is set to `(current_step + step_gate[pattern][play_step]) % pattern_length`. `last_triggered_step` is updated to `play_step` and `update_line2` is set for the LCD. If `cc_step_enabled[pattern][play_step]` is set, a CC message is sent using `cc_number[pattern]` and `cc_step_values[pattern][play_step]`; CC steps fire independently of note probability.
 5. On stop (play button or MIDI stop), `allNotesOff()` walks `sounding_chord[16][6]` and sends note-off for every non-empty slot, then clears both the 2D chord array and `sounding_note_end_step[]`
 
 ## Hardware Timer (TC4)
@@ -266,9 +275,40 @@ The 16 voice sliders operate in one of eight modes:
 
 **CH persistence**: `step_chord_type[16][16]` is saved to SD JSON (per-pattern `"chord_types":[16]`) and EEPROM (address 1863, 256 bytes). `current_chord_type` is saved to SD (`"current_chord_type"`) and EEPROM (address 2119). `ft_chord_mode` is also persisted (SD `"ft_chord_mode"`; EEPROM address 2120). The `chord_types` per-pattern array is optional in JSON — older saves without it default to 0 (single note) for every step. Bumping `EEPROM_MAGIC_VALUE` to 0xD2 forces old EEPROM saves to be ignored on first boot after the upgrade (SD saves still load cleanly). `EEPROM_EMULATION_SIZE` was bumped from 2048 to 4096 because the chord fields push the layout past the old 2KB buffer.
 
+## MIDI Keyboard Programming
+
+Hold a step button + play notes on a USB-MIDI keyboard → the step captures the played notes as arbitrary pitches. Works in every slider mode. Gated by `ft_midi_program_mode` (default ON; toggle from Features → MIDI program).
+
+**Capture flow** (`read_midi()` in `midi_processor.ino`):
+- Per-loop step-press scan in `detect_step_button_presses()` calls `midi_capture_arm(i)` at the top of each `uniquePress` branch. This sets `midi_capture_step = i` and clears the buffer.
+- `read_midi()` branches on USB-MIDI CIN 0x09 (note-on) and 0x08 (note-off). Channel is ignored.
+- Note-on (vel > 0): insertion-sort by pitch into `midi_capture_buf` (ascending, deduped, capped at `MAX_CHORD_NOTES`); update `midi_capture_held` bit; set `midi_capture_first_velocity` if this is the first note; set `midi_capture_dirty = true`. **Fresh-strum-replaces-buffer rule**: if the held-keys mask was empty before this note AND the buffer is non-empty, the buffer is wiped first — so "lift everything and replay" overrides the previous strum during the same step hold.
+- Note-off (or note-on with vel == 0): clear the held-keys bit. The buffer is NOT cleared on note-off — capture accumulates the maximum set across the entire hold session.
+
+**Commit timing**: capture commits on step-button release, NOT on every "all keys released." The release check at the top of `detect_step_button_presses()` runs each loop. When `midi_capture_step >= 0 && !step_buttons[midi_capture_step].wasPressed()`:
+- If `midi_capture_dirty`, `midi_capture_commit(step)` writes the buffer to `step_custom_chord[pattern][step]`, promotes the lowest captured pitch into `voice_slider_midinotenum[step]` + `pattern_step_pitches[pattern][step]`, writes `midi_capture_first_velocity` into `pattern_step_velocities[pattern][step]`, resets `step_chord_type[pattern][step] = 0` (custom-chord branch wins anyway, but keeps state clean), activates the step (`step_data[pattern][0][step] = 1`, LED on), arms `slider_needs_pickup[step] = true`, and seeds `slider_last_raw[step]` from the current ADC reading.
+- `midi_capture_discard()` then clears all capture state.
+- If the committed step is also the `gate_hold_step`, that field is cleared so the deferred-toggle release check doesn't fire after a commit.
+
+**Slider pickup after commit (critical)**: `midi_capture_commit()` MUST set `slider_needs_pickup[step] = true` rather than `false`. The physical NN slider is almost never at the captured low pitch; without pickup the next slider read writes `voice_slider_midinotenum[step]` to the slider's physical value, triggering the custom-chord eraser in `voice_slider_routine.ino` within 20 ms and silently wiping the capture. Pickup behavior depends on takeover mode: Catch requires moving the slider through the captured pitch; Jump requires `JUMP_RAW_THRESHOLD` movement; Relative ignores pickup but still only writes on a non-zero `value_delta`.
+
+**NN slider erases custom chord**: When the NN-mode slider write path updates `voice_slider_midinotenum[j]` and `pattern_step_pitches[pattern][j]`, it also clears `step_custom_chord[pattern][j][n]` to all -1. Moving the slider is the eraser — no separate gesture needed. Also fires in Relative mode for any non-zero `value_delta`. CH slider writes don't trigger the eraser because they write `step_chord_type`, not `voice_slider_midinotenum` — which is why CH mode can capture without the pickup-after-commit fix.
+
+**Custom chord clears on step OFF**: `do_step_toggle()` zeroes `step_custom_chord[pattern][i]` along with `step_chord_type` when toggling a step off, so re-activating the step starts from a clean slate.
+
+**Gate-set after capture**: hold step A, play chord, release notes, then (still holding A) tap step B to set gate length. `midi_capture_arm(B)` returns `bool` — if a different step had a pending dirty capture, it commits that capture first (turning A on with the chord) before arming B. The gate-set gesture then runs normally: `do_step_on(A)` is a no-op because A is already on, and `step_gate[pattern][A]` is set to the forward distance. A keeps its chord AND gets the new gate. The double-tap branch (second tap within 150 ms) consults the `just_committed_other` return so it doesn't toggle A back off after the commit just turned it on.
+
+**Gate-set wins over capture for the destination step**: when the gate gesture fires, `midi_capture_discard()` clears any in-flight capture state for the second-tapped step. The held step's capture has already been committed by `midi_capture_arm` at the top of the loop.
+
+**Octave/note shift + scale snap**: captured pitches are literal MIDI numbers from the keyboard. At playback time (and audition time) they get `octave_shift` + `note_shift` + scale snap applied the same way slider-stored pitches do, so global transforms behave consistently. If the user wants the captured chord to sound at the literal pitch they played, they disable shifts globally. Per-step drift applies to each captured note independently.
+
+**MIDI program persistence**: `step_custom_chord[16][16][6]` is saved to SD JSON (per-pattern `"custom_chords": [[6 ints], ...16 inner arrays]`; -1 marks empty slots) and EEPROM (address 2123, 1536 bytes; -1 stored as `0xFF`, anything other than 0..127 falls back to -1 on load). `ft_midi_program_mode` is persisted to both (SD `"ft_midi_program_mode"`; EEPROM address 2122). The `custom_chords` per-pattern array is optional in JSON — older saves without it default to all -1 for every step. Bumping `EEPROM_MAGIC_VALUE` to 0xD4 forces old EEPROM saves to be ignored on first boot after the upgrade (SD saves still load cleanly).
+
+**LCD feedback**: `midi_capture_commit()` sets `lcdflag = next_lcdflag = 204`. Case 204 in `run_LCD_update()` shows `"Cap S{s+1:02} N{count}"` on line 2 for 800 ms, then returns to `next_lcdflag = 255`.
+
 **Always boots to NN mode** (`slider_mode = 1`). Mode is not saved to SD/EEPROM — it resets to NN on power-up.
 
-**`resetSliders()`**: Resets all 16 steps' pitches to `slider_map_low_value`, velocities to 127, gates to 1, probabilities to 100, drift to off/0, and chord types to 0, for the current pattern.
+**`resetSliders()`**: Resets all 16 steps' pitches to `slider_map_low_value`, velocities to 127, gates to 1, probabilities to 100, drift to off/0, chord types to 0, and clears `step_custom_chord` to all -1, for the current pattern.
 
 ## Multi-Step Gate Lengths
 
@@ -326,7 +366,7 @@ If neither predicate is true, incoming CC messages are ignored (and still passed
 - **Chain 4 patterns (simple mode)**: Press pattern buttons 0 + 3 simultaneously to toggle
 - **Select pattern 0–15 (advanced mode)**: Hold pattern button 0, tap a step button
 
-**Pattern copy includes velocities, gates, CC data, drift data, and chord data**: Both `listen_for_copy_command()` (simple mode) and the advanced mode 2-phase copy loop copy `pattern_step_velocities`, `step_gate`, `cc_step_enabled`, `cc_step_values`, `cc_number`, `step_probability`, `step_drift_enabled`, `step_drift_amount`, and `step_chord_type` along with `step_data` and `pattern_step_pitches`.
+**Pattern copy includes velocities, gates, CC data, drift data, and chord data**: Both `listen_for_copy_command()` (simple mode) and the advanced mode 2-phase copy loop copy `pattern_step_velocities`, `step_gate`, `cc_step_enabled`, `cc_step_values`, `cc_number`, `step_probability`, `step_drift_enabled`, `step_drift_amount`, `step_chord_type`, and `step_custom_chord` along with `step_data` and `pattern_step_pitches`.
 
 **`go_to_pattern(pattern, silent)`**: Turns all 4 pattern LEDs off, except LED 0 stays on when `adv_pat_nav_active` is true. In simple mode, lights the LED for `pattern % 4`. In advanced mode outside nav mode, no LED is lit — buttons are function keys. `toggle()` was previously used but is state-dependent; always use `on()`. The `silent` parameter is accepted but currently unused.
 
@@ -338,7 +378,7 @@ If neither predicate is true, incoming CC messages are ignored (and still passed
 
 **Chain toggle one-shot guard**: The `isPressed()` check for pattern buttons 0+3 fires every loop iteration while both are held. A `static bool chain_toggle_handled` in `run_pattern_select_routine()` ensures the mode flip and `go_to_pattern()` call happen only once per press. It resets when the buttons are released. Do not remove this guard — without it the mode flips back and forth on every loop frame.
 
-**`clear_pattern_memory()` clears all 16 patterns**: Loops over all 16 patterns (`p = 0..15`) and zeros every step, resets pitches to `slider_map_low_value`, resets velocities to 127, resets gates to 1, resets `step_probability` to 100, clears CC data (enabled and values), clears per-step drift (`step_drift_enabled` and `step_drift_amount` both zero), and clears `step_chord_type` to 0. After clearing, calls `read_step_memory(0, pattern_value)` to refresh the LEDs for the active pattern. `clear_pattern_memory_for_voice(0)` does the same for the current pattern only. These functions are called from the config menu — the old step-button-combo triggers (step 0+15 / step 0+11) have been removed.
+**`clear_pattern_memory()` clears all 16 patterns**: Loops over all 16 patterns (`p = 0..15`) and zeros every step, resets pitches to `slider_map_low_value`, resets velocities to 127, resets gates to 1, resets `step_probability` to 100, clears CC data (enabled and values), clears per-step drift (`step_drift_enabled` and `step_drift_amount` both zero), clears `step_chord_type` to 0, and clears `step_custom_chord` to all -1. After clearing, calls `read_step_memory(0, pattern_value)` to refresh the LEDs for the active pattern. `clear_pattern_memory_for_voice(0)` does the same for the current pattern only. These functions are called from the config menu — the old step-button-combo triggers (step 0+15 / step 0+11) have been removed.
 
 **Pattern chain auto-advance**: When `extended_step_length_mode == 1`, `stepsend()` calls `run_auto_pattern_select_routine()` at `current_step == pattern_length - 1`. This advances `current_pattern` within `chain_start..chain_end`. **Wrap-around chains** (where `chain_start > chain_end`, e.g. start=7, end=2 → plays 7,8,…,15,0,1,2) are fully supported. The advance happens at the start of step 15 so step 15 plays from the current pattern; the new pattern takes over from step 0.
 
@@ -433,6 +473,7 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
 | Live CC mode      | `ft_live_cc_mode`     | Slider mode 6 (LV), Live CC ch menu item (default ON) |
 | Drift mode        | `ft_drift_mode`       | Slider mode 7 (D, per-step drift, additive with global pitch_drift, default ON) |
 | Chord mode        | `ft_chord_mode`       | Slider mode 8 (CH, per-step chord type), DPAD_MAIN_MODE_CHORD target, chord build in `stepsend()` (default ON) |
+| MIDI program      | `ft_midi_program_mode`| Hold step + play USB-MIDI keyboard notes → capture chord onto step (default ON) |
 
 **Double-tap detection**: implemented in the main `loop()` with `last_enter_ms` and `enter_tap_pending` statics. The first tap starts a 400 ms window without immediately setting `enterbutton_flag` — this prevents the first press of a double-tap from accidentally triggering a slider mode change. If a second `uniquePress()` arrives within the window, `enter_config_menu()` fires. If the window expires without a second tap, `enterbutton_flag` is set as a normal single-tap. Single-tap actions are therefore delayed by up to 400 ms, which is imperceptible for mode-cycling use.
 
@@ -487,14 +528,15 @@ Items whose feature flag is disabled are skipped during d-pad scrolling (`config
       "probabilities":[100,100,...16 values],
       "drift_enabled":[0,0,...16 values],
       "drift_amounts":[0,0,...16 values],
-      "chord_types":[0,0,...16 values]
+      "chord_types":[0,0,...16 values],
+      "custom_chords":[[-1,-1,-1,-1,-1,-1], ...16 inner arrays of 6 ints]
     },
     ...16 patterns
   ]
 }
 ```
 
-`pitch_drift`, `probabilities`, `drift_enabled`, `drift_amounts`, and per-pattern `chord_types` are optional in the JSON — older saves without them load cleanly and default to 0 / 100 / 0 / 0 / 0 respectively. The global `ft_chord_mode` and `current_chord_type` keys are also optional (default to feature ON, single-note paint).
+`pitch_drift`, `probabilities`, `drift_enabled`, `drift_amounts`, per-pattern `chord_types`, and per-pattern `custom_chords` are optional in the JSON — older saves without them load cleanly and default to 0 / 100 / 0 / 0 / 0 / all-(-1) respectively. The global `ft_chord_mode`, `ft_midi_program_mode`, and `current_chord_type` keys are also optional (default to feature ON, single-note paint).
 
 **Arduino prototype issue**: The Arduino build tool auto-generates function prototypes before `#include`s are processed. Functions with `File&` parameters fail with "File not declared in this scope". All SD helper functions use a module-level `static File _f` handle instead — no `File` type appears in any function signature. Do not add `File&` parameters to helpers in `sd_storage.ino`.
 
@@ -504,11 +546,11 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 
 **On boot**: `load_from_eeprom()` is called only if `load_from_sd()` returns false. Checks for a magic sentinel byte at address 0. If missing (first boot or layout change), globals keep compiled-in defaults.
 
-**EEPROM layout** (2122 bytes, defined as `#define` constants in `storage.ino`; `EEPROM_EMULATION_SIZE = 4096` to leave headroom):
+**EEPROM layout** (3659 bytes, defined as `#define` constants in `storage.ino`; `EEPROM_EMULATION_SIZE = 4096` — ~440 bytes headroom remaining):
 
 | Address | Size | Content                                        |
 | ------- | ---- | ---------------------------------------------- |
-| 0       | 1    | Magic byte `0xD3`                              |
+| 0       | 1    | Magic byte `0xD4`                              |
 | 1       | 1    | `MIDICHANNEL`                                  |
 | 2       | 1    | `SWING`                                        |
 | 3       | 4    | `TEMPO` (float)                                |
@@ -545,12 +587,14 @@ EEPROM is a **silent fallback** — used only when SD is unavailable on boot. Sa
 | 2119    | 1    | `current_chord_type` (uint8_t, 0..CHORD_COUNT-1)       |
 | 2120    | 1    | `ft_chord_mode` (bool)                                 |
 | 2121    | 1    | `slider_noise_threshold` (uint8_t; 12=Low, 24=Med, 48=High) |
+| 2122    | 1    | `ft_midi_program_mode` (bool)                          |
+| 2123    | 1536 | `step_custom_chord[16][16][6]` (-1 stored as `0xFF`; pitch 0..127 raw) |
 
-**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100; `step_drift_amount` validated 0–12; `step_drift_enabled` coerced to 0/1; `step_chord_type` and `current_chord_type` validated < `CHORD_COUNT` (out-of-range values default to 0); `slider_noise_threshold` accepted only if exactly 12, 24, or 48 (anything else keeps the default 24).
+**Validation**: All loaded values are range-checked so corrupted flash can't break the sequencer. CC numbers validated to be in safe range (1–119, not 32, not 96–101). `pitch_drift` validated 0–7; `step_probability` validated 0–100; `step_drift_amount` validated 0–12; `step_drift_enabled` coerced to 0/1; `step_chord_type` and `current_chord_type` validated < `CHORD_COUNT` (out-of-range values default to 0); `slider_noise_threshold` accepted only if exactly 12, 24, or 48 (anything else keeps the default 24); `step_custom_chord` slots accepted if 0..127 (`0xFF` decoded as -1), anything else falls back to -1.
 
 **`EEPROM.commit()` is required**: `storage.ino` uses `FlashAsEEPROM_SAMD`. All writes buffer in RAM until `commit()` burns to flash. Without it, saves vanish on power-off.
 
-**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xD3` (bumped from `0xD2` for `slider_noise_threshold`). Existing EEPROM-only saves from before the bump are ignored on first boot after the upgrade and globals fall back to compiled defaults; SD saves still load cleanly because the new keys are all optional.
+**Magic byte**: Increment `EEPROM_MAGIC_VALUE` in `storage.ino` whenever the layout changes. Current value: `0xD4` (bumped from `0xD3` for `ft_midi_program_mode` + `step_custom_chord`). Existing EEPROM-only saves from before the bump are ignored on first boot after the upgrade and globals fall back to compiled defaults; SD saves still load cleanly because the new keys are all optional.
 
 **LCD confirmation**: `lcdflag = 202` shows `saved!` for 2 seconds using a `static unsigned long msg_until` timer inside the LCD case, then returns to the main display.
 
@@ -566,7 +610,7 @@ When `ft_note_audition` is true and the sequencer is stopped (`!playstatus`), st
 **`audition_step_note(int step, uint8_t gate_steps)`** (in `step_button_routine.ino`):
 1. Calls `audition_cancel()` to silence any in-flight audition chord (walks `audition_sounding_chord[]`, note-off + flush).
 2. Computes root from `voice_slider_midinotenum[step]` with `octave_shift`, `note_shift`, and scale quantization applied — same transforms as `stepsend()`, but **no pitch drift** (preview is deterministic).
-3. Calls `build_chord_pitches(root, step_chord_type[pattern_value][step], chord_out)` to produce 1..6 MIDI pitches. With `step_chord_type == 0` this is just the root, byte-identical to the pre-chord audition.
+3. Source the chord: if `step_custom_chord[pattern_value][step][0] >= 0` use the stored captured pitches (each octave/note-shifted + scale-snapped); otherwise call `build_chord_pitches(root, step_chord_type[pattern_value][step], chord_out)` to produce 1..6 MIDI pitches. With `step_chord_type == 0` and no captured chord this is just the root, byte-identical to the pre-chord audition.
 4. Sends note-on for each chord pitch using `voice_slider_midivelocity[step]`, stores them in `audition_sounding_chord[]`, and sets `audition_note_off_ms = millis() + gate_ms`. Minimum gate enforced at 50 ms; all chord notes share one envelope.
 
 **`audition_cancel()`**: Helper that walks `audition_sounding_chord[]`, sends note-off for each non-empty slot, clears the slots, and flushes. Used by `audition_step_note()` for cancel-before-retrigger and by the note-off timer + feature disable path.

@@ -191,6 +191,7 @@ bool save_to_sd() {
   _f.print("  \"ft_live_cc_mode\": ");        _f.print(ft_live_cc_mode ? 1 : 0);        _f.println(",");
   _f.print("  \"ft_drift_mode\": ");          _f.print(ft_drift_mode ? 1 : 0);          _f.println(",");
   _f.print("  \"ft_chord_mode\": ");          _f.print(ft_chord_mode ? 1 : 0);          _f.println(",");
+  _f.print("  \"ft_midi_program_mode\": ");   _f.print(ft_midi_program_mode ? 1 : 0);   _f.println(",");
   _f.print("  \"current_chord_type\": ");     _f.print(current_chord_type);             _f.println(",");
   _f.print("  \"live_cc_channel\": ");        _f.print(live_cc_channel);                _f.println(",");
   _f.print("  \"live_cc_numbers\": [");
@@ -255,6 +256,17 @@ bool save_to_sd() {
     _f.print("],\"chord_types\":[");
     for (int s = 0; s < 16; s++) {
       _f.print(step_chord_type[p][s]);
+      if (s < 15) _f.print(",");
+    }
+    _f.print("],\"custom_chords\":[");
+    // 16 inner arrays of MAX_CHORD_NOTES ints each; -1 marks empty slots.
+    for (int s = 0; s < 16; s++) {
+      _f.print("[");
+      for (int n = 0; n < MAX_CHORD_NOTES; n++) {
+        _f.print((int)step_custom_chord[p][s][n]);
+        if (n < MAX_CHORD_NOTES - 1) _f.print(",");
+      }
+      _f.print("]");
       if (s < 15) _f.print(",");
     }
     _f.print("]}");
@@ -430,6 +442,7 @@ bool load_from_sd() {
     _f.seekSet(0); if (sd_find("\"ft_live_cc_mode\":"))        { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_live_cc_mode        = (bool)v; }
     _f.seekSet(0); if (sd_find("\"ft_drift_mode\":"))          { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_drift_mode          = (bool)v; }
     _f.seekSet(0); if (sd_find("\"ft_chord_mode\":"))          { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_chord_mode          = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_midi_program_mode\":"))   { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_midi_program_mode   = (bool)v; }
   }
 
   _f.seekSet(0);
@@ -615,6 +628,32 @@ bool load_from_sd() {
             sd_skip_ws();
             char c = (char)_f.peek();
             if (c == ',' || c == ']') _f.read();
+          }
+        }
+      } else { _f.seekSet(pos); }
+    }
+    {
+      // Per-step custom_chords: 16 inner arrays of MAX_CHORD_NOTES ints each.
+      // -1 = empty slot, 0..127 = MIDI pitch. Wider bounded window because
+      // this is the largest per-pattern field (~600 bytes worst case).
+      uint32_t pos = _f.position();
+      if (sd_find_bounded("\"custom_chords\":", 800)) {
+        if (sd_read_until('[')) {  // outer array
+          for (int s = 0; s < 16; s++) {
+            if (!sd_read_until('[')) break;  // inner array open
+            for (int n = 0; n < MAX_CHORD_NOTES; n++) {
+              sd_skip_ws();
+              int v = (int)sd_parse_number();
+              if (v == -1)                step_custom_chord[p][s][n] = -1;
+              else if (v >= 0 && v <= 127) step_custom_chord[p][s][n] = (int8_t)v;
+              else                         step_custom_chord[p][s][n] = -1;
+              sd_skip_ws();
+              char c = (char)_f.peek();
+              if (c == ',' || c == ']') _f.read();
+            }
+            sd_skip_ws();
+            char c = (char)_f.peek();
+            if (c == ',' || c == ']') _f.read();  // outer-array separator
           }
         }
       } else { _f.seekSet(pos); }
