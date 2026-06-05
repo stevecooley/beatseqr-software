@@ -31,6 +31,11 @@
 //  2453  128    voice_cc_value[16][8]
 //  2581  8      voice_cc_enabled[8]
 //  2589  16     cc_number[16]
+//  2605  128    voice_probability[16][8]
+//  2733  1      slider_takeover (0=Catch 1=Jump 2=Relative)
+//  2734  11     ft_* feature flags (one byte each)
+//  2745  1      swing_knob_function (0=Swing 1=Tempo 2=Pattern 3=Voice)
+//  ---- 2746 bytes total ----
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -58,8 +63,11 @@
 #define EEPROM_VOICE_CC_EN_ADDR       2581   // 8 bytes:   voice_cc_enabled[8]
 #define EEPROM_CC_NUMBERS_ADDR        2589   // 16 bytes:  cc_number[16]
 #define EEPROM_VOICE_PROB_ADDR        2605   // 128 bytes: voice_probability[16][8]
+#define EEPROM_TAKEOVER_ADDR          2733   // 1 byte:   slider_takeover (0/1/2)
+#define EEPROM_FT_FLAGS_ADDR          2734   // 11 bytes: ft_* feature flags
+#define EEPROM_SWING_KNOB_FN_ADDR     2745   // 1 byte:   swing_knob_function (0–3)
 
-#define EEPROM_MAGIC_VALUE  0xBF  // bumped: added voice_probability
+#define EEPROM_MAGIC_VALUE  0xC1  // bumped: added swing_knob_function
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -119,6 +127,23 @@ void save_to_eeprom() {
       for (int v = 0; v < VOICE_COUNT; v++)
         EEPROM.write(addr++, voice_probability[p][v]);
   }
+
+  EEPROM.write(EEPROM_TAKEOVER_ADDR, slider_takeover);
+
+  // Feature flags — order must match load_from_eeprom() below.
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 0,  (uint8_t)ft_advanced_mode);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 1,  (uint8_t)ft_cc_mode);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 2,  (uint8_t)ft_probability);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 3,  (uint8_t)ft_gate_mode);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 4,  (uint8_t)ft_velocity_mode);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 5,  (uint8_t)ft_scale_quantization);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 6,  (uint8_t)ft_pattern_direction);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 7,  (uint8_t)ft_variable_pat_length);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 8,  (uint8_t)ft_external_clock);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 9,  (uint8_t)ft_octave_note_shift);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 10, (uint8_t)ft_diagnostics);
+
+  EEPROM.write(EEPROM_SWING_KNOB_FN_ADDR, swing_knob_function);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   EEPROM.commit();
@@ -242,9 +267,35 @@ bool load_from_eeprom() {
       }
   }
 
-  // Arm pickup guards so sliders don't immediately overwrite loaded values.
-  for (int v = 0; v < VOICE_COUNT; v++)
-    slider_needs_pickup[v] = true;
+  {
+    uint8_t t = EEPROM.read(EEPROM_TAKEOVER_ADDR);
+    if (t <= 2) slider_takeover = t;
+  }
+
+  // Feature flags — order must match save_to_eeprom() above.
+  ft_advanced_mode       = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 0)  ? true : false;
+  ft_cc_mode             = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 1)  ? true : false;
+  ft_probability         = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 2)  ? true : false;
+  ft_gate_mode           = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 3)  ? true : false;
+  ft_velocity_mode       = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 4)  ? true : false;
+  ft_scale_quantization  = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 5)  ? true : false;
+  ft_pattern_direction   = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 6)  ? true : false;
+  ft_variable_pat_length = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 7)  ? true : false;
+  ft_external_clock      = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 8)  ? true : false;
+  ft_octave_note_shift   = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 9)  ? true : false;
+  ft_diagnostics         = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 10) ? true : false;
+
+  {
+    uint8_t f = EEPROM.read(EEPROM_SWING_KNOB_FN_ADDR);
+    if (f < SWING_KNOB_FN_COUNT) swing_knob_function = f;
+  }
+
+  // Arm pickup guards so sliders don't immediately overwrite loaded values
+  // (Catch only; Jump/Relative don't use pickup). Seed last_raw for Relative.
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    slider_needs_pickup[v] = (slider_takeover == 0);
+    slider_last_raw[v]     = voice_sliders[v].getValue();
+  }
 
   // Reset ping-pong state so playback starts from the beginning.
   ping_pong_step = 0;

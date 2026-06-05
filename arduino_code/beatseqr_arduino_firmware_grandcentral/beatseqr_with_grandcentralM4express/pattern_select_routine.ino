@@ -33,11 +33,11 @@ void run_pattern_select_routine() {
     }
     if (pattern_select_button_flags[2]) {
       pattern_select_button_flags[2] = false;
-      set_slider_mode(3);  // GT
+      if (slider_mode_enabled(3)) set_slider_mode(3);  // GT
     }
     if (pattern_select_button_flags[3]) {
       pattern_select_button_flags[3] = false;
-      set_slider_mode(2);  // VL
+      if (slider_mode_enabled(2)) set_slider_mode(2);  // VL
     }
 
     // Pattern LEDs: 0 = nav mode; 1/2/3 = active slider mode.

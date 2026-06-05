@@ -72,13 +72,15 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 // Modal config menu entered by double-tapping the knob_mode button (400 ms).
 //
 // Navigation:
-//   Tempo knob CW   — scroll to next item / increment value
-//   Tempo knob CCW  — scroll to previous item / decrement value
-//   Swing knob CCW  — cancel/exit (replaces D-pad left)
-//   Swing knob CW   — exit on "Exit" item (replaces D-pad right)
-//   param_rec       — select / confirm (replaces Enter button)
+//   Tempo knob CW       — scroll to next item / increment value
+//   Tempo knob CCW      — scroll to previous item / decrement value
+//   knob_mode 1-tap     — back one level (cancel edit → cancel confirm → exit)
+//   knob_mode 2-tap     — exit menu entirely
+//   param_rec           — select / confirm (replaces Enter button)
 //
-// Note: Swing is a hardware knob in Beatseqr — it is NOT a config menu item.
+// The swing knob does NOT navigate the menu — it is a configurable play control
+// (see swing_knob_function / knob_routine.ino). Swing amount is still editable
+// via the "Swing:" menu item.
 
 #define CONFIG_ITEM_EXIT          0
 #define CONFIG_ITEM_SAVE          1
@@ -99,7 +101,10 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 #define CONFIG_ITEM_TEMPO         16
 #define CONFIG_ITEM_SWING         17
 #define CONFIG_ITEM_VOICE_PROB    18
-#define CONFIG_MENU_ITEM_COUNT    19
+#define CONFIG_ITEM_TAKEOVER      19
+#define CONFIG_ITEM_SWING_KNOB    20
+#define CONFIG_ITEM_FEATURES      21
+#define CONFIG_MENU_ITEM_COUNT    22
 
 static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Exit          ",   // 14 chars each
@@ -120,8 +125,223 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "CC num:       ",
   "Tempo:        ",
   "Swing:        ",
-  "Voice prob    "
+  "Voice prob    ",
+  "Takeover:     ",
+  "Swing knob:   ",
+  "Features      "
 };
+
+// 5-char display name for a slider_takeover value.
+static const char* takeover_name(uint8_t t) {
+  switch (t) {
+    case 1:  return "Jump ";
+    case 2:  return "Reltv";
+    default: return "Catch";
+  }
+}
+
+// 5-char display name for a swing_knob_function value.
+static const char* swing_fn_name(uint8_t f) {
+  switch (f) {
+    case 1:  return "Tempo";
+    case 2:  return "Patt ";
+    case 3:  return "Voice";
+    default: return "Swing";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Feature flags (Features submenu)
+// ---------------------------------------------------------------------------
+
+#define FEATURE_COUNT 11
+
+// 14-char display names; order matches _feature_flag_ptrs[] and the disable
+// side-effect switch in _apply_feature_disable().
+static const char* _feature_names[FEATURE_COUNT] = {
+  "Advanced mode ",
+  "CC mode       ",
+  "Probability   ",
+  "Gate sliders  ",
+  "Velocity      ",
+  "Note scales   ",
+  "Pat direction ",
+  "Pat length    ",
+  "Ext clock     ",
+  "Oct/note shift",
+  "Diagnostics   "
+};
+
+static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
+  &ft_advanced_mode,
+  &ft_cc_mode,
+  &ft_probability,
+  &ft_gate_mode,
+  &ft_velocity_mode,
+  &ft_scale_quantization,
+  &ft_pattern_direction,
+  &ft_variable_pat_length,
+  &ft_external_clock,
+  &ft_octave_note_shift,
+  &ft_diagnostics
+};
+
+// Is a slider mode (1=NN..5=PR) currently enabled? NN is always on.
+bool slider_mode_enabled(uint8_t m) {
+  switch (m) {
+    case 2: return ft_velocity_mode;
+    case 3: return ft_gate_mode;
+    case 4: return ft_cc_mode;
+    case 5: return ft_probability;
+    default: return true;   // NN (1) and anything else
+  }
+}
+
+// Next enabled slider mode after `cur`, wrapping 1..slider_mode_total.
+// Always terminates because NN (1) is always enabled.
+uint8_t next_slider_mode(uint8_t cur) {
+  for (int n = 0; n < slider_mode_total; n++) {
+    cur = (cur % slider_mode_total) + 1;
+    if (slider_mode_enabled(cur)) return cur;
+  }
+  return 1;
+}
+
+// Is a config menu item currently visible (its feature flag is on)?
+// Items without a feature flag are always visible.
+static bool config_item_enabled(uint8_t item) {
+  switch (item) {
+    case CONFIG_ITEM_MODE:         return ft_advanced_mode;
+    case CONFIG_ITEM_CLOCK:        return ft_external_clock;
+    case CONFIG_ITEM_DIAGNOSTICS:  return ft_diagnostics;
+    case CONFIG_ITEM_OCTAVE_SHIFT: return ft_octave_note_shift;
+    case CONFIG_ITEM_NOTE_SHIFT:   return ft_octave_note_shift;
+    case CONFIG_ITEM_NOTE_SCALES:  return ft_scale_quantization;
+    case CONFIG_ITEM_PAT_DIR:      return ft_pattern_direction;
+    case CONFIG_ITEM_PAT_LENGTH:   return ft_variable_pat_length;
+    case CONFIG_ITEM_CC_NUMBER:    return ft_cc_mode;
+    case CONFIG_ITEM_VOICE_PROB:   return ft_probability;
+    default:                       return true;
+  }
+}
+
+// Step the menu cursor by dir (+1 next / -1 prev), skipping disabled items.
+static uint8_t config_menu_step(uint8_t item, int dir) {
+  for (int n = 0; n < CONFIG_MENU_ITEM_COUNT; n++) {
+    item = (uint8_t)((item + (dir > 0 ? 1 : CONFIG_MENU_ITEM_COUNT - 1)) % CONFIG_MENU_ITEM_COUNT);
+    if (config_item_enabled(item)) return item;
+  }
+  return item;
+}
+
+void draw_features_submenu() {
+  lcd.print("?x00?y0");
+  lcd.print("> ");
+  lcd.print(_feature_names[config_feature_item]);
+  lcd.print("?x00?y1");
+  lcd.print(*_feature_flag_ptrs[config_feature_item] ? "  active        "
+                                                     : "  inactive      ");
+}
+
+// Apply side-effects when a feature is toggled off. Indices match
+// _feature_names[] / _feature_flag_ptrs[] order.
+static void _apply_feature_disable(uint8_t idx) {
+  switch (idx) {
+    case 0:  // advanced mode — drop back to simple, reset nav/copy state
+      if (advanced_mode) {
+        advanced_mode           = false;
+        adv_pat_nav_active      = false;
+        adv_copy_waiting_source = false;
+        adv_copy_armed          = false;
+        adv_chain_hold_step     = -1;
+        read_step_memory(current_voice, pattern_value);
+        go_to_pattern(current_pattern, 1);
+      }
+      break;
+    case 1:  if (slider_mode == 4) set_slider_mode(1); break;  // CC mode
+    case 2:  if (slider_mode == 5) set_slider_mode(1); break;  // Probability
+    case 3:  if (slider_mode == 3) set_slider_mode(1); break;  // Gate sliders
+    case 4:  if (slider_mode == 2) set_slider_mode(1); break;  // Velocity
+    case 8:  if (external_clock_mode) setExternalClockMode(false); break;  // Ext clock
+    default: break;
+  }
+}
+
+void run_features_submenu() {
+  // Edge-triggered knob read — consume movement once per call.
+  int jog_v = knob_jog_vertical();
+
+  // knob_mode single-tap: back out to the main config menu.
+  if (knob_mode_back_flag) {
+    knob_mode_back_flag = false;
+    config_features_active = false;
+    draw_config_menu();
+    return;
+  }
+
+  if (jog_v > 0) {
+    config_feature_item = (uint8_t)((config_feature_item + 1) % FEATURE_COUNT);
+    draw_features_submenu();
+  } else if (jog_v < 0) {
+    config_feature_item = (uint8_t)((config_feature_item + FEATURE_COUNT - 1) % FEATURE_COUNT);
+    draw_features_submenu();
+  }
+
+  // param_rec toggles the current flag.
+  if (param_rec_flag) {
+    param_rec_flag = false;
+    bool* flag = _feature_flag_ptrs[config_feature_item];
+    *flag = !(*flag);
+    if (!(*flag)) _apply_feature_disable(config_feature_item);
+    draw_features_submenu();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostics submenu (Input test / LED test)
+// ---------------------------------------------------------------------------
+
+static const char* _diag_labels[DIAG_SUBMENU_ITEM_COUNT] = {
+  "Input test    ",
+  "LED test      "
+};
+
+void draw_diag_submenu() {
+  lcd.print("?f");
+  lcd.print("?x00?y0");
+  lcd.print("> ");
+  lcd.print(_diag_labels[config_diag_item]);
+  lcd.print("?x00?y1");
+  lcd.print("  ");
+  lcd.print(_diag_labels[(config_diag_item + 1) % DIAG_SUBMENU_ITEM_COUNT]);
+}
+
+void run_diag_submenu() {
+  int jog_v = knob_jog_vertical();
+
+  // knob_mode single-tap: leave the diag submenu, back to the main config menu.
+  if (knob_mode_back_flag) {
+    knob_mode_back_flag = false;
+    config_diag_active = false;
+    draw_config_menu();
+    return;
+  }
+
+  if (jog_v > 0) {
+    config_diag_item = (uint8_t)((config_diag_item + 1) % DIAG_SUBMENU_ITEM_COUNT);
+    draw_diag_submenu();
+  } else if (jog_v < 0) {
+    config_diag_item = (uint8_t)((config_diag_item + DIAG_SUBMENU_ITEM_COUNT - 1) % DIAG_SUBMENU_ITEM_COUNT);
+    draw_diag_submenu();
+  }
+
+  // param_rec enters the selected test (diag_mode takes over the main loop).
+  if (param_rec_flag) {
+    param_rec_flag = false;
+    if (config_diag_item == 0) enter_diag_input_test();
+    else                       enter_diag_led_test();
+  }
+}
 
 // Build the 14-char label for a given item index.
 void print_config_label(uint8_t item) {
@@ -174,6 +394,12 @@ void print_config_label(uint8_t item) {
       if (voice_probability[pattern_value][v] < 100) { non_default = true; break; }
     }
     lcd.print(non_default ? "Voice prob   *" : "Voice prob    ");
+  } else if (item == CONFIG_ITEM_TAKEOVER) {
+    snprintf(_buf, sizeof(_buf), "Takeover:%-5s", takeover_name(slider_takeover));
+    lcd.print(_buf);
+  } else if (item == CONFIG_ITEM_SWING_KNOB) {
+    snprintf(_buf, sizeof(_buf), "Swing kb:%-5s", swing_fn_name(swing_knob_function));
+    lcd.print(_buf);
   } else {
     lcd.print(config_labels[item]);
   }
@@ -274,8 +500,20 @@ void draw_config_menu() {
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_TAKEOVER) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  %s", takeover_name(slider_takeover));
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_SWING_KNOB) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  %s", swing_fn_name(swing_knob_function));
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
   } else {
-    uint8_t next = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
+    uint8_t next = config_menu_step(config_menu_item, +1);
     lcd.print("  ");
     print_config_label(next);
   }
@@ -285,6 +523,9 @@ void enter_config_menu() {
   config_menu_active      = true;
   config_confirm_pending  = false;
   config_editing_value    = false;
+  config_features_active  = false;
+  config_diag_active      = false;
+  knob_mode_back_flag     = false;
   // Anchor jog baselines so initial knob position isn't misread as movement.
   enter_knob_jog_mode();
   lcd.print("?f");
@@ -295,8 +536,14 @@ void exit_config_menu() {
   config_menu_active      = false;
   config_confirm_pending  = false;
   config_editing_value    = false;
+  config_features_active  = false;
+  config_diag_active      = false;
   config_note_range_phase = 0;
   config_scale_phase      = 0;
+  knob_mode_back_flag     = false;
+  // Re-anchor the normal-play swing jog so menu-session knob movement isn't
+  // misread as a play action on the first loop after exit.
+  anchor_swing_norm_jog();
   // Restore step LEDs to current voice's pattern data.
   read_step_memory(current_voice, pattern_value);
   update_line1 = true;
@@ -309,13 +556,27 @@ void exit_config_menu() {
 void run_config_menu() {
   if (!config_menu_active) return;
 
-  // Read knob jog events once per call — edge-triggered, fire at most once per
-  // threshold crossing. +1 = CW / "more",  -1 = CCW / "less".
-  int jog_v = knob_jog_vertical();    // tempo knob → up/down / increment/decrement
-  int jog_h = knob_jog_horizontal();  // swing knob → left(cancel) / right(exit)
+  // Modal submenus: while a submenu is open it owns all knob/param input. They
+  // read their own jog events, so return before we consume them here. (The diag
+  // submenu only runs here when NOT inside a test — diag_mode gates the loop.)
+  if (config_features_active) {
+    run_features_submenu();
+    return;
+  }
+  if (config_diag_active) {
+    run_diag_submenu();
+    return;
+  }
 
-  // Swing knob left: exit editing → exit confirmation → exit menu.
-  if (jog_h < 0) {
+  // Tempo knob jog — edge-triggered, fires at most once per threshold crossing.
+  // +1 = CW / "more",  -1 = CCW / "less". The swing knob no longer navigates the
+  // menu (it is a configurable play control); back/exit is the knob_mode button.
+  int jog_v = knob_jog_vertical();    // tempo knob → up/down / increment/decrement
+
+  // knob_mode single-tap (back one level): exit editing → exit confirmation →
+  // exit menu. Replaces the former swing-knob-CCW cancel gesture.
+  if (knob_mode_back_flag) {
+    knob_mode_back_flag = false;
     if (config_editing_value) {
       if (config_menu_item == CONFIG_ITEM_PAT_LENGTH)
         read_step_memory(current_voice, pattern_value);
@@ -418,6 +679,21 @@ void run_config_menu() {
       } else if (config_menu_item == CONFIG_ITEM_SWING) {
         if (jog_v > 0 && SWING < 5) { SWING++; draw_config_menu(); }
         if (jog_v < 0 && SWING > 0) { SWING--; draw_config_menu(); }
+      } else if (config_menu_item == CONFIG_ITEM_TAKEOVER) {
+        if (jog_v > 0) slider_takeover = (slider_takeover + 1) % 3;
+        if (jog_v < 0) slider_takeover = (slider_takeover + 3 - 1) % 3;
+        // Re-seed slider baselines and pickup state for the new behaviour:
+        // Catch arms pickup; Jump/Relative bypass it.
+        bool needs_pickup = (slider_takeover == 0);
+        for (int v = 0; v < VOICE_COUNT; v++) {
+          slider_needs_pickup[v] = needs_pickup;
+          slider_last_raw[v]     = voice_sliders[v].getValue();
+        }
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_SWING_KNOB) {
+        if (jog_v > 0) swing_knob_function = (uint8_t)((swing_knob_function + 1) % SWING_KNOB_FN_COUNT);
+        if (jog_v < 0) swing_knob_function = (uint8_t)((swing_knob_function + SWING_KNOB_FN_COUNT - 1) % SWING_KNOB_FN_COUNT);
+        draw_config_menu();
       }
     }
 
@@ -477,18 +753,13 @@ void run_config_menu() {
   }
 
   // Menu scroll: tempo knob CW = next item, CCW = previous item.
+  // Items whose feature flag is off are skipped.
   if (jog_v > 0) {
-    config_menu_item = (config_menu_item + 1) % CONFIG_MENU_ITEM_COUNT;
+    config_menu_item = config_menu_step(config_menu_item, +1);
     draw_config_menu();
   } else if (jog_v < 0) {
-    config_menu_item = (config_menu_item + CONFIG_MENU_ITEM_COUNT - 1) % CONFIG_MENU_ITEM_COUNT;
+    config_menu_item = config_menu_step(config_menu_item, -1);
     draw_config_menu();
-  }
-
-  // Swing knob CW: exit only when cursor is on Exit item.
-  if (jog_h > 0 && config_menu_item == CONFIG_ITEM_EXIT) {
-    exit_config_menu();
-    return;
   }
 
   // param_rec selects the current item.
@@ -525,8 +796,9 @@ void run_config_menu() {
         draw_config_menu();
         break;
       case CONFIG_ITEM_DIAGNOSTICS:
-        exit_config_menu();
-        enter_diagnostics();
+        config_diag_active = true;
+        config_diag_item   = 0;
+        draw_diag_submenu();
         break;
       case CONFIG_ITEM_CHANNEL:
       case CONFIG_ITEM_OCTAVE_SHIFT:
@@ -538,6 +810,8 @@ void run_config_menu() {
       case CONFIG_ITEM_CC_NUMBER:
       case CONFIG_ITEM_TEMPO:
       case CONFIG_ITEM_SWING:
+      case CONFIG_ITEM_TAKEOVER:
+      case CONFIG_ITEM_SWING_KNOB:
         config_editing_value    = true;
         config_note_range_phase = 0;
         config_scale_phase      = 0;
@@ -546,6 +820,11 @@ void run_config_menu() {
       case CONFIG_ITEM_VOICE_PROB:
         exit_config_menu();
         set_slider_mode(5);
+        break;
+      case CONFIG_ITEM_FEATURES:
+        config_features_active = true;
+        config_feature_item    = 0;
+        draw_features_submenu();
         break;
     }
   }

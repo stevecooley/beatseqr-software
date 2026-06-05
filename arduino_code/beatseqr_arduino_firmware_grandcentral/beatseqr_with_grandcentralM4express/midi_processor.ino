@@ -83,6 +83,20 @@ void read_midi() {
           ext_clock_start_pending  = false;
           midistopped = true;
         }
+
+      } else if ((rx.header & 0x0F) == 0x0B) {
+        // MIDI Learn: capture the controller number of an incoming Control
+        // Change while the user is editing the per-pattern CC# in the config
+        // menu. Channel is ignored; filtered CCs (32, 96–101) are skipped so
+        // the edit stays armed. Beatseqr has no live-CC lane, so this is the
+        // only Learn path.
+        uint8_t cc = rx.byte2 & 0x7F;
+        bool valid = (cc >= 1 && cc <= 119 && cc != 32 && (cc < 96 || cc > 101));
+        if (valid && config_menu_active && config_editing_value &&
+            config_menu_item == CONFIG_ITEM_CC_NUMBER) {
+          cc_number[pattern_value] = cc;
+          update_line1 = true;
+        }
       }
     }
   } while (rx.header != 0);

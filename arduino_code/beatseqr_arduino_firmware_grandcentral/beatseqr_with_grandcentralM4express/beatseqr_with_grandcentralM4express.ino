@@ -51,6 +51,9 @@ void setup() {
 
   // Light the first voice LED so the user knows which voice is active.
   voice_select_leds[current_voice].on();
+
+  // Seed the normal-play swing-knob jog baseline to its current position.
+  anchor_swing_norm_jog();
 }
 
 void loop() {
@@ -118,7 +121,9 @@ void loop() {
     if (knob_mode_tap_pending && now_ms - last_knob_mode_ms > 400) {
       knob_mode_tap_pending = false;
       last_knob_mode_ms = 0;
-      // Single tap — currently unused; available for future assignment.
+      // Single tap inside the config menu = back out one level (consumed by
+      // run_config_menu / submenus). Outside the menu it is still unused.
+      if (config_menu_active) knob_mode_back_flag = true;
     }
   }
 
@@ -141,8 +146,8 @@ void loop() {
     // Handle slider mode cycle outside config menu.
     if (slider_mode_flag) {
       slider_mode_flag = false;
-      uint8_t next_mode = (slider_mode % slider_mode_total) + 1;
-      set_slider_mode(next_mode);
+      // Skip modes whose feature flag is off (NN is always enabled).
+      set_slider_mode(next_slider_mode(slider_mode));
     }
     // Adv copy cancel and any other out-of-menu nav events.
     listen_for_navigation_events();
