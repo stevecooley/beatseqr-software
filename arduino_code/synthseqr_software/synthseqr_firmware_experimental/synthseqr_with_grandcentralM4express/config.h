@@ -212,6 +212,18 @@ uint8_t midi_capture_held[16];      // 128-bit set: bit (pitch & 7) of byte (pit
 int8_t  midi_capture_lcd_step  = -1;
 uint8_t midi_capture_lcd_count = 0;
 
+// Step-button hold tracking, shared between detect_step_button_presses()
+// (which sets it) and run_voice_slider_routine() (which reads it to drive the
+// strum gesture). -1 = no step held. Was previously a static local in
+// detect_step_button_presses(); promoted to a global so the slider loop can see
+// which step is held in the same loop iteration (step routine runs first).
+int8_t  gate_hold_step = -1;
+// True once a strum has re-triggered audition during the current hold. Read by
+// the release check in detect_step_button_presses() to suppress the deferred
+// toggle (the strum already left the step ON at its final pitch). Reset
+// whenever a fresh hold is assigned.
+bool    strum_fired = false;
+
 int voice_slider_midinotenum[16] = {36, 37, 38, 39, 40, 41, 42, 43,
                                     44, 45, 46, 47, 48, 49, 50, 51};
 

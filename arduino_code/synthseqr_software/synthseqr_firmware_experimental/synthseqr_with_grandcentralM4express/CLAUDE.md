@@ -621,6 +621,14 @@ When `ft_note_audition` is true and the sequencer is stopped (`!playstatus`), st
 
 **Default**: `ft_note_audition = true` — the feature is on by default. Disable from Features submenu if you don't want step-toggle previews while stopped.
 
+### Strum gesture
+
+While a step button is **held** in **NN** or **CH** slider mode and the sequencer is **stopped**, moving that step's own slider re-triggers the audition at each new note (NN) or chord type (CH) — a strum. With a scale active, sweeping the NN slider walks `scale_note_pool[]` so the strum stays in key. Gated by `ft_note_audition` (no separate flag); clock-running strum is intentionally not implemented.
+
+**Mechanics**: `gate_hold_step` (promoted from a static local in `detect_step_button_presses()` to a global in `config.h`) tells `run_voice_slider_routine()` which step is held. A strum branch at the top of the per-slider loop short-circuits the held slider: it computes the note via `nn_value_from_sector()` (NN) or the CH type map, and on change writes the value, forces the step ON (`step_data`/LED/`seq.setNote`), calls `audition_step_note(j, 1)` (which mono-retriggers — note-off prior, note-on new), sets `last_triggered_step`/`update_line2` for LCD feedback, and sets the global `strum_fired`. The strum branch **bypasses pickup/takeover** — the held step is an intentional grab. The NN branch also clears `step_custom_chord` like a normal NN move.
+
+**Release**: `strum_fired` makes the release check in `detect_step_button_presses()` skip the deferred toggle, so the step stays ON at the strummed pitch instead of toggling off. `strum_fired` is reset wherever a fresh hold is assigned (fresh press, double-tap reassign), when a gate-set gesture consumes the hold, and on the MIDI-capture-commit clear path. A plain hold with no slider movement leaves `strum_fired` false → normal toggle + single audition (unchanged behavior).
+
 ## Diagnostics Mode
 
 Entered from the config menu: Diagnostics → Enter → opens the Diagnostics submenu. There is no hardware hold-combo entry point.
