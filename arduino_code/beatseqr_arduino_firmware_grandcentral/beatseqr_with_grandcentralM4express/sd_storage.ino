@@ -212,6 +212,7 @@ bool save_to_sd() {
   _f.print("  \"ft_external_clock\": ");     _f.print(ft_external_clock ? 1 : 0);      _f.println(",");
   _f.print("  \"ft_octave_note_shift\": ");  _f.print(ft_octave_note_shift ? 1 : 0);   _f.println(",");
   _f.print("  \"ft_diagnostics\": ");        _f.print(ft_diagnostics ? 1 : 0);         _f.println(",");
+  _f.print("  \"ft_voice_sliders\": ");      _f.print(ft_voice_sliders ? 1 : 0);       _f.println(",");
 
   // voice_cc_enabled is per-voice (not per-pattern) — save once at top level.
   _f.print("  \"voice_cc_enabled\": [");
@@ -357,6 +358,7 @@ bool load_from_sd() {
   _f.seekSet(0); if (sd_find("\"ft_external_clock\":"))     ft_external_clock      = ((int)sd_parse_number() != 0);
   _f.seekSet(0); if (sd_find("\"ft_octave_note_shift\":"))  ft_octave_note_shift   = ((int)sd_parse_number() != 0);
   _f.seekSet(0); if (sd_find("\"ft_diagnostics\":"))        ft_diagnostics         = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_voice_sliders\":"))      ft_voice_sliders       = ((int)sd_parse_number() != 0);
 
   {
     uint8_t lo = slider_map_low_value;

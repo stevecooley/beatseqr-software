@@ -92,6 +92,10 @@ static bool slider_take(int j, int value, int lo, int hi, int stored,
 }
 
 void run_voice_slider_routine() {
+  // Voice sliders disabled (e.g. noisy/faulty hardware) — skip all reads so they
+  // can't overwrite stored data. Set notes via the swing-knob Note mode instead.
+  if (!ft_voice_sliders) return;
+
   // Rate-limit ADC reads to every 20 ms to reduce main-loop jitter.
   static unsigned long last_slider_ms = 0;
   unsigned long now_ms = millis();
@@ -99,6 +103,10 @@ void run_voice_slider_routine() {
   last_slider_ms = now_ms;
 
   for (int j = 0; j < VOICE_COUNT; j++) {
+    // In swing-knob Note mode, slider 0 is repurposed to set the selected
+    // voice's note (run_note_slider_override) — don't also process it here.
+    if (swing_knob_function == 4 && j == 0) continue;
+
     int sector      = voice_sliders[j].getSector();  // 0–255
     uint16_t raw    = voice_sliders[j].getValue();   // raw 12-bit
     int raw_delta   = (int)raw - (int)slider_last_raw[j];
@@ -188,6 +196,59 @@ void run_voice_slider_routine() {
     }
 
     last_voice_slider_values[j] = voice_slider_values[j];
+  }
+}
+
+// run_note_slider_override — slider-0 note entry for the swing-knob Note mode.
+//
+// When swing_knob_function == 4 (Note) the swing knob is NOT used (its hardware
+// is unreliable). Instead voice 1's slider (slider 0) sets the SELECTED voice's
+// note across the configurable Note range (slider_map_low_value ..
+// slider_map_high_value — the same range NN slider mode uses, set via config
+// menu → Note range); the slider's full travel spans that range. This works even
+// when the voice sliders are otherwise disabled (ft_voice_sliders off) — only
+// slider 0 is read here.
+//
+// A jump guard re-arms whenever the selected voice changes, so switching voices
+// to view their notes doesn't clobber them: the note starts tracking slider 0
+// only after the slider physically moves past JUMP_RAW_THRESHOLD.
+void run_note_slider_override() {
+  if (swing_knob_function != 4) return;
+  if (config_menu_active) return;
+
+  static unsigned long last_ms = 0;
+  unsigned long now = millis();
+  if (now - last_ms < 20) return;   // match the slider routine's read cadence
+  last_ms = now;
+
+  static uint8_t armed_voice = 0xFF;   // voice the guard is anchored to
+  static int     seed_raw    = -1;     // slider-0 raw at (re)arm; -1 = unlocked
+
+  uint16_t raw = voice_sliders[0].getValue();    // raw 12-bit
+
+  // Re-arm on selected-voice change so a voice switch can't overwrite the note.
+  if (armed_voice != current_voice) {
+    armed_voice = current_voice;
+    seed_raw    = (int)raw;
+    return;
+  }
+
+  // Wait for a real slider move before taking over (faulty-slider jitter guard).
+  if (seed_raw >= 0) {
+    if (abs((int)raw - seed_raw) <= JUMP_RAW_THRESHOLD) return;
+    seed_raw = -1;   // unlocked: track absolutely from now on
+  }
+
+  // Map full slider travel (0–4095) across the configurable Note range so both
+  // endpoints are reachable. Both low and high config values take effect here.
+  int lo = slider_map_low_value;
+  int hi = slider_map_high_value;
+  int note = map((int)raw, 0, 4095, lo, hi);
+  if (note < lo) note = lo;
+  if (note > hi) note = hi;
+  if (note != (int)voice_pitch[pattern_value][current_voice]) {
+    voice_pitch[pattern_value][current_voice] = (uint8_t)note;
+    update_line2 = true;
   }
 }
 

@@ -33,9 +33,9 @@
 //  2589  16     cc_number[16]
 //  2605  128    voice_probability[16][8]
 //  2733  1      slider_takeover (0=Catch 1=Jump 2=Relative)
-//  2734  11     ft_* feature flags (one byte each)
-//  2745  1      swing_knob_function (0=Swing 1=Tempo 2=Pattern 3=Voice)
-//  ---- 2746 bytes total ----
+//  2734  12     ft_* feature flags (one byte each)
+//  2746  1      swing_knob_function (0=Swing 1=Tempo 2=Pattern 3=Voice 4=Note)
+//  ---- 2747 bytes total ----
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -64,10 +64,10 @@
 #define EEPROM_CC_NUMBERS_ADDR        2589   // 16 bytes:  cc_number[16]
 #define EEPROM_VOICE_PROB_ADDR        2605   // 128 bytes: voice_probability[16][8]
 #define EEPROM_TAKEOVER_ADDR          2733   // 1 byte:   slider_takeover (0/1/2)
-#define EEPROM_FT_FLAGS_ADDR          2734   // 11 bytes: ft_* feature flags
-#define EEPROM_SWING_KNOB_FN_ADDR     2745   // 1 byte:   swing_knob_function (0–3)
+#define EEPROM_FT_FLAGS_ADDR          2734   // 12 bytes: ft_* feature flags
+#define EEPROM_SWING_KNOB_FN_ADDR     2746   // 1 byte:   swing_knob_function (0–4)
 
-#define EEPROM_MAGIC_VALUE  0xC1  // bumped: added swing_knob_function
+#define EEPROM_MAGIC_VALUE  0xC2  // bumped: added ft_voice_sliders flag
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -142,6 +142,7 @@ void save_to_eeprom() {
   EEPROM.write(EEPROM_FT_FLAGS_ADDR + 8,  (uint8_t)ft_external_clock);
   EEPROM.write(EEPROM_FT_FLAGS_ADDR + 9,  (uint8_t)ft_octave_note_shift);
   EEPROM.write(EEPROM_FT_FLAGS_ADDR + 10, (uint8_t)ft_diagnostics);
+  EEPROM.write(EEPROM_FT_FLAGS_ADDR + 11, (uint8_t)ft_voice_sliders);
 
   EEPROM.write(EEPROM_SWING_KNOB_FN_ADDR, swing_knob_function);
 
@@ -284,6 +285,7 @@ bool load_from_eeprom() {
   ft_external_clock      = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 8)  ? true : false;
   ft_octave_note_shift   = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 9)  ? true : false;
   ft_diagnostics         = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 10) ? true : false;
+  ft_voice_sliders       = EEPROM.read(EEPROM_FT_FLAGS_ADDR + 11) ? true : false;
 
   {
     uint8_t f = EEPROM.read(EEPROM_SWING_KNOB_FN_ADDR);

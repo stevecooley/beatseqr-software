@@ -203,5 +203,9 @@ void loop() {
 
   run_voice_slider_routine();
 
+  // Swing-knob Note mode: voice 1's slider sets the selected voice's note
+  // (runs even when ft_voice_sliders disables the normal slider reads).
+  run_note_slider_override();
+
   run_LCD_update();
 }

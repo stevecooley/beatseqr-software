@@ -101,6 +101,10 @@ void run_knob_routine() {
     case 3:  // Voice next / previous
       set_current_voice((uint8_t)((current_voice + (dir > 0 ? 1 : VOICE_COUNT - 1)) % VOICE_COUNT));
       break;
+    case 4:  // Note — selects "adjust selected voice's note" mode, but the
+             // adjustment value comes from voice 1's slider, not this (bad)
+             // knob. See run_note_slider_override() in voice_slider_routine.ino.
+      break;
     default: // 0 = Swing amount 0–5
       if (dir > 0 && SWING < 5) { SWING++; update_line1 = true; }
       else if (dir < 0 && SWING > 0) { SWING--; update_line1 = true; }

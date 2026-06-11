@@ -1,28 +1,41 @@
 // diagnostics.ino — hardware self-test for Beatseqr.
 //
-// Entered from the config menu: Diagnostics → opens a small submenu with two
-// modes (Input test / LED test). The save-file viewer is reached from the
-// input test by pressing pattern button 0 (PAT1).
+// Entered from the config menu: Diagnostics → opens a small submenu with three
+// modes (Button test / Slider test / LED test). The save-file viewer is reached
+// from the button test by pressing pattern button 0 (PAT1).
 //
 // Control scheme (Beatseqr has no D-pad):
 //   - Inside any test, double-tap param_rec (Enter) to exit back to the submenu.
-//   - In the input test, a single param_rec tap is reported like any button.
+//   - In the button test, a single param_rec tap is reported like any button.
+//     The button test also reports the two knobs (tempo/swing) and the
+//     voice-select resistor ladder (raw A10 + detected voice).
+//   - In the slider test, press a voice-select button (1–8) to choose which
+//     slider to watch; only that one slider is shown. This keeps a noisy slider
+//     from drowning out the one you want to see (all sliders are no longer
+//     reporting at once).
 //   - In the save-file viewer, the tempo knob scrolls fields; param_rec
-//     double-tap exits back to the input-test idle screen.
+//     double-tap exits back to the button-test idle screen.
 //
 // While diag_mode is true, loop() runs run_diagnostics() then returns early, and
 // run_LCD_update() early-returns (LCD.ino), so diagnostics owns the display.
 
 bool    diag_mode    = false;
-uint8_t diag_submode = 0;   // 0 = input test, 1 = LED test
+uint8_t diag_submode = 0;   // 0 = button test, 1 = slider test, 2 = LED test
 
-// Input-test state.
+// Button-test state.
 static bool          diag_showing_idle       = true;
 static unsigned long diag_last_activity_ms   = 0;
 static int           diag_last_raw[10]       = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
 static unsigned long diag_last_slider_lcd_ms = 0;
 static bool          diag_enter_tap_pending  = false;
 static unsigned long diag_enter_tap_ms       = 0;
+
+// Slider-test state — watch one slider at a time, chosen by voice-select button.
+static uint8_t       diag_slider_focus  = 0;   // which slider (voice) 0–7
+static unsigned long diag_slider_lcd_ms = 0;
+static int           diag_vs_buf[4]     = {0,0,0,0};   // A10 consensus buffer
+static int           diag_vs_buf_idx    = 0;
+static int           diag_vs_prev_voice = -1;
 
 // LED test state.
 static uint8_t       diag_led_idx     = 0;
@@ -52,6 +65,27 @@ static int diag_voice_from_adc(int adc_val) {
   return -1;
 }
 
+// Rising-edge voice-select detection for the slider test (local consensus copy
+// of voice_select_routine's logic). Returns a newly-pressed voice 0–7, else -1.
+static int diag_vselect_press() {
+  diag_vs_buf[diag_vs_buf_idx] = analogRead(A10);
+  diag_vs_buf_idx = (diag_vs_buf_idx + 1) % 4;
+
+  int  first     = diag_voice_from_adc(diag_vs_buf[0]);
+  bool unanimous = true;
+  for (int i = 1; i < 4; i++) {
+    if (diag_voice_from_adc(diag_vs_buf[i]) != first) { unanimous = false; break; }
+  }
+  int detected = unanimous ? first : diag_vs_prev_voice;
+
+  int pressed = -1;
+  if (detected != diag_vs_prev_voice) {
+    diag_vs_prev_voice = detected;
+    if (detected != -1) pressed = detected;   // rising edge of a new press
+  }
+  return pressed;
+}
+
 // ---------------------------------------------------------------------------
 // LCD helpers — write directly, bypassing run_LCD_update().
 // ---------------------------------------------------------------------------
@@ -59,9 +93,18 @@ static int diag_voice_from_adc(int adc_val) {
 void diag_show_idle_screen() {
   lcd.print("?f");
   lcd.print("?x00?y0");
-  lcd.print("  INPUT TEST    ");
+  lcd.print("  BUTTON TEST   ");
   lcd.print("?x00?y1");
   lcd.print("2xEnt=bk PAT1=sf");
+}
+
+// Slider-test header (line 1): which voice/slider and its analog pin.
+static void diag_show_slider_header() {
+  char l1[17];
+  snprintf(l1, sizeof(l1), "SLIDER V%d  %-3s ", diag_slider_focus + 1,
+           DIAG_ANALOG_NAMES[diag_slider_focus]);
+  lcd.print("?x00?y0");
+  lcd.print(l1);
 }
 
 void diag_show_savefile_field() {
@@ -97,14 +140,13 @@ void diag_write_vselect(int raw, int voice) {
   Serial.println(l2);
 }
 
-// Analog readout for sliders (idx 0–7) and knobs (idx 8 tempo, 9 swing).
-void diag_write_analog(uint8_t idx, const char* pin_name, int raw_val) {
+// Knob readout for the button test (idx 8 tempo, 9 swing).
+void diag_write_knob(uint8_t idx, const char* pin_name, int raw_val) {
   char buf[17];
-  if (idx < 8) snprintf(buf, sizeof(buf), "SL%02d %-3s r:%4d ", idx, pin_name, raw_val);
-  else snprintf(buf, sizeof(buf), "%-5s %-3s r:%4d ", idx == 8 ? "TEMPO" : "SWING", pin_name, raw_val);
+  snprintf(buf, sizeof(buf), "%-5s %-3s r:%4d ", idx == 8 ? "TEMPO" : "SWING", pin_name, raw_val);
   lcd.print("?x00?y1");
   lcd.print(buf);
-  Serial.print("DIAG AN:  ");
+  Serial.print("DIAG KN:  ");
   Serial.println(buf);
 }
 
@@ -112,7 +154,7 @@ void diag_write_analog(uint8_t idx, const char* pin_name, int raw_val) {
 // Entry
 // ---------------------------------------------------------------------------
 
-void enter_diag_input_test() {
+void enter_diag_button_test() {
   diag_submode = 0;
   diag_mode    = true;
   diag_enter_tap_pending = false;
@@ -121,13 +163,30 @@ void enter_diag_input_test() {
   diag_last_activity_ms   = millis();
   diag_last_slider_lcd_ms = 0;
   enter_knob_jog_mode();      // anchor jog baseline for save-file scrolling
-  Serial.println("entering input test");
+  Serial.println("entering button test");
   diag_show_idle_screen();
   diag_showing_idle = true;
 }
 
+void enter_diag_slider_test() {
+  diag_submode = 1;
+  diag_mode    = true;
+  diag_enter_tap_pending = false;
+  diag_savefile_mode     = false;
+  diag_slider_focus  = (current_voice < VOICE_COUNT) ? current_voice : 0;
+  diag_slider_lcd_ms = 0;
+  diag_vs_prev_voice = -1;
+  for (int i = 0; i < 4; i++) diag_vs_buf[i] = 0;
+  // Light only the focused voice LED so the picked slider is obvious.
+  for (int i = 0; i < VOICE_COUNT; i++) voice_select_leds[i].off();
+  voice_select_leds[diag_slider_focus].on();
+  Serial.println("entering slider test");
+  lcd.print("?f");
+  diag_show_slider_header();
+}
+
 void enter_diag_led_test() {
-  diag_submode     = 1;
+  diag_submode     = 2;
   diag_mode        = true;
   diag_led_idx     = 0;
   diag_led_last_ms = 0;
@@ -153,14 +212,14 @@ static void diag_exit_to_submenu() {
   diag_savefile_mode = false;
   read_step_memory(current_voice, pattern_value);
   go_to_pattern(current_pattern, 1);
-  // Re-light the active voice LED (LED test / restore left them off).
+  // Re-light the active voice LED (LED/slider test left them off/changed).
   for (int i = 0; i < VOICE_COUNT; i++) voice_select_leds[i].off();
   voice_select_leds[current_voice].on();
   draw_diag_submenu();
 }
 
 // Did the user double-tap param_rec this loop? Single taps are reported by the
-// caller (input test) via the returned "single" flag.
+// caller (button test) via the returned "single" flag.
 static bool diag_check_enter_exit(bool report_single, const char* single_name) {
   if (param_rec.uniquePress()) {
     unsigned long now_ms = millis();
@@ -180,8 +239,9 @@ static bool diag_check_enter_exit(bool report_single, const char* single_name) {
 
 void run_diagnostics() {
   if (!diag_mode) return;
-  if (diag_submode == 1) run_diag_led_test();
-  else                   run_diagnostics_display();
+  if      (diag_submode == 2) run_diag_led_test();
+  else if (diag_submode == 1) run_diag_slider_test();
+  else                        run_diag_button_test();
 }
 
 // ---------------------------------------------------------------------------
@@ -209,10 +269,43 @@ void run_diag_led_test() {
 }
 
 // ---------------------------------------------------------------------------
-// Input test — per-loop polling.
+// Slider test — watch a single slider, chosen by voice-select button.
 // ---------------------------------------------------------------------------
 
-void run_diagnostics_display() {
+void run_diag_slider_test() {
+  if (diag_check_enter_exit(false, NULL)) { diag_exit_to_submenu(); return; }
+
+  // Voice-select button picks which slider to watch (1–8 → slider 0–7).
+  int pressed = diag_vselect_press();
+  if (pressed >= 0 && (uint8_t)pressed != diag_slider_focus) {
+    diag_slider_focus = (uint8_t)pressed;
+    for (int i = 0; i < VOICE_COUNT; i++) voice_select_leds[i].off();
+    voice_select_leds[diag_slider_focus].on();
+    diag_show_slider_header();
+    diag_slider_lcd_ms = 0;   // force an immediate value redraw
+  }
+
+  // Continuously show the focused slider's raw value (rate-limited).
+  unsigned long now = millis();
+  if (now - diag_slider_lcd_ms >= 100) {
+    diag_slider_lcd_ms = now;
+    int raw = analogRead(DIAG_ANALOG_PINS[diag_slider_focus]);
+    char l2[17];
+    snprintf(l2, sizeof(l2), "r:%4d  2xEnt=bk", raw);
+    lcd.print("?x00?y1");
+    lcd.print(l2);
+    Serial.print("DIAG SL");
+    Serial.print(diag_slider_focus);
+    Serial.print(" r:");
+    Serial.println(raw);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Button test — per-loop polling of all buttons + knobs + voice ladder.
+// ---------------------------------------------------------------------------
+
+void run_diag_button_test() {
   unsigned long now_ms = millis();
   bool activity = false;
 
@@ -288,14 +381,14 @@ void run_diagnostics_display() {
     if (v >= 0) { diag_write_vselect(raw, v); activity = true; }
   }
 
-  // --- 8 sliders + 2 knobs: raw analogRead, ±16 threshold, 100 ms rate-limit ---
+  // --- 2 knobs (tempo A8, swing A9): raw analogRead, ±16 threshold, 100 ms rate-limit ---
   if (!activity && (now_ms - diag_last_slider_lcd_ms >= 100)) {
-    for (int j = 0; j < DIAG_ANALOG_COUNT; j++) {
+    for (int j = 8; j < DIAG_ANALOG_COUNT; j++) {
       int raw = analogRead(DIAG_ANALOG_PINS[j]);
       if (diag_last_raw[j] < 0 || abs(raw - diag_last_raw[j]) > 16) {
         diag_last_raw[j]        = raw;
         diag_last_slider_lcd_ms = now_ms;
-        diag_write_analog(j, DIAG_ANALOG_NAMES[j], raw);
+        diag_write_knob(j, DIAG_ANALOG_NAMES[j], raw);
         activity = true;
         break;
       }

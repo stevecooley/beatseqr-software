@@ -146,6 +146,7 @@ static const char* swing_fn_name(uint8_t f) {
     case 1:  return "Tempo";
     case 2:  return "Patt ";
     case 3:  return "Voice";
+    case 4:  return "Note ";
     default: return "Swing";
   }
 }
@@ -154,7 +155,7 @@ static const char* swing_fn_name(uint8_t f) {
 // Feature flags (Features submenu)
 // ---------------------------------------------------------------------------
 
-#define FEATURE_COUNT 11
+#define FEATURE_COUNT 12
 
 // 14-char display names; order matches _feature_flag_ptrs[] and the disable
 // side-effect switch in _apply_feature_disable().
@@ -169,7 +170,8 @@ static const char* _feature_names[FEATURE_COUNT] = {
   "Pat length    ",
   "Ext clock     ",
   "Oct/note shift",
-  "Diagnostics   "
+  "Diagnostics   ",
+  "Voice sliders "
 };
 
 static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
@@ -183,7 +185,8 @@ static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
   &ft_variable_pat_length,
   &ft_external_clock,
   &ft_octave_note_shift,
-  &ft_diagnostics
+  &ft_diagnostics,
+  &ft_voice_sliders
 };
 
 // Is a slider mode (1=NN..5=PR) currently enabled? NN is always on.
@@ -298,11 +301,12 @@ void run_features_submenu() {
 }
 
 // ---------------------------------------------------------------------------
-// Diagnostics submenu (Input test / LED test)
+// Diagnostics submenu (Button test / Slider test / LED test)
 // ---------------------------------------------------------------------------
 
 static const char* _diag_labels[DIAG_SUBMENU_ITEM_COUNT] = {
-  "Input test    ",
+  "Button test   ",
+  "Slider test   ",
   "LED test      "
 };
 
@@ -338,8 +342,9 @@ void run_diag_submenu() {
   // param_rec enters the selected test (diag_mode takes over the main loop).
   if (param_rec_flag) {
     param_rec_flag = false;
-    if (config_diag_item == 0) enter_diag_input_test();
-    else                       enter_diag_led_test();
+    if      (config_diag_item == 0) enter_diag_button_test();
+    else if (config_diag_item == 1) enter_diag_slider_test();
+    else                            enter_diag_led_test();
   }
 }
 

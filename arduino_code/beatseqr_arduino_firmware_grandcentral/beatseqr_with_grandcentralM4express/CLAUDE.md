@@ -47,7 +47,7 @@ All `.ino` files are compiled as a single translation unit by Arduino. They shar
 | `config_menu.ino` | Modal config menu: knob-jog navigation, all settings |
 | `storage.ino` | EEPROM save/load (2733-byte layout, magic `0xBF`) |
 | `sd_storage.ino` | SD card save/load: `/beatseqr/autosave.json`, `boot_load()`, `save_everywhere()` |
-| `diagnostics.ino` | Hardware self-test: input test (buttons, 8 sliders, voice-select ladder, knobs), LED chase, SD save-file viewer |
+| `diagnostics.ino` | Hardware self-test: button test (buttons, knobs, voice-select ladder), slider test (one slider at a time), LED chase, SD save-file viewer |
 
 **HAL classes** (Button, LED, Potentiometer) provide debouncing and event helpers.
 
@@ -159,7 +159,7 @@ Jog threshold: `KNOB_JOG_THRESHOLD` = 80 ADC counts (12-bit). `enter_knob_jog_mo
 5. Mode: Simple / Advanced
 6. Clock: int / ext
 7. Channel (1–16)
-8. Diagnostics (opens the diag submenu: Input test / LED test)
+8. Diagnostics (opens the diag submenu: Button test / Slider test / LED test)
 9. Octave shift (±5 octaves)
 10. Note shift (±12 semitones)
 11. Note range (low / high MIDI note, two-phase editor)
@@ -171,7 +171,7 @@ Jog threshold: `KNOB_JOG_THRESHOLD` = 80 ADC counts (12-bit). `enter_knob_jog_mo
 17. Swing (0–5, editing sub-state)
 18. Voice prob — exits menu immediately and activates slider mode 5 (PR); label shows `*` if any voice probability < 100 for the current pattern
 19. Takeover (Catch / Jump / Relative — slider pickup behaviour; editing sub-state)
-20. Swing knob (Swing / Tempo / Patt / Voice — what the swing knob does during play; editing sub-state)
+20. Swing knob (Swing / Tempo / Patt / Voice / Note — what the swing knob does during play; editing sub-state). **Note** mode is a workaround for failing hardware: the swing knob itself is NOT used — instead **voice 1's slider (slider 0)** sets the *selected* voice's `voice_pitch` across the configurable **Note range** (`slider_map_low_value`–`slider_map_high_value`, the same range NN slider mode uses; set via config menu → Note range), the slider's full travel (raw 0–4095) spanning that range. Implemented in `run_note_slider_override()` (`voice_slider_routine.ino`), called from `loop()`; it runs even when `ft_voice_sliders` is off (only slider 0 is read). A jump guard re-arms on each selected-voice change so switching voices doesn't clobber their notes until slider 0 physically moves. While Note mode is active, slider 0 is skipped by the normal slider routine.
 21. Features (opens the Features submenu of `ft_*` flags)
 
 Items whose feature flag is disabled are skipped during knob-jog scrolling (`config_menu_step()` / `config_item_enabled()` in `config_menu.ino`).
@@ -195,6 +195,7 @@ Opened from config menu → **Features**. Knob-jog navigation (tempo knob scroll
 | Ext clock      | `ft_external_clock`      | Clock item |
 | Oct/note shift | `ft_octave_note_shift`   | Octave shift + Note shift items |
 | Diagnostics    | `ft_diagnostics`         | Diagnostics item |
+| Voice sliders  | `ft_voice_sliders`       | When off, `run_voice_slider_routine()` skips all reads (faulty/noisy sliders can't overwrite data); set notes via swing-knob Note mode |
 
 NN (slider mode 1) is always enabled. Note range is always visible (not gated).
 
@@ -254,9 +255,9 @@ LCD rate-limited to ~15 fps (66 ms) to prevent overflow at 9850 baud.
 
 ## Storage
 
-**EEPROM** (magic `0xC1`, ~2746 bytes): stores all 16 patterns × 8 voices of step data, pitch, velocity, gate, CC value, and probability; also voice_cc_enabled, cc_number, `slider_takeover` (addr 2733), the 11 `ft_*` feature flags (addr 2734), `swing_knob_function` (addr 2745), and all config scalars. Increment `EEPROM_MAGIC_VALUE` in `storage.ino` if you change the layout. Old saves with a prior magic are automatically rejected and replaced with defaults (was `0xC0` before swing_knob_function, `0xBF` before takeover + feature flags).
+**EEPROM** (magic `0xC2`, ~2747 bytes): stores all 16 patterns × 8 voices of step data, pitch, velocity, gate, CC value, and probability; also voice_cc_enabled, cc_number, `slider_takeover` (addr 2733), the 12 `ft_*` feature flags (addr 2734), `swing_knob_function` (addr 2746), and all config scalars. Increment `EEPROM_MAGIC_VALUE` in `storage.ino` if you change the layout. Old saves with a prior magic are automatically rejected and replaced with defaults (was `0xC1` before `ft_voice_sliders`, `0xC0` before swing_knob_function, `0xBF` before takeover + feature flags).
 
-**SD card** (`/beatseqr/autosave.json`): primary storage. Per-pattern JSON with per-voice arrays (`pitches[8]`, `velocities[8]`, `gates[8]`, `cc_values[8]`, `probabilities[8]`, `steps_v0`…`steps_v7`). `voice_cc_enabled` stored once at top level, along with `slider_takeover`, `swing_knob_function`, and the `ft_*` flags. Hand-rolled parser, no ArduinoJson dependency. `probabilities`, `slider_takeover`, `swing_knob_function`, and all `ft_*` keys are optional in the JSON — older saves without them load cleanly and default to 100 / Catch / Swing / ON respectively.
+**SD card** (`/beatseqr/autosave.json`): primary storage. Per-pattern JSON with per-voice arrays (`pitches[8]`, `velocities[8]`, `gates[8]`, `cc_values[8]`, `probabilities[8]`, `steps_v0`…`steps_v7`). `voice_cc_enabled` stored once at top level, along with `slider_takeover`, `swing_knob_function`, and the `ft_*` flags. Hand-rolled parser, no ArduinoJson dependency. `probabilities`, `slider_takeover`, `swing_knob_function`, and all `ft_*` keys (including `ft_voice_sliders`) are optional in the JSON — older saves without them load cleanly and default to 100 / Catch / Swing / ON respectively.
 
 **Boot**: `boot_load()` tries SD first, falls back to EEPROM. `save_everywhere()` writes SD + EEPROM.
 
@@ -272,11 +273,12 @@ LCD rate-limited to ~15 fps (66 ms) to prevent overflow at 9850 baud.
 
 ## Diagnostics Mode
 
-Entered from config menu → **Diagnostics**, which opens a knob-jog submenu (Input test / LED test). `diag_mode` gates the main loop: `loop()` runs `run_diagnostics()` then `if (diag_mode) return;`, and `run_LCD_update()` early-returns, so diagnostics owns the display. `diag_submode` selects input test (0) or LED test (1).
+Entered from config menu → **Diagnostics**, which opens a knob-jog submenu (Button test / Slider test / LED test). `diag_mode` gates the main loop: `loop()` runs `run_diagnostics()` then `if (diag_mode) return;`, and `run_LCD_update()` early-returns, so diagnostics owns the display. `diag_submode` selects button test (0), slider test (1), or LED test (2).
 
-- **Input test** (`run_diagnostics_display()`): reports each button (step, pattern, play, param_rec, slider/voice/knob-mode selects), the 8 sliders + tempo/swing knobs (raw ADC, ±16 threshold, 100 ms rate-limit), and the voice-select resistor ladder (raw A10 + detected voice via a local copy of the classifier). Auto-clears to idle after 2 s. **Pattern button 0 (PAT1)** opens the save-file viewer (scroll `autosave.json` top-level fields with the tempo knob; `sd_diag_load_fields()` in `sd_storage.ino`).
+- **Button test** (`run_diag_button_test()`): reports each button (step, pattern, play, param_rec, slider/voice/knob-mode selects), the two tempo/swing knobs (raw ADC, ±16 threshold, 100 ms rate-limit), and the voice-select resistor ladder (raw A10 + detected voice via a local copy of the classifier). Auto-clears to idle after 2 s. **Pattern button 0 (PAT1)** opens the save-file viewer (scroll `autosave.json` top-level fields with the tempo knob; `sd_diag_load_fields()` in `sd_storage.ino`).
+- **Slider test** (`run_diag_slider_test()`): watches a single slider at a time so a noisy slider can't drown out the others. Press a **voice-select button (1–8)** to choose which slider to display; the focused voice LED lights and line 1 shows `SLIDER V<n>  <pin>`, line 2 shows the live raw value (100 ms rate-limit). Focus stays on the last-picked slider until another voice-select button is pressed (starts on `current_voice`). Knobs and the voice-select ladder readout are not in this test — they live in the button test, since voice-select is repurposed here for slider focus.
 - **LED test** (`run_diag_led_test()`): non-blocking chase across 16 step + 4 pattern + 8 voice + play LEDs (29 total), 80 ms/LED.
-- **Exit** (both tests): double-tap `param_rec` → back to the diag submenu. (No D-pad on Beatseqr, so the synthseqr "Left exits" gesture is replaced by the param_rec double-tap.)
+- **Exit** (all tests): double-tap `param_rec` → back to the diag submenu. (No D-pad on Beatseqr, so the synthseqr "Left exits" gesture is replaced by the param_rec double-tap.)
 
 ## Pending Work
 
