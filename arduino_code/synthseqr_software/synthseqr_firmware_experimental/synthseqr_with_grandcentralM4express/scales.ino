@@ -61,21 +61,33 @@ void build_scale_notes() {
   }
 }
 
-// Return the nearest note in scale_note_pool to the given MIDI note.
-// Ties (equal distance) resolve toward the lower note. Returns note unchanged
-// if pool is empty.
-uint8_t quantize_to_scale(uint8_t note) {
-  if (scale_note_count == 0) return note;
-  uint8_t best = scale_note_pool[0];
-  uint8_t best_dist = (uint8_t)abs((int)note - (int)scale_note_pool[0]);
-  for (uint8_t i = 1; i < scale_note_count; i++) {
-    uint8_t dist = (uint8_t)abs((int)note - (int)scale_note_pool[i]);
-    if (dist < best_dist) {
-      best_dist = dist;
-      best = scale_note_pool[i];
-    }
+// True if a MIDI note's pitch class belongs to the active scale. Octave-
+// independent — does NOT consider the note range, so it is valid across the
+// full 0–127 range. Chromatic (scale_type 0) admits every note.
+bool note_in_scale(uint8_t note) {
+  if (scale_type == 0) return true;
+  uint8_t degree = (uint8_t)((note + 120 - scale_root) % 12);
+  for (uint8_t i = 0; i < 13; i++) {
+    if (SCALE_INTERVALS[scale_type][i] == 0xFF) break;
+    if (SCALE_INTERVALS[scale_type][i] == degree) return true;
   }
-  return best;
+  return false;
+}
+
+// Snap a MIDI note to the nearest in-scale note across the FULL 0–127 range
+// (pitch-class membership, octave-independent). Unlike scale_note_pool[], this
+// is NOT limited to the note range — so octave/note shift applied at playback
+// time can place notes in any octave and still be quantized in key. Ties
+// (equal distance up vs down) resolve toward the lower note.
+uint8_t quantize_to_scale(uint8_t note) {
+  if (scale_type == 0) return note;  // Chromatic: no snap
+  for (int d = 0; d <= 127; d++) {
+    int dn = (int)note - d;
+    if (dn >= 0   && note_in_scale((uint8_t)dn)) return (uint8_t)dn;
+    int up = (int)note + d;
+    if (up <= 127 && note_in_scale((uint8_t)up)) return (uint8_t)up;
+  }
+  return note;
 }
 
 // Rebuild scale pool and re-arm pickup guards. Stored pitches are NOT modified —
