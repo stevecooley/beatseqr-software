@@ -617,8 +617,10 @@ uint8_t scale_type = 0;
 // 0=C 1=C# 2=D 3=D# 4=E 5=F 6=F# 7=G 8=G# 9=A 10=A# 11=B
 uint8_t scale_root = 0;
 
-// In-scale MIDI notes within the current note range; populated by
-// build_scale_notes().
+// In-scale MIDI notes; populated by build_scale_notes(). Holds as many in-scale
+// notes as the note range spans (high-low+1), extending above the range top when
+// the scale excludes notes inside the range, so the playable-note count is
+// preserved. Capped at 128 (array size) and MIDI 127.
 uint8_t scale_note_pool[128];
 uint8_t scale_note_count = 0;
 
