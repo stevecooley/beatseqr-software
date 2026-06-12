@@ -318,7 +318,8 @@ void do_step_toggle(int i)
 // CC mode bypasses the gesture entirely; step buttons toggle cc_step_enabled.
 void detect_step_button_presses()
 {
-  static int8_t   gate_hold_step     = -1;
+  // gate_hold_step is a global (config.h) so run_voice_slider_routine() can
+  // read which step is held to drive the strum gesture.
   static unsigned long gate_hold_start_ms = 0;
   static bool     gate_gesture_fired = false;
   static unsigned long gate_flash_end_ms  = 0;
@@ -348,17 +349,21 @@ void detect_step_button_presses()
     if (committed && gate_hold_step == captured_step) {
       gate_hold_step     = -1;
       gate_gesture_fired = false;
+      strum_fired        = false;
     }
   }
 
   // Release check: if the tracked hold step was released, fire its deferred
-  // toggle unless a gate gesture already consumed this hold.
+  // toggle unless a gate gesture or a strum already consumed this hold. A strum
+  // already left the step ON at its final pitch, so toggling now would turn it
+  // back off.
   if (gate_hold_step >= 0 && !step_buttons[gate_hold_step].wasPressed()) {
-    if (!gate_gesture_fired) {
+    if (!gate_gesture_fired && !strum_fired) {
       do_step_toggle(gate_hold_step);
     }
     gate_hold_step = -1;
     gate_gesture_fired = false;
+    strum_fired = false;
   }
 
   for (int i = 0; i <= 15; i++) {
@@ -423,6 +428,7 @@ void detect_step_button_presses()
         }
         gate_flash_end_ms = millis() + 300;
         gate_gesture_fired = true;
+        strum_fired = false;  // gate-set consumed the hold; a prior strum already left src on
         // Gate-set wins over MIDI capture — discard any partial capture so
         // the release check doesn't commit to the wrong step.
         midi_capture_discard();
@@ -443,6 +449,7 @@ void detect_step_button_presses()
         gate_hold_step = i;
         gate_hold_start_ms = millis();
         gate_gesture_fired = false;
+        strum_fired = false;
         // Toggle for i is deferred until its release.
       }
     } else {
@@ -450,6 +457,7 @@ void detect_step_button_presses()
       gate_hold_step = i;
       gate_hold_start_ms = millis();
       gate_gesture_fired = false;
+      strum_fired = false;
       // Toggle deferred until release.
     }
   }

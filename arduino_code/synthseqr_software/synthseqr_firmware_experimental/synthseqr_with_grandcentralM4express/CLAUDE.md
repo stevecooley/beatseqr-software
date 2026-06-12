@@ -269,7 +269,7 @@ The 16 voice sliders operate in one of eight modes:
 
 **Chord engine (`chords.ino`)**: `CHORDS[]` is a fixed table of `ChordDef` entries (declared in config.h as `extern` so all .ino files can read it regardless of compile order). Each entry holds a 3-char LCD name and up to `MAX_CHORD_NOTES = 6` semitone intervals from the root. Index 0 (`"---"`) is reserved for single-note passthrough — `build_chord_pitches(root, 0, out)` returns just the root. Current entries: Maj, Min, Sus2, Sus4, Maj7, Min7, Dom7, Dim, Pow5, Oct.
 
-**`build_chord_pitches(root, chord_type, out[])`**: Returns 1..6 MIDI pitches. Each interval is added to the root, clamped to **0..127** (MIDI range — NOT slider sweep range; octave/note shift can legitimately push the root above slider_map_high_value and the chord must be free to extend from there or it collapses to one note at the cap). Scale snap is applied when a non-Chromatic scale is active so chords stay in key (note: with very narrow note ranges, `scale_note_pool` may not contain notes above the shifted root — see the open issue in Refinements). Duplicates after clamping are deduped. Defensive fallback: if the loop emits zero notes, returns the clamped root as a single note.
+**`build_chord_pitches(root, chord_type, out[])`**: Returns 1..6 MIDI pitches. Each interval is added to the root, clamped to **0..127** (MIDI range — NOT slider sweep range; octave/note shift can legitimately push the root above slider_map_high_value and the chord must be free to extend from there or it collapses to one note at the cap). Scale snap is applied when a non-Chromatic scale is active so chords stay in key. (Scale snap uses `quantize_to_scale()`, which checks pitch-class membership across the full 0–127 range — it is NOT limited to `scale_note_pool[]` / the note range, so octave/note shift can place pitches in any octave and they still snap in key.) Duplicates after clamping are deduped. Defensive fallback: if the loop emits zero notes, returns the clamped root as a single note.
 
 **Per-chord-note drift**: Drift is applied independently to each note in the chord cluster (not once for the whole chord) so each note wobbles separately, creating a shimmer effect rather than translating the whole cluster. Clamp is **0..127** in the drift loop too — same reasoning as `build_chord_pitches`. When `chord_n == 1` (single note), this is byte-identical to the pre-chord drift path.
 
@@ -620,6 +620,14 @@ When `ft_note_audition` is true and the sequencer is stopped (`!playstatus`), st
 **Disable side-effect**: `_apply_feature_disable(7)` in `config_menu.ino` calls `audition_cancel()` to silence any sounding audition chord when the feature is toggled off.
 
 **Default**: `ft_note_audition = true` — the feature is on by default. Disable from Features submenu if you don't want step-toggle previews while stopped.
+
+### Strum gesture
+
+While a step button is **held** in **NN** or **CH** slider mode and the sequencer is **stopped**, moving that step's own slider re-triggers the audition at each new note (NN) or chord type (CH) — a strum. With a scale active, sweeping the NN slider walks `scale_note_pool[]` so the strum stays in key. Gated by `ft_note_audition` (no separate flag); clock-running strum is intentionally not implemented.
+
+**Mechanics**: `gate_hold_step` (promoted from a static local in `detect_step_button_presses()` to a global in `config.h`) tells `run_voice_slider_routine()` which step is held. A strum branch at the top of the per-slider loop short-circuits the held slider: it computes the note via `nn_value_from_sector()` (NN) or the CH type map, and on change writes the value, forces the step ON (`step_data`/LED/`seq.setNote`), calls `audition_step_note(j, 1)` (which mono-retriggers — note-off prior, note-on new), sets `last_triggered_step`/`update_line2` for LCD feedback, and sets the global `strum_fired`. The strum branch **bypasses pickup/takeover** — the held step is an intentional grab. The NN branch also clears `step_custom_chord` like a normal NN move.
+
+**Release**: `strum_fired` makes the release check in `detect_step_button_presses()` skip the deferred toggle, so the step stays ON at the strummed pitch instead of toggling off. `strum_fired` is reset wherever a fresh hold is assigned (fresh press, double-tap reassign), when a gate-set gesture consumes the hold, and on the MIDI-capture-commit clear path. A plain hold with no slider movement leaves `strum_fired` false → normal toggle + single audition (unchanged behavior).
 
 ## Diagnostics Mode
 

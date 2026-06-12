@@ -197,6 +197,22 @@ bool save_to_sd() {
   _f.print("  \"pattern_direction\": "); _f.print(pattern_direction);         _f.println(",");
   _f.print("  \"scale_root\": ");        _f.print(scale_root);                _f.println(",");
   _f.print("  \"scale_type\": ");        _f.print(scale_type);                _f.println(",");
+  _f.print("  \"slider_takeover\": ");   _f.print(slider_takeover);           _f.println(",");
+  _f.print("  \"swing_knob_function\": "); _f.print(swing_knob_function);       _f.println(",");
+
+  // Feature flags (all optional on load — default to ON / Catch when absent).
+  _f.print("  \"ft_advanced_mode\": ");      _f.print(ft_advanced_mode ? 1 : 0);       _f.println(",");
+  _f.print("  \"ft_cc_mode\": ");            _f.print(ft_cc_mode ? 1 : 0);             _f.println(",");
+  _f.print("  \"ft_probability\": ");        _f.print(ft_probability ? 1 : 0);         _f.println(",");
+  _f.print("  \"ft_gate_mode\": ");          _f.print(ft_gate_mode ? 1 : 0);           _f.println(",");
+  _f.print("  \"ft_velocity_mode\": ");      _f.print(ft_velocity_mode ? 1 : 0);       _f.println(",");
+  _f.print("  \"ft_scale_quantization\": "); _f.print(ft_scale_quantization ? 1 : 0);  _f.println(",");
+  _f.print("  \"ft_pattern_direction\": ");  _f.print(ft_pattern_direction ? 1 : 0);   _f.println(",");
+  _f.print("  \"ft_variable_pat_length\": ");_f.print(ft_variable_pat_length ? 1 : 0); _f.println(",");
+  _f.print("  \"ft_external_clock\": ");     _f.print(ft_external_clock ? 1 : 0);      _f.println(",");
+  _f.print("  \"ft_octave_note_shift\": ");  _f.print(ft_octave_note_shift ? 1 : 0);   _f.println(",");
+  _f.print("  \"ft_diagnostics\": ");        _f.print(ft_diagnostics ? 1 : 0);         _f.println(",");
+  _f.print("  \"ft_voice_sliders\": ");      _f.print(ft_voice_sliders ? 1 : 0);       _f.println(",");
 
   // voice_cc_enabled is per-voice (not per-pattern) — save once at top level.
   _f.print("  \"voice_cc_enabled\": [");
@@ -317,6 +333,32 @@ bool load_from_sd() {
     int v = (int)sd_parse_number();
     if (v >= -12 && v <= 12) note_shift = (int8_t)v;
   }
+
+  _f.seekSet(0);
+  if (sd_find("\"slider_takeover\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v <= 2) slider_takeover = (uint8_t)v;
+  }
+
+  _f.seekSet(0);
+  if (sd_find("\"swing_knob_function\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v < SWING_KNOB_FN_COUNT) swing_knob_function = (uint8_t)v;
+  }
+
+  // Feature flags — optional; absent keys keep the compiled-in defaults (ON).
+  _f.seekSet(0); if (sd_find("\"ft_advanced_mode\":"))      ft_advanced_mode       = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_cc_mode\":"))            ft_cc_mode             = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_probability\":"))        ft_probability         = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_gate_mode\":"))          ft_gate_mode           = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_velocity_mode\":"))      ft_velocity_mode       = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_scale_quantization\":")) ft_scale_quantization  = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_pattern_direction\":"))  ft_pattern_direction   = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_variable_pat_length\":"))ft_variable_pat_length = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_external_clock\":"))     ft_external_clock      = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_octave_note_shift\":"))  ft_octave_note_shift   = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_diagnostics\":"))        ft_diagnostics         = ((int)sd_parse_number() != 0);
+  _f.seekSet(0); if (sd_find("\"ft_voice_sliders\":"))      ft_voice_sliders       = ((int)sd_parse_number() != 0);
 
   {
     uint8_t lo = slider_map_low_value;
@@ -505,4 +547,46 @@ void boot_load() {
 void save_everywhere() {
   save_to_sd();
   save_to_eeprom();
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostics save-file viewer support.
+//
+// Populates l1[i] (field name) and l2[i] (value string) for the first
+// SD_DIAG_FIELD_COUNT top-level scalar fields of autosave.json. Each field is
+// found by rewinding and scanning for its quoted key, so order in the file
+// doesn't matter. Missing keys show "(absent)"; no card/file shows "(no SD)".
+// ---------------------------------------------------------------------------
+
+void sd_diag_load_fields(char l1[][17], char l2[][17]) {
+  static const char* keys[SD_DIAG_FIELD_COUNT] = {
+    "version", "tempo", "swing", "midi_channel",
+    "octave_shift", "note_shift", "note_range_low", "note_range_high",
+    "scale_root", "scale_type", "advanced_mode", "pattern_length",
+    "pattern_direction", "chain_active", "chain_start", "chain_end",
+    "slider_takeover", "swing_knob_function", "ft_cc_mode"
+  };
+
+  for (int i = 0; i < SD_DIAG_FIELD_COUNT; i++) {
+    snprintf(l1[i], 17, "%s", keys[i]);
+    snprintf(l2[i], 17, "(no SD)");
+  }
+
+  if (!sd_available) return;
+  _f = _sd.open(SD_AUTOSAVE_PATH, O_RDONLY);
+  if (!_f) return;
+
+  for (int i = 0; i < SD_DIAG_FIELD_COUNT; i++) {
+    _f.seekSet(0);
+    char qkey[24];
+    snprintf(qkey, sizeof(qkey), "\"%s\"", keys[i]);
+    if (sd_find(qkey) && sd_read_until(':')) {
+      float v = sd_parse_number();
+      if (strcmp(keys[i], "tempo") == 0) snprintf(l2[i], 17, "%.1f", (double)v);
+      else                               snprintf(l2[i], 17, "%d", (int)v);
+    } else {
+      snprintf(l2[i], 17, "(absent)");
+    }
+  }
+  _f.close();
 }

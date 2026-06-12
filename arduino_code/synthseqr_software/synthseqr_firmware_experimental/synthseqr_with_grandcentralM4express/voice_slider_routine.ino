@@ -51,6 +51,23 @@ void set_slider_mode(uint8_t mode) {
   }
 }
 
+// nn_value_from_sector(sector)
+//
+// Maps a 0..255 slider sector to a MIDI note number using the active scale
+// pool when a scale is in effect, else the raw note range. Factored out so the
+// normal NN slider path and the strum gesture compute identical notes.
+uint8_t nn_value_from_sector(int sector) {
+  if (scale_note_count > 0) {
+    int pool_top = (int)scale_note_count - 1 + (int)slider_hi_trim;
+    uint8_t idx = (uint8_t)map(sector, 0, 255, 0, pool_top);
+    if (idx >= scale_note_count) idx = (uint8_t)(scale_note_count - 1);
+    return scale_note_pool[idx];
+  }
+  int eff_hi = (int)slider_map_high_value + (int)slider_hi_trim;
+  if (eff_hi > 127) eff_hi = 127;
+  return (uint8_t)map(sector, 0, 255, slider_map_low_value, (uint8_t)eff_hi);
+}
+
 void run_voice_slider_routine()
 {
   // Rate-limit ADC reads to every 20 ms.
@@ -96,20 +113,65 @@ void run_voice_slider_routine()
       overlay_rest_raw[j] = raw;    // seed once on first pass
     }
 
+    // Strum gesture: while a step button is held in NN or CH mode and the
+    // sequencer is stopped, moving that step's own slider re-triggers the note
+    // audition at each new note/chord — a strum. Bypasses pickup/takeover (the
+    // held step is an intentional grab). strum_fired tells the step-button
+    // release check to keep the step ON instead of toggling it off. Only the
+    // held slider strums; all others fall through to normal handling.
+#if FEATURE_NOTE_AUDITION
+    bool strum_eligible = (gate_hold_step == j) && !playstatus && ft_note_audition;
+
+    if (strum_eligible && slider_mode == 1) {
+      uint8_t new_value = nn_value_from_sector(sector);
+      raw_voice_slider_values[j] = new_value;
+      if (new_value != voice_slider_midinotenum[j]) {
+        voice_slider_midinotenum[j]            = new_value;
+        voice_slider_values[j]                 = new_value;
+        pattern_step_pitches[pattern_value][j] = new_value;
+        // A strummed note replaces any captured MIDI chord, like a normal move.
+        for (uint8_t n = 0; n < MAX_CHORD_NOTES; n++)
+          step_custom_chord[pattern_value][j][n] = -1;
+        // Record the step ON so the strum writes a note (LED + library).
+        if (step_data[pattern_value][0][j] != 1) {
+          step_data[pattern_value][0][j] = 1;
+          step_leds[j].on();
+          seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[j], 127, j);
+        }
+        audition_step_note(j, 1);
+        strum_fired = true;
+        last_triggered_step = (int8_t)j;
+        update_line2 = true;
+      }
+      last_voice_slider_values[j] = voice_slider_values[j];
+      continue;
+    }
+
+    if (strum_eligible && slider_mode == 8 && ft_chord_mode) {
+      uint8_t max_type = (uint8_t)(CHORD_COUNT - 1);
+      uint8_t ctype = (uint8_t)map(sector, 0, 255, 0, max_type);
+      if (ctype > max_type) ctype = max_type;
+      if (ctype != step_chord_type[pattern_value][j]) {
+        step_chord_type[pattern_value][j] = ctype;
+        if (step_data[pattern_value][0][j] != 1) {
+          step_data[pattern_value][0][j] = 1;
+          step_leds[j].on();
+          seq.setNote(MIDICHANNEL - 1, voice_slider_midinotenum[j], 127, j);
+        }
+        audition_step_note(j, 1);
+        strum_fired = true;
+        last_triggered_step = (int8_t)j;
+        update_line2 = true;
+      }
+      last_voice_slider_values[j] = voice_slider_values[j];
+      continue;
+    }
+#endif  // FEATURE_NOTE_AUDITION
+
     if (slider_mode == 1)
     {
       // NN mode: map to scale note pool when active, else full chromatic range.
-      uint8_t new_value;
-      if (scale_note_count > 0) {
-        int pool_top = (int)scale_note_count - 1 + (int)slider_hi_trim;
-        uint8_t idx = (uint8_t)map(sector, 0, 255, 0, pool_top);
-        if (idx >= scale_note_count) idx = (uint8_t)(scale_note_count - 1);
-        new_value = scale_note_pool[idx];
-      } else {
-        int eff_hi = (int)slider_map_high_value + (int)slider_hi_trim;
-        if (eff_hi > 127) eff_hi = 127;
-        new_value = (uint8_t)map(sector, 0, 255, slider_map_low_value, (uint8_t)eff_hi);
-      }
+      uint8_t new_value = nn_value_from_sector(sector);
       raw_voice_slider_values[j] = new_value;
       uint8_t stored = voice_slider_midinotenum[j];
 

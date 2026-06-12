@@ -286,6 +286,16 @@ When note audition is active and the sequencer is stopped:
 - **Turn a step OFF** (press a step button whose LED is on): the step toggles off. No note plays.
 - **Gate-set gesture** (hold one step button ≥ 150 ms, tap a second step): the gate is set and the preview plays again using the newly set gate length — so you hear the full ring time. Chord-assigned steps audition as chords here too; all notes share the gate envelope.
 
+### Strum (hold a step + move its slider)
+
+While the sequencer is **stopped** and you are in **NN** (note) or **CH** (chord) slider mode, **hold a step button down and move that same step's slider** — each new note (or chord type) you pass over plays immediately, so sweeping the slider strums through the notes.
+
+- In **NN** mode with a **scale** active, the strum walks through the scale's notes, so it always stays in key. With no scale, it strums chromatically across the note range.
+- In **CH** mode, the strum cycles through chord types as you sweep, auditioning each chord.
+- The step turns **ON** as you strum, and when you **release** the step button it stays on at whatever note (or chord) you landed on — so a strum both lets you *hear* and *record* the note in one gesture.
+- During a strum the slider responds instantly (it ignores the usual pickup/lock behavior) because you've deliberately grabbed it.
+- Just holding a step **without** moving its slider does nothing new — release toggles the step as usual.
+
 ### What it doesn't do
 
 - Audition does **not** fire while the sequencer is playing — you can hear the note naturally when the step is reached.

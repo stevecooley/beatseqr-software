@@ -72,6 +72,30 @@ int last_voice_slider_values[VOICE_COUNT];
 // stored value before it takes control. Set on voice switch and mode switch.
 bool slider_needs_pickup[VOICE_COUNT];
 
+// Slider takeover behaviour (global), set via config menu "Takeover:" item.
+//   0 = Catch    — slider must cross the stored value before it writes (pickup)
+//   1 = Jump     — slider engages on first movement, value jumps to it
+//   2 = Relative — value tracks the delta from the slider's physical position
+// LV-style live modes do not exist on Beatseqr, so this applies to all 5 modes.
+uint8_t slider_takeover = 0;
+
+// Swing knob (A9) function during normal play (global), set via config menu
+// "Swing knob:" item. The knob acts as a relative jog wheel (CW = +, CCW = -).
+//   0 = Swing   — adjust SWING 0–5
+//   1 = Tempo   — nudge TEMPO ±1 BPM
+//   2 = Pattern — jog to next/previous pattern
+//   3 = Voice   — jog to next/previous voice
+//   4 = Note    — adjust the selected voice's note via voice 1's slider; the
+//                 slider spans the configurable Note range (slider_map_low_value
+//                 .. slider_map_high_value)
+uint8_t swing_knob_function = 0;
+#define SWING_KNOB_FN_COUNT 5
+
+// Last raw 12-bit ADC reading per slider; used by Jump movement detection and
+// Relative deltas. Seeded from the physical position on every mode/pattern/voice
+// switch via set_slider_mode().
+uint16_t slider_last_raw[VOICE_COUNT];
+
 uint8_t slider_mode       = 1;  // 1=NN  2=VL  3=GT  4=CC  5=PR
 uint8_t slider_mode_total = 5;
 uint8_t slider_reset_counter = 0;
@@ -266,6 +290,10 @@ bool slider_mode_flag     = false;
 bool voice_mode_flag      = false;
 bool knob_mode_flag       = false;
 bool param_rec_flag       = false;
+// Set by a knob_mode_select single-tap while the config menu is open; consumed
+// by run_config_menu() to back out one level (cancel edit → cancel confirm →
+// close submenu → exit menu). Replaces the old swing-knob-CCW cancel gesture.
+bool knob_mode_back_flag  = false;
 
 ////////////////////////////////
 //
@@ -424,6 +452,42 @@ bool config_confirm_pending  = false;
 bool config_editing_value    = false;
 uint8_t config_note_range_phase = 0;
 uint8_t config_scale_phase      = 0;
+
+/////////////////////////////////
+// runtime feature flags (Features submenu)
+//
+// Each flag enables an optional capability. When a flag is off, its config
+// menu item(s) are skipped during scrolling and, for slider-mode features,
+// the slider-mode cycle hops over that mode. Persisted to EEPROM + SD.
+/////////////////////////////////
+
+bool ft_advanced_mode       = true;   // Mode item + advanced pattern layout
+bool ft_cc_mode             = true;   // slider mode 4 (CC) + CC num item
+bool ft_probability         = true;   // slider mode 5 (PR) + Voice prob item
+bool ft_gate_mode           = true;   // slider mode 3 (GT)
+bool ft_velocity_mode       = true;   // slider mode 2 (VL)
+bool ft_scale_quantization  = true;   // Note scales item
+bool ft_pattern_direction   = true;   // Pat dir item
+bool ft_variable_pat_length = true;   // Pat length item
+bool ft_external_clock      = true;   // Clock item
+bool ft_octave_note_shift   = true;   // Octave shift + Note shift items
+bool ft_diagnostics         = true;   // Diagnostics item + hardware test mode
+bool ft_voice_sliders       = true;   // when off, voice sliders are not read
+                                      // (set notes via swing-knob Note mode)
+
+// Features submenu navigation state.
+bool    config_features_active = false;
+uint8_t config_feature_item    = 0;
+
+// Diagnostics submenu navigation state (Button test / Slider test / LED test).
+bool    config_diag_active = false;
+uint8_t config_diag_item   = 0;
+#define DIAG_SUBMENU_ITEM_COUNT 3
+
+// Save-file viewer: number of top-level JSON fields shown in diagnostics.
+// Explicit prototype avoids Arduino auto-prototype issues with 2D-array params.
+#define SD_DIAG_FIELD_COUNT 19
+void sd_diag_load_fields(char l1[][17], char l2[][17]);
 
 /////////////////////////////////
 // octave / note shift
