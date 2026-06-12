@@ -47,14 +47,27 @@ const char* ROOT_NAMES[12] = {
 
 // Rebuild scale_note_pool[] from current scale_type, scale_root, and note range.
 // Called after any of these change, and on boot after loading from SD/EEPROM.
+//
+// The pool collects as many IN-SCALE notes as the configured note range spans
+// (high - low + 1). Notes the scale excludes inside the range are made up for
+// by extending ABOVE the range top — so a non-chromatic scale still yields the
+// full count of playable notes the user configured (e.g. a 16-note range gives
+// 16 in-scale notes, not just the ~9 that happen to land in the bottom octave+).
+// For Chromatic every note is in-scale, so collection stops exactly at the
+// range top and behavior is identical to before. The pool is capped at 128
+// entries (its array size) and the MIDI ceiling of 127.
 void build_scale_notes() {
   scale_note_count = 0;
-  for (uint8_t n = slider_map_low_value; n <= slider_map_high_value && n < 128; n++) {
+  uint16_t target = (uint16_t)slider_map_high_value
+                  - (uint16_t)slider_map_low_value + 1;
+  for (uint16_t n = slider_map_low_value;
+       n < 128 && scale_note_count < target && scale_note_count < 128;
+       n++) {
     uint8_t degree = (uint8_t)((n + 120 - scale_root) % 12);
     for (uint8_t i = 0; i < 13; i++) {
       if (SCALE_INTERVALS[scale_type][i] == 0xFF) break;
       if (SCALE_INTERVALS[scale_type][i] == degree) {
-        scale_note_pool[scale_note_count++] = n;
+        scale_note_pool[scale_note_count++] = (uint8_t)n;
         break;
       }
     }
