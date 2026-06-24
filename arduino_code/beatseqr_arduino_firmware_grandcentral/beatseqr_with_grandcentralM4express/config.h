@@ -482,7 +482,7 @@ uint8_t config_feature_item    = 0;
 // Diagnostics submenu navigation state (Button test / Slider test / LED test).
 bool    config_diag_active = false;
 uint8_t config_diag_item   = 0;
-#define DIAG_SUBMENU_ITEM_COUNT 3
+#define DIAG_SUBMENU_ITEM_COUNT 4
 
 // Save-file viewer: number of top-level JSON fields shown in diagnostics.
 // Explicit prototype avoids Arduino auto-prototype issues with 2D-array params.

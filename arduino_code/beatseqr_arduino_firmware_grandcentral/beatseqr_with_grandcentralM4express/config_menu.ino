@@ -71,12 +71,14 @@ static uint8_t next_valid_cc(uint8_t current, int dir) {
 //
 // Modal config menu entered by double-tapping the knob_mode button (400 ms).
 //
-// Navigation:
-//   Tempo knob CW       — scroll to next item / increment value
-//   Tempo knob CCW      — scroll to previous item / decrement value
-//   knob_mode 1-tap     — back one level (cancel edit → cancel confirm → exit)
-//   knob_mode 2-tap     — exit menu entirely
-//   param_rec           — select / confirm (replaces Enter button)
+// Navigation (pattern-select buttons as a d-pad; the tempo knob does NOT
+// navigate the menu):
+//   PAT3 (down) / PAT2 (up) — scroll items / increment-decrement values
+//   PAT1 (back)             — back one level (cancel edit → cancel confirm → exit)
+//   PAT4 (select)           — select / confirm
+//   knob_mode 1-tap         — back one level (same as PAT1)
+//   knob_mode 2-tap         — exit menu entirely
+//   param_rec               — select / confirm (same as PAT4)
 //
 // The swing knob does NOT navigate the menu — it is a configurable play control
 // (see swing_knob_function / knob_routine.ino). Swing amount is still editable
@@ -270,9 +272,41 @@ static void _apply_feature_disable(uint8_t idx) {
   }
 }
 
+// Pattern-button menu navigation — the d-pad that drives the config menu:
+//   PAT1 = back/cancel, PAT4 = select/enter, PAT2 = up, PAT3 = down.
+// The tempo knob no longer navigates the menu (by user preference). Back and
+// select reuse the existing knob_mode_back_flag / param_rec_flag so all
+// downstream menu logic is unchanged. Up/down are returned as a jog delta;
+// `editing` flips their meaning so it always feels natural — while editing a
+// value up = increase / down = decrease, while scrolling a list up = previous /
+// down = next item.
+//
+// Reading the presses here (uniquePress) also consumes them, but the loop gates
+// its own pattern-button handling on !config_menu_active, so menu navigation
+// never doubles as a pattern switch.
+static int config_pattern_nav(bool editing) {
+  bool p_back = pattern_select_buttons[0].uniquePress();
+  bool p_up   = pattern_select_buttons[1].uniquePress();
+  bool p_down = pattern_select_buttons[2].uniquePress();
+  bool p_fwd  = pattern_select_buttons[3].uniquePress();
+
+  if (p_back) knob_mode_back_flag = true;
+  if (p_fwd)  param_rec_flag      = true;
+
+  int jog = 0;
+  if (editing) {
+    if (p_up)   jog = +1;   // increase value
+    if (p_down) jog = -1;   // decrease value
+  } else {
+    if (p_up)   jog = -1;   // previous item
+    if (p_down) jog = +1;   // next item
+  }
+  return jog;
+}
+
 void run_features_submenu() {
-  // Edge-triggered knob read — consume movement once per call.
-  int jog_v = knob_jog_vertical();
+  // Pattern-button d-pad (list scroll: not editing).
+  int jog_v = config_pattern_nav(false);
 
   // knob_mode single-tap: back out to the main config menu.
   if (knob_mode_back_flag) {
@@ -307,7 +341,8 @@ void run_features_submenu() {
 static const char* _diag_labels[DIAG_SUBMENU_ITEM_COUNT] = {
   "Button test   ",
   "Slider test   ",
-  "LED test      "
+  "LED test      ",
+  "Voice cal     "
 };
 
 void draw_diag_submenu() {
@@ -321,7 +356,7 @@ void draw_diag_submenu() {
 }
 
 void run_diag_submenu() {
-  int jog_v = knob_jog_vertical();
+  int jog_v = config_pattern_nav(false);
 
   // knob_mode single-tap: leave the diag submenu, back to the main config menu.
   if (knob_mode_back_flag) {
@@ -344,7 +379,8 @@ void run_diag_submenu() {
     param_rec_flag = false;
     if      (config_diag_item == 0) enter_diag_button_test();
     else if (config_diag_item == 1) enter_diag_slider_test();
-    else                            enter_diag_led_test();
+    else if (config_diag_item == 2) enter_diag_led_test();
+    else                            enter_diag_voice_cal();
   }
 }
 
@@ -573,10 +609,11 @@ void run_config_menu() {
     return;
   }
 
-  // Tempo knob jog — edge-triggered, fires at most once per threshold crossing.
-  // +1 = CW / "more",  -1 = CCW / "less". The swing knob no longer navigates the
-  // menu (it is a configurable play control); back/exit is the knob_mode button.
-  int jog_v = knob_jog_vertical();    // tempo knob → up/down / increment/decrement
+  // Pattern-button d-pad nav. jog_v: +1 = down/"more", -1 = up/"less". The tempo
+  // and swing knobs do NOT navigate the menu; back/exit is PAT1 or knob_mode.
+  // While editing a value, up/down adjust it; while scrolling, they move between
+  // items (see config_pattern_nav).
+  int jog_v = config_pattern_nav(config_editing_value);
 
   // knob_mode single-tap (back one level): exit editing → exit confirmation →
   // exit menu. Replaces the former swing-knob-CCW cancel gesture.
@@ -598,9 +635,9 @@ void run_config_menu() {
     return;
   }
 
-  // Value editing sub-state: tempo knob adjusts the value; param_rec exits.
+  // Value editing sub-state: PAT2/PAT3 (up/down) adjust the value; param_rec/PAT4 exits.
   if (config_editing_value) {
-    // jog_v > 0 = CW = increment; jog_v < 0 = CCW = decrement.
+    // jog_v > 0 = down/PAT3 = increment; jog_v < 0 = up/PAT2 = decrement.
     if (jog_v != 0) {
       if (config_menu_item == CONFIG_ITEM_CHANNEL) {
         if (jog_v > 0 && MIDICHANNEL < 16) { MIDICHANNEL++; draw_config_menu(); }
@@ -757,7 +794,7 @@ void run_config_menu() {
     return;
   }
 
-  // Menu scroll: tempo knob CW = next item, CCW = previous item.
+  // Menu scroll: PAT3 (down) = next item, PAT2 (up) = previous item.
   // Items whose feature flag is off are skipped.
   if (jog_v > 0) {
     config_menu_item = config_menu_step(config_menu_item, +1);

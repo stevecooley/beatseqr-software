@@ -4,10 +4,13 @@
 //   Tempo knob — A8 — maps to TEMPO (lower_BPM_number … upper_BPM_number)
 //   Swing knob — A9 — maps to SWING (0 … 5)
 //
-// In normal mode the knobs directly set TEMPO and SWING each loop.
-// In config menu mode the knobs become jog-wheel navigators:
-//   Tempo knob → up / down (scroll menu items, increment values)
-//   Swing knob → left / right (exit or decrease values)
+// In normal mode the swing knob acts as a configurable jog wheel (the tempo knob
+// has no direct effect — ADC noise caused clock instability).
+//
+// The config menu is navigated by the pattern-select buttons (a d-pad), NOT the
+// knobs — see config_pattern_nav() in config_menu.ino. The tempo-knob jog wheel
+// (knob_jog_vertical) survives only for the diagnostics save-file viewer's field
+// scrolling.
 // Jog events fire when accumulated movement exceeds KNOB_JOG_THRESHOLD ADC
 // counts. The saved position is updated after each event so the user can keep
 // spinning in one direction to get multiple increments.
@@ -19,7 +22,9 @@
 // navigates the menu, so only the tempo jog is anchored here.)
 static int _jog_tempo_last = 512;
 
-// Call once when entering config menu to anchor the tempo-jog baseline.
+// Anchor the tempo-jog baseline. Called when entering diagnostics tests that use
+// the tempo-knob jog wheel (the save-file viewer). The config menu no longer
+// uses the tempo jog, but the call is harmless there.
 void enter_knob_jog_mode() {
   _jog_tempo_last = analogRead(A8);
 }
@@ -67,13 +72,13 @@ static int knob_jog_swing_norm() {
 
 // run_knob_routine — called every loop().
 //
-// In the config menu the knobs are jog wheels invoked on-demand by
-// run_config_menu(). During normal play the tempo knob (A8) has no direct
-// effect (ADC noise caused clock instability), while the swing knob (A9) acts
-// as a configurable relative jog wheel — see swing_knob_function.
+// During normal play the tempo knob (A8) has no direct effect (ADC noise caused
+// clock instability), while the swing knob (A9) acts as a configurable relative
+// jog wheel — see swing_knob_function. In the config menu both knobs are inert
+// (the menu is driven by the pattern-select d-pad).
 void run_knob_routine() {
   if (config_menu_active) {
-    // Jog functions are called on-demand by run_config_menu().
+    // Knobs do not navigate the menu — the pattern-select buttons do.
     return;
   }
 

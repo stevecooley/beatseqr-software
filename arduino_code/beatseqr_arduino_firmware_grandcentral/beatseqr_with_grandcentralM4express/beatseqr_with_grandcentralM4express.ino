@@ -35,6 +35,9 @@ void setup() {
 
   // Restore saved state from SD (all 16 patterns) or fall back to EEPROM.
   boot_load();
+  // Apply per-board voice-select calibration (independent of the main save, so
+  // it survives a save-layout magic bump). SD first, EEPROM fallback, else defaults.
+  boot_load_voice_cal();
   seq.setSteps(pattern_length);
   if (pattern_direction == 4) init_shuffle();
   go_to_pattern(current_pattern, 1);
@@ -157,44 +160,49 @@ void loop() {
 
   run_step_button_routine();
 
-  // Pattern select button flag collection.
-  for (uint8_t i = 0; i < 4; i++) {
-    if (pattern_select_buttons[i].uniquePress()) {
-      pattern_select_button_flags[i] = true;
-    }
-    // Simple mode: hold 2 s → pattern copy armed (held() fires once per press).
-    if (!advanced_mode && pattern_select_buttons[i].held(2000)) {
-      told_which_pattern_to_copy_to = true;
-      lcdflag = 100; next_lcdflag = 100;
-    }
-  }
-
-  // Advanced mode: pattern button 0 single / double-click.
-  if (advanced_mode) {
-    static unsigned long last_pat0_press_ms = 0;
-    unsigned long now_ms = millis();
-
-    if (pattern_select_button_flags[0]) {
-      pattern_select_button_flags[0] = false;
-      if (last_pat0_press_ms != 0 && now_ms - last_pat0_press_ms <= 400) {
-        last_pat0_press_ms = 0;
-        adv_copy_waiting_source = true;
-        adv_copy_armed = false;
-        lcdflag = 103; next_lcdflag = 103;
-      } else {
-        last_pat0_press_ms = now_ms;
+  // Pattern select buttons. While the config menu is open they act as the menu
+  // d-pad (consumed inside run_config_menu → config_pattern_nav), so skip all the
+  // normal pattern-switch / copy / nav handling here to avoid double duty.
+  if (!config_menu_active) {
+    // Pattern select button flag collection.
+    for (uint8_t i = 0; i < 4; i++) {
+      if (pattern_select_buttons[i].uniquePress()) {
+        pattern_select_button_flags[i] = true;
+      }
+      // Simple mode: hold 2 s → pattern copy armed (held() fires once per press).
+      if (!advanced_mode && pattern_select_buttons[i].held(2000)) {
+        told_which_pattern_to_copy_to = true;
+        lcdflag = 100; next_lcdflag = 100;
       }
     }
-    if (last_pat0_press_ms != 0 && now_ms - last_pat0_press_ms > 400) {
-      last_pat0_press_ms = 0;
-      adv_pat_nav_active = !adv_pat_nav_active;
-      if (adv_pat_nav_active) {
-        adv_chain_hold_step = -1;
-        adv_blink_state = true;
-        adv_blink_last_ms = millis();
-      } else {
-        adv_chain_hold_step = -1;
-        read_step_memory(current_voice, pattern_value);
+
+    // Advanced mode: pattern button 0 single / double-click.
+    if (advanced_mode) {
+      static unsigned long last_pat0_press_ms = 0;
+      unsigned long now_ms = millis();
+
+      if (pattern_select_button_flags[0]) {
+        pattern_select_button_flags[0] = false;
+        if (last_pat0_press_ms != 0 && now_ms - last_pat0_press_ms <= 400) {
+          last_pat0_press_ms = 0;
+          adv_copy_waiting_source = true;
+          adv_copy_armed = false;
+          lcdflag = 103; next_lcdflag = 103;
+        } else {
+          last_pat0_press_ms = now_ms;
+        }
+      }
+      if (last_pat0_press_ms != 0 && now_ms - last_pat0_press_ms > 400) {
+        last_pat0_press_ms = 0;
+        adv_pat_nav_active = !adv_pat_nav_active;
+        if (adv_pat_nav_active) {
+          adv_chain_hold_step = -1;
+          adv_blink_state = true;
+          adv_blink_last_ms = millis();
+        } else {
+          adv_chain_hold_step = -1;
+          read_step_memory(current_voice, pattern_value);
+        }
       }
     }
   }

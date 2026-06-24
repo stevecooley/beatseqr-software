@@ -239,7 +239,8 @@ static bool diag_check_enter_exit(bool report_single, const char* single_name) {
 
 void run_diagnostics() {
   if (!diag_mode) return;
-  if      (diag_submode == 2) run_diag_led_test();
+  if      (diag_submode == 3) run_diag_voice_cal();
+  else if (diag_submode == 2) run_diag_led_test();
   else if (diag_submode == 1) run_diag_slider_test();
   else                        run_diag_button_test();
 }
@@ -402,5 +403,226 @@ void run_diag_button_test() {
   } else if (!diag_showing_idle && (now_ms - diag_last_activity_ms >= 2000)) {
     diag_show_idle_screen();
     diag_showing_idle = true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Voice-select calibration wizard (diag_submode 3)
+//
+// Walks the user through pressing each of the 8 voice buttons in order and
+// records the raw A10 range each one produces, so a per-board resistor ladder
+// can be mapped without recompiling. Crucially it does NOT use the classifier
+// (diag_voice_from_adc) to decide which button was pressed — the mapping is the
+// very thing being calibrated — it reads raw A10 and takes the voice index from
+// the prompt order. Captured ranges are committed to the live vselectval_*
+// arrays and persisted (SD + dedicated EEPROM region) only when all 8 are done.
+// ---------------------------------------------------------------------------
+
+#define VCAL_PROMPT     0   // waiting for the user to start pressing this voice
+#define VCAL_CAPTURING  1   // button held; tracking the steady-plateau window
+#define VCAL_CONFIRM    2   // released; showing the captured range for accept/redo
+#define VCAL_SAVED      3   // terminal screen (saved / defaults / error)
+
+#define VCAL_IDLE_FLOOR     50   // raw A10 above this = a button is held (idle ~10)
+#define VCAL_RELEASE_SAMPLES 4   // consecutive idle reads that count as a release
+#define VCAL_MARGIN         16   // guard band added around the captured plateau
+#define VCAL_STABLE_DELTA   25   // max change between samples to count as "steady"
+#define VCAL_LOCK_SAMPLES    3   // consecutive steady samples before trusting plateau
+
+static uint8_t       vcal_voice;             // 0..7 — which voice is being captured
+static uint8_t       vcal_phase;             // VCAL_* above
+static int           vcal_min, vcal_max;     // plateau window (steady samples only)
+static int           vcal_prev_raw;          // last sample, for steadiness check
+static uint8_t       vcal_stable_count;      // consecutive steady samples seen
+static bool          vcal_locked;            // true once a steady plateau is found
+static int           vcal_lo[VOICE_COUNT];   // staged ranges, committed only at the end
+static int           vcal_hi[VOICE_COUNT];
+static int           vcal_idle_count;        // consecutive idle reads (release detect)
+static unsigned long vcal_lcd_ms;            // LCD rate-limit timer
+static uint8_t       vcal_last_drawn_phase;  // forces a redraw when the phase changes
+static bool          vcal_tap_pending;       // param_rec double-tap detection
+static unsigned long vcal_tap_ms;
+static char          vcal_result_l1[17];     // line 1 text for the SAVED screen
+
+// Begin (or restart) capture for the current voice. Seeds the steadiness tracker
+// but does NOT seed the min/max window — that waits until a steady plateau is
+// found (vcal_locked), so the press-rise and release-fall transients are excluded.
+static void vcal_begin_capture(int raw) {
+  vcal_prev_raw     = raw;
+  vcal_stable_count = 0;
+  vcal_locked       = false;
+  vcal_idle_count   = 0;
+  vcal_phase        = VCAL_CAPTURING;
+}
+
+// param_rec gesture: 0 = none, 1 = confirmed single tap (after the 400 ms
+// double-tap window closes with one tap), 2 = double-tap. Lets one button do
+// both confirm (single) and abort (double), matching the rest of diagnostics.
+static uint8_t vcal_param_rec_event() {
+  unsigned long now = millis();
+  if (param_rec.uniquePress()) {
+    if (vcal_tap_pending && now - vcal_tap_ms <= 400) {
+      vcal_tap_pending = false;
+      return 2;   // double-tap → abort
+    }
+    vcal_tap_pending = true;
+    vcal_tap_ms = now;
+  }
+  if (vcal_tap_pending && now - vcal_tap_ms > 400) {
+    vcal_tap_pending = false;
+    return 1;     // a single tap that did not become a double-tap → confirm
+  }
+  return 0;
+}
+
+// Two-line LCD write, both lines padded to clear any leftovers.
+static void vcal_msg2(const char* l1, const char* l2) {
+  char b[17];
+  lcd.print("?x00?y0"); snprintf(b, sizeof(b), "%-16s", l1); lcd.print(b);
+  lcd.print("?x00?y1"); snprintf(b, sizeof(b), "%-16s", l2); lcd.print(b);
+}
+
+static void vcal_draw(int raw) {
+  char l1[17], l2[17];
+  switch (vcal_phase) {
+    case VCAL_PROMPT:
+      snprintf(l1, sizeof(l1), "CAL V%d/8  2x=bk", vcal_voice + 1);
+      if (vcal_voice == 0) snprintf(l2, sizeof(l2), "Hold V1 (P1=rst)");
+      else                 snprintf(l2, sizeof(l2), "Hold voice %d", vcal_voice + 1);
+      break;
+    case VCAL_CAPTURING:
+      snprintf(l1, sizeof(l1), "CAL V%d/8  HOLD", vcal_voice + 1);
+      if (vcal_locked) snprintf(l2, sizeof(l2), "r%4d %4d-%4d", raw, vcal_min, vcal_max);
+      else             snprintf(l2, sizeof(l2), "r%4d  steady...", raw);
+      break;
+    case VCAL_CONFIRM:
+      snprintf(l1, sizeof(l1), "V%d: %4d-%4d", vcal_voice + 1,
+               vcal_lo[vcal_voice], vcal_hi[vcal_voice]);
+      snprintf(l2, sizeof(l2), "Ent=ok hold=redo");
+      break;
+    case VCAL_SAVED:
+    default:
+      snprintf(l1, sizeof(l1), "%s", vcal_result_l1);
+      snprintf(l2, sizeof(l2), "Ent=back");
+      break;
+  }
+  vcal_msg2(l1, l2);
+}
+
+// All 8 staged ranges must be sane and in-bounds before we overwrite the live
+// arrays. Given the capture constraints this should always pass; it's a guard.
+static bool vcal_validate() {
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    if (vcal_lo[v] < 0 || vcal_hi[v] > 4095) return false;
+    if (vcal_lo[v] > vcal_hi[v])             return false;
+    if (vcal_hi[v] <= VCAL_IDLE_FLOOR)       return false;
+  }
+  return true;
+}
+
+void enter_diag_voice_cal() {
+  diag_submode          = 3;
+  diag_mode             = true;
+  vcal_voice            = 0;
+  vcal_phase            = VCAL_PROMPT;
+  vcal_idle_count       = 0;
+  vcal_tap_pending      = false;
+  vcal_lcd_ms           = 0;
+  vcal_last_drawn_phase = 0xFF;   // force the first draw
+  for (int v = 0; v < VOICE_COUNT; v++) { vcal_lo[v] = 0; vcal_hi[v] = 0; }
+  for (int i = 0; i < VOICE_COUNT; i++) voice_select_leds[i].off();
+  Serial.println("entering voice cal");
+  lcd.print("?f");
+}
+
+void run_diag_voice_cal() {
+  uint8_t ev = vcal_param_rec_event();
+  if (ev == 2) { diag_exit_to_submenu(); return; }   // abort — nothing persisted
+
+  int raw          = analogRead(A10);
+  unsigned long now = millis();
+
+  switch (vcal_phase) {
+    case VCAL_PROMPT:
+      // Restore factory defaults via PAT1, offered only at the first voice.
+      if (vcal_voice == 0 && pattern_select_buttons[0].uniquePress()) {
+        voice_cal_restore_defaults();
+        snprintf(vcal_result_l1, sizeof(vcal_result_l1), "DEFAULTS SET");
+        vcal_phase = VCAL_SAVED;
+        break;
+      }
+      if (raw > VCAL_IDLE_FLOOR) vcal_begin_capture(raw);
+      break;
+
+    case VCAL_CAPTURING:
+      if (raw > VCAL_IDLE_FLOOR) {
+        vcal_idle_count = 0;
+        // Only fold steady readings into the window. The press-rise and
+        // release-fall sweeps move hundreds of counts per sample (> STABLE_DELTA)
+        // and are excluded, so they can't drag the captured range toward idle.
+        if (abs(raw - vcal_prev_raw) <= VCAL_STABLE_DELTA) {
+          if (vcal_stable_count < 255) vcal_stable_count++;
+          if (vcal_stable_count >= VCAL_LOCK_SAMPLES) {
+            if (!vcal_locked) { vcal_locked = true; vcal_min = vcal_max = raw; }
+            else {
+              if (raw < vcal_min) vcal_min = raw;
+              if (raw > vcal_max) vcal_max = raw;
+            }
+          }
+        } else {
+          vcal_stable_count = 0;   // transient: press rise / release fall / glitch
+        }
+        vcal_prev_raw = raw;
+      } else if (++vcal_idle_count >= VCAL_RELEASE_SAMPLES) {
+        if (vcal_locked) {
+          int lo = vcal_min - VCAL_MARGIN; if (lo < 0)    lo = 0;
+          int hi = vcal_max + VCAL_MARGIN; if (hi > 4095) hi = 4095;
+          vcal_lo[vcal_voice] = lo;
+          vcal_hi[vcal_voice] = hi;
+          Serial.print("DIAG VCAL V"); Serial.print(vcal_voice + 1);
+          Serial.print(" -> "); Serial.print(lo);
+          Serial.print("-");     Serial.println(hi);
+          vcal_phase = VCAL_CONFIRM;
+        } else {
+          // Released without ever holding steady — retry this same voice.
+          vcal_phase = VCAL_PROMPT;
+        }
+      }
+      break;
+
+    case VCAL_CONFIRM:
+      // Re-press the same button to redo this voice's capture.
+      if (raw > VCAL_IDLE_FLOOR) { vcal_begin_capture(raw); break; }
+      if (ev == 1) {   // accept this voice and advance
+        vcal_voice++;
+        if (vcal_voice >= VOICE_COUNT) {
+          if (vcal_validate()) {
+            for (int v = 0; v < VOICE_COUNT; v++) {
+              vselectval_lowerranges[v] = vcal_lo[v];
+              vselectval_upperranges[v] = vcal_hi[v];
+            }
+            persist_voice_cal();
+            snprintf(vcal_result_l1, sizeof(vcal_result_l1), "CAL SAVED");
+          } else {
+            snprintf(vcal_result_l1, sizeof(vcal_result_l1), "CAL ERROR");
+          }
+          vcal_phase = VCAL_SAVED;
+        } else {
+          vcal_phase = VCAL_PROMPT;
+        }
+      }
+      break;
+
+    case VCAL_SAVED:
+      if (ev == 1) { diag_exit_to_submenu(); return; }
+      break;
+  }
+
+  // Redraw on every phase change, plus a periodic refresh so CAPTURING shows the
+  // live window without flooding the 9600-baud LCD.
+  if (vcal_phase != vcal_last_drawn_phase || now - vcal_lcd_ms >= 100) {
+    vcal_lcd_ms           = now;
+    vcal_last_drawn_phase = vcal_phase;
+    vcal_draw(raw);
   }
 }

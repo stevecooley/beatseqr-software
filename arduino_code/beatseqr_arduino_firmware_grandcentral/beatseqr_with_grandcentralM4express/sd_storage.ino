@@ -590,3 +590,87 @@ void sd_diag_load_fields(char l1[][17], char l2[][17]) {
   }
   _f.close();
 }
+
+// ---------------------------------------------------------------------------
+// Voice-select calibration on SD — its own file, independent of autosave.json.
+//
+// /beatseqr/voicecal.json survives firmware updates entirely (firmware can't
+// erase the card). Kept separate from autosave.json so the frequently-rewritten
+// autosave never risks clobbering the per-board ladder calibration.
+// ---------------------------------------------------------------------------
+
+#define SD_VOICECAL_PATH "/beatseqr/voicecal.json"
+
+// Read an int array from an already-opened "[v0,v1,...]"; caller is positioned
+// just past the '['. Values are range-checked to 0..4095 before storing.
+static void sd_read_int_array_4095(int *arr, int count) {
+  for (int i = 0; i < count; i++) {
+    sd_skip_ws();
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v <= 4095) arr[i] = v;
+    sd_skip_ws();
+    char c = (char)_f.peek();
+    if (c == ',' || c == ']') _f.read();
+  }
+}
+
+bool save_voice_cal_to_sd() {
+  if (!sd_available) return false;
+
+  if (_f) _f.close();
+  if (_sd.exists(SD_VOICECAL_PATH)) _sd.remove(SD_VOICECAL_PATH);
+  _f = _sd.open(SD_VOICECAL_PATH, O_WRONLY | O_CREAT | O_TRUNC);
+  if (!_f) { Serial.println("SD: failed to open voicecal for write"); return false; }
+
+  _f.println("{");
+  _f.println("  \"version\": 1,");
+  _f.print("  \"lower\": [");
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    _f.print(vselectval_lowerranges[v]);
+    if (v < VOICE_COUNT - 1) _f.print(",");
+  }
+  _f.println("],");
+  _f.print("  \"upper\": [");
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    _f.print(vselectval_upperranges[v]);
+    if (v < VOICE_COUNT - 1) _f.print(",");
+  }
+  _f.println("]");
+  _f.println("}");
+  _f.close();
+
+  Serial.println("voice cal saved to SD");
+  return true;
+}
+
+bool load_voice_cal_from_sd() {
+  if (!sd_available) return false;
+  if (!_sd.exists(SD_VOICECAL_PATH)) return false;
+
+  _f = _sd.open(SD_VOICECAL_PATH, O_RDONLY);
+  if (!_f) return false;
+
+  int lo[VOICE_COUNT], hi[VOICE_COUNT];
+  for (int v = 0; v < VOICE_COUNT; v++) { lo[v] = -1; hi[v] = -1; }
+
+  _f.seekSet(0);
+  bool got_lower = sd_find("\"lower\"") && sd_read_until('[');
+  if (got_lower) sd_read_int_array_4095(lo, VOICE_COUNT);
+
+  _f.seekSet(0);
+  bool got_upper = sd_find("\"upper\"") && sd_read_until('[');
+  if (got_upper) sd_read_int_array_4095(hi, VOICE_COUNT);
+
+  _f.close();
+
+  if (!got_lower || !got_upper) return false;
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    if (lo[v] < 0 || hi[v] < 0 || lo[v] > hi[v]) return false;  // incomplete/garbage → reject
+  }
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    vselectval_lowerranges[v] = lo[v];
+    vselectval_upperranges[v] = hi[v];
+  }
+  Serial.println("voice cal loaded from SD");
+  return true;
+}

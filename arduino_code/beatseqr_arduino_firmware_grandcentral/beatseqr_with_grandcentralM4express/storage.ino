@@ -69,6 +69,21 @@
 
 #define EEPROM_MAGIC_VALUE  0xC2  // bumped: added ft_voice_sliders flag
 
+// ---------------------------------------------------------------------------
+// Voice-select calibration — a SEPARATE EEPROM region with its OWN magic.
+//
+// This block is intentionally independent of EEPROM_MAGIC_VALUE above. The main
+// save is wiped whenever its layout changes (magic bump), but resistor-ladder
+// calibration is a per-board hardware fact that must survive firmware updates.
+// So it lives above the main layout with its own sentinel, and is saved/loaded
+// by its own functions — never touched by save_to_eeprom()/load_from_eeprom().
+//
+//  2748  1    magic sentinel (EEPROM_VCAL_MAGIC_VALUE)
+//  2749  32   vselectval_lowerranges[8] + vselectval_upperranges[8], int16 each
+#define EEPROM_VCAL_MAGIC_ADDR   2748
+#define EEPROM_VCAL_DATA_ADDR    2749
+#define EEPROM_VCAL_MAGIC_VALUE  0x5A   // bump ONLY if THIS block's layout changes
+
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
   EEPROM.write(EEPROM_MIDICHANNEL_ADDR, MIDICHANNEL);
@@ -308,4 +323,75 @@ bool load_from_eeprom() {
 
   Serial.println("loaded from EEPROM");
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Voice-select calibration storage
+//
+// The live ranges are vselectval_lowerranges/upperranges (config.h). These
+// functions persist them to a dedicated EEPROM region (own magic) and, via the
+// SD helpers, to /beatseqr/voicecal.json. Boot load tries SD first, then EEPROM;
+// if neither is valid the compiled-in defaults below remain in effect.
+// ---------------------------------------------------------------------------
+
+// Snapshot of the compiled-in factory ladder (keep a copy: the live arrays get
+// overwritten by calibration, so we need an immutable source to restore from).
+static const int VSELECT_DEFAULT_LOWER[VOICE_COUNT] =
+  {4047, 3660, 3016, 2471, 2016, 1675, 1305,  500};
+static const int VSELECT_DEFAULT_UPPER[VOICE_COUNT] =
+  {4095, 4046, 3659, 3015, 2470, 2015, 1674, 1304};
+
+void save_voice_cal_to_eeprom() {
+  EEPROM.write(EEPROM_VCAL_MAGIC_ADDR, EEPROM_VCAL_MAGIC_VALUE);
+  int addr = EEPROM_VCAL_DATA_ADDR;
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    EEPROM.put(addr, (int16_t)vselectval_lowerranges[v]); addr += 2;
+  }
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    EEPROM.put(addr, (int16_t)vselectval_upperranges[v]); addr += 2;
+  }
+  EEPROM.commit();
+  Serial.println("voice cal saved to EEPROM");
+}
+
+bool load_voice_cal_from_eeprom() {
+  if (EEPROM.read(EEPROM_VCAL_MAGIC_ADDR) != EEPROM_VCAL_MAGIC_VALUE) return false;
+
+  int lo[VOICE_COUNT], hi[VOICE_COUNT];
+  int addr = EEPROM_VCAL_DATA_ADDR;
+  for (int v = 0; v < VOICE_COUNT; v++) { int16_t t; EEPROM.get(addr, t); lo[v] = t; addr += 2; }
+  for (int v = 0; v < VOICE_COUNT; v++) { int16_t t; EEPROM.get(addr, t); hi[v] = t; addr += 2; }
+
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    if (lo[v] < 0 || hi[v] > 4095 || lo[v] > hi[v]) return false;  // reject garbage wholesale
+  }
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    vselectval_lowerranges[v] = lo[v];
+    vselectval_upperranges[v] = hi[v];
+  }
+  Serial.println("voice cal loaded from EEPROM");
+  return true;
+}
+
+// Write calibration to both durable stores (SD primary + EEPROM backup).
+void persist_voice_cal() {
+  save_voice_cal_to_sd();
+  save_voice_cal_to_eeprom();
+}
+
+// Apply saved calibration at boot: SD first, EEPROM fallback, else defaults.
+void boot_load_voice_cal() {
+  if (load_voice_cal_from_sd())     return;
+  if (load_voice_cal_from_eeprom()) return;
+  Serial.println("no voice cal found, using defaults");
+}
+
+// Revert the live ranges to the compiled-in factory ladder and persist.
+void voice_cal_restore_defaults() {
+  for (int v = 0; v < VOICE_COUNT; v++) {
+    vselectval_lowerranges[v] = VSELECT_DEFAULT_LOWER[v];
+    vselectval_upperranges[v] = VSELECT_DEFAULT_UPPER[v];
+  }
+  persist_voice_cal();
+  Serial.println("voice cal restored to defaults");
 }

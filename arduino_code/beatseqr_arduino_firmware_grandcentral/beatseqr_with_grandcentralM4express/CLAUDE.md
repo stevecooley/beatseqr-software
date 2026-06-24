@@ -136,19 +136,21 @@ NOTE: LCD wire must connect to pin 1 (Serial1 TX). A15/pin61 cannot be UART TX
 
 ## Config Menu Navigation
 
-The config menu is entered by **double-tapping `knob_mode_select`** (two presses within 400 ms). Navigation uses the hardware knobs as jog wheels:
+The config menu is entered by **double-tapping `knob_mode_select`** (two presses within 400 ms). Navigation uses the four **pattern-select buttons as a d-pad**. The **knobs do not navigate the menu** (both are inert while it is open):
 
 | Control | Action |
 |---------|--------|
-| Tempo knob CW | Next menu item / increment value |
-| Tempo knob CCW | Previous menu item / decrement value |
-| `knob_mode_select` single-tap | Back one level (cancel editing → cancel confirmation → close submenu → exit menu) |
+| **PAT3 (down)** | Next menu item / increment value |
+| **PAT2 (up)** | Previous menu item / decrement value |
+| **PAT1 (left/back)** or `knob_mode_select` single-tap | Back one level (cancel editing → cancel confirmation → close submenu → exit menu) |
+| **PAT4 (right/select)** or param_rec | Select item / confirm |
 | `knob_mode_select` double-tap | Exit menu entirely |
-| param_rec | Select item / confirm |
 
-The **swing knob does not navigate the menu** — it is a configurable play control (see Swing knob item / `swing_knob_function`). The single-tap back gesture fires after the 400 ms double-tap detection window via `knob_mode_back_flag`.
+**Pattern-button d-pad** (`config_pattern_nav()` in `config_menu.ino`): PAT1→`knob_mode_back_flag`, PAT4→`param_rec_flag` (reusing the existing back/select flags), PAT2/PAT3 produce a jog delta. Up/down meaning is context-aware: while editing a value up=increment / down=decrement, while scrolling a list up=previous / down=next. Used by `run_config_menu()`, `run_features_submenu()`, and `run_diag_submenu()`. While `config_menu_active`, `loop()` skips its normal pattern-button handling (switch / copy / advanced pat0 nav) so the buttons don't double as pattern switches; `run_diag_*` tests are unaffected (they run before `run_config_menu` and `diag_mode` early-returns the loop).
 
-Jog threshold: `KNOB_JOG_THRESHOLD` = 80 ADC counts (12-bit). `enter_knob_jog_mode()` anchors the baseline when the menu opens so the current knob position is not misread as movement.
+The tempo-knob jog wheel (`knob_jog_vertical()`, `enter_knob_jog_mode()`) is no longer used by the menu — it survives only for the **diagnostics save-file viewer's** field scrolling. The swing knob is a configurable play control (see Swing knob item / `swing_knob_function`).
+
+Jog threshold: `KNOB_JOG_THRESHOLD` = 80 ADC counts (12-bit). `enter_knob_jog_mode()` anchors the tempo-jog baseline when the diagnostics save-file viewer opens so the current knob position is not misread as movement.
 
 **Menu items (in order):**
 0. Exit
@@ -159,7 +161,7 @@ Jog threshold: `KNOB_JOG_THRESHOLD` = 80 ADC counts (12-bit). `enter_knob_jog_mo
 5. Mode: Simple / Advanced
 6. Clock: int / ext
 7. Channel (1–16)
-8. Diagnostics (opens the diag submenu: Button test / Slider test / LED test)
+8. Diagnostics (opens the diag submenu: Button test / Slider test / LED test / Voice cal)
 9. Octave shift (±5 octaves)
 10. Note shift (±12 semitones)
 11. Note range (low / high MIDI note, two-phase editor)
@@ -261,6 +263,11 @@ LCD rate-limited to ~15 fps (66 ms) to prevent overflow at 9850 baud.
 
 **Boot**: `boot_load()` tries SD first, falls back to EEPROM. `save_everywhere()` writes SD + EEPROM.
 
+**Voice-select calibration** (independent of the main save): the per-board resistor-ladder ranges (`vselectval_lowerranges/upperranges`) are persisted separately so they survive a main-save magic bump and firmware updates.
+- **EEPROM**: a dedicated region at addr 2748+ with its **own** magic (`EEPROM_VCAL_MAGIC_VALUE = 0x5A`, addr 2748) holding 8 lower + 8 upper int16 values (addr 2749). `save_voice_cal_to_eeprom()` / `load_voice_cal_from_eeprom()` in `storage.ino` are standalone — **not** called from `save_to_eeprom()`/`load_from_eeprom()`, so bumping the main `EEPROM_MAGIC_VALUE` never erases calibration. Only bump `EEPROM_VCAL_MAGIC_VALUE` if this block's own layout changes.
+- **SD**: `/beatseqr/voicecal.json` (`{ "version", "lower"[8], "upper"[8] }`), separate from `autosave.json` so frequent autosaves never clobber it. `save_voice_cal_to_sd()` / `load_voice_cal_from_sd()` in `sd_storage.ino`.
+- `persist_voice_cal()` writes both; `boot_load_voice_cal()` (called in `setup()` right after `boot_load()`) loads SD first, EEPROM fallback, else keeps the compiled-in defaults (`VSELECT_DEFAULT_LOWER/UPPER` in `storage.ino`). `voice_cal_restore_defaults()` reverts to those and persists. Set via Diagnostics → Voice cal.
+
 ## HAL Notes
 
 **Button debouncing**: 50 ms hardware debounce in `isPressed()`. Use `wasPressed()` (no side effects) for combo checks after `uniquePress()` has already been called for those buttons in the same loop iteration.
@@ -273,16 +280,17 @@ LCD rate-limited to ~15 fps (66 ms) to prevent overflow at 9850 baud.
 
 ## Diagnostics Mode
 
-Entered from config menu → **Diagnostics**, which opens a knob-jog submenu (Button test / Slider test / LED test). `diag_mode` gates the main loop: `loop()` runs `run_diagnostics()` then `if (diag_mode) return;`, and `run_LCD_update()` early-returns, so diagnostics owns the display. `diag_submode` selects button test (0), slider test (1), or LED test (2).
+Entered from config menu → **Diagnostics**, which opens a knob-jog submenu (Button test / Slider test / LED test / Voice cal). `diag_mode` gates the main loop: `loop()` runs `run_diagnostics()` then `if (diag_mode) return;`, and `run_LCD_update()` early-returns, so diagnostics owns the display. `diag_submode` selects button test (0), slider test (1), LED test (2), or voice calibration (3).
 
 - **Button test** (`run_diag_button_test()`): reports each button (step, pattern, play, param_rec, slider/voice/knob-mode selects), the two tempo/swing knobs (raw ADC, ±16 threshold, 100 ms rate-limit), and the voice-select resistor ladder (raw A10 + detected voice via a local copy of the classifier). Auto-clears to idle after 2 s. **Pattern button 0 (PAT1)** opens the save-file viewer (scroll `autosave.json` top-level fields with the tempo knob; `sd_diag_load_fields()` in `sd_storage.ino`).
 - **Slider test** (`run_diag_slider_test()`): watches a single slider at a time so a noisy slider can't drown out the others. Press a **voice-select button (1–8)** to choose which slider to display; the focused voice LED lights and line 1 shows `SLIDER V<n>  <pin>`, line 2 shows the live raw value (100 ms rate-limit). Focus stays on the last-picked slider until another voice-select button is pressed (starts on `current_voice`). Knobs and the voice-select ladder readout are not in this test — they live in the button test, since voice-select is repurposed here for slider focus.
 - **LED test** (`run_diag_led_test()`): non-blocking chase across 16 step + 4 pattern + 8 voice + play LEDs (29 total), 80 ms/LED.
+- **Voice cal** (`run_diag_voice_cal()`): per-board calibration wizard for the voice-select resistor ladder. Walks voices 1→8: prompt "Hold V<n>", capture the **steady plateau** of raw A10 while held, and on release show the captured range `lo-hi` (plateau ± `VCAL_MARGIN`). Only readings that are steady (consecutive samples within `VCAL_STABLE_DELTA`, after `VCAL_LOCK_SAMPLES` in a row) are folded into the window — this excludes the press-rise and release-fall sweeps, which would otherwise drag every voice's lower bound down toward the idle floor and make the ranges overlap. `param_rec` single-tap accepts and advances; re-pressing the same button redoes that voice. It does **not** use the classifier (`diag_voice_from_adc`) — that mapping is what's being calibrated — it reads raw A10 and takes the voice index from prompt order, treating `raw > VCAL_IDLE_FLOOR` (≈50, idle ~10) as "held". After voice 8, ranges are validated and written into the live `vselectval_lowerranges/upperranges` and persisted via `persist_voice_cal()`. **PAT1** at the first voice restores factory defaults. `param_rec` uses a 0/1/2 event helper (`vcal_param_rec_event()`): single-tap = confirm (fires after the 400 ms double-tap window), double-tap = abort without saving.
 - **Exit** (all tests): double-tap `param_rec` → back to the diag submenu. (No D-pad on Beatseqr, so the synthseqr "Left exits" gesture is replaced by the param_rec double-tap.)
 
 ## Pending Work
 
-- **ADC recalibration**: Voice select thresholds (`vselectval_lowerranges/upperranges`) should eventually be recalibrated at 12-bit native resolution (multiply current values by 4) if `analogReadResolution(12)` is ever desired
+- **ADC recalibration**: Voice select thresholds (`vselectval_lowerranges/upperranges`) can now be recalibrated per-board at runtime via Diagnostics → Voice cal (persisted independently of the main save). The compiled-in defaults remain the 12-bit fallback.
 - **TRS MIDI output**: Hardware jack exists on board; implementation deferred
 - **voice_mode_select button**: Currently reserved; no function assigned
 - **knob_mode_select single tap**: Inside the config menu = back one level (`knob_mode_back_flag`); outside the menu it is still unused
