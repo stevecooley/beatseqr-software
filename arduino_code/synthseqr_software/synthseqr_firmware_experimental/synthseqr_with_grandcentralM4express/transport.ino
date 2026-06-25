@@ -26,6 +26,7 @@ void listen_for_transport_events() {
 
       // turn the play button LED on
       playbutton_LED.on();
+      beat_pulse_count = 0;  // phase-align the beat flash to the start
 
       // start playing stuff
       playstatus = true;
@@ -77,6 +78,7 @@ void listen_for_transport_events() {
 
       // turn the play button LED on
       playbutton_LED.on();
+      beat_pulse_count = 0;  // phase-align the beat flash to the start
 
       // start playing
       playstatus = true;
@@ -258,9 +260,8 @@ void stepsend(int current_step, int last_step) {
 
   run_chase_lights(play_step);
 
-  // Flash play button LED on quarter notes: on at steps 0,4,8,12 — off at 2,6,10,14.
-  if (current_step % 4 == 0)      playbutton_LED.on();
-  else if (current_step % 4 == 2) playbutton_LED.off();
+  // (Play-button LED beat flash is driven from the midi() clock callback by
+  // beat_pulse_count so it tracks the quarter-note beat independent of clock_div.)
 
   // Note-off scan: turn off any notes whose gate expires at this step.
   // Gate end steps are stored as hardware clock steps (current_step-based),

@@ -193,6 +193,33 @@ Swing, MIDI channel, and clock source are also in the Config Menu.
 
 ---
 
+## Clock Divide / Multiply
+
+By default each step is a **1/16 note**. The **Clk div** setting changes how long each step lasts — letting you run patterns at 1/8, 1/4, even whole-note speeds (so 16 steps can stretch across several bars), or faster at 1/32, plus triplet feels — all locked to the same tempo.
+
+This is a global setting (it applies to every pattern), gated by the **Clock div** feature (ON by default; toggle in **Config Menu → Features**).
+
+**To change it:**
+
+1. Double-tap **Enter** to open the Config Menu.
+2. Scroll to **Clk div** (just after **Clock**). The current division is shown inline, e.g. `Clk div:1/16 ` (a `*` marks any non-default value).
+3. Press **Enter**, then **D-pad up/down** to choose: down = faster, up = slower.
+4. Press **Enter** or **D-pad left** to exit.
+
+You can also bind D-pad up/down on the main screen directly to **ClkDiv** — see **D-pad Up/Down Behavior** below.
+
+**Available divisions** (slowest ↔ fastest): `whole`, `1/2`, `1/4`, `1/4T`, `1/8`, `1/8T`, `1/16` (default), `1/16T`, `1/32`. (`T` = triplet.)
+
+**What scales with the division:**
+
+- **Gate lengths scale too.** A gate of 1 rings for one step, so at 1/4 division that's a full quarter note; a 16-step gate at 1/4 sustains for 4 bars. This makes long, slow chords easy.
+- **MIDI clock output stays a correct 24 PPQN**, so external gear synced to the sequencer's clock keeps the right tempo regardless of the division.
+- **The play-button LED keeps flashing on the quarter-note beat** — it is not affected by the division.
+
+The setting is saved with **Config Menu → Save** (SD + EEPROM).
+
+---
+
 ## D-pad Up/Down Behavior
 
 By default, **D-pad up/down on the main screen selects the active pattern**. You can re-bind it to adjust other values without opening the config menu — useful for tweaking tempo, octave, swing, etc. on the fly.
@@ -221,6 +248,7 @@ By default, **D-pad up/down on the main screen selects the active pattern**. You
 | **LvCCch**      | 1..16                    | `Live CC ch: 16`               |
 | **CC#**         | next/prev valid CC       | `CC:074 Cutoff`                |
 | **Chord**       | cycle 11 chord types     | `Chord: Maj`                   |
+| **ClkDiv**      | 9 divisions (1/32..whole)| `Clk div: 1/8`                 |
 
 When the binding is anything other than **Pattern**, LCD line 2 is replaced by a persistent indicator showing the bound target's current value. Switching back to Pattern restores the normal step-trigger feedback on line 2.
 
@@ -592,7 +620,8 @@ Double-tap the **Enter button** to open the config menu. The sequencer keeps pla
 | Channel               | MIDI output channel 1–16; up/down to change, Enter or Left to exit                                                                                                                                                        |
 | Clear/Reset           | Opens the Reset/Clear submenu — Clear all pats, Clear pattern, Reset sliders (all require confirmation)                                                                                                                   |
 | Clock: int/ext        | Toggle internal clock / external USB-MIDI clock                                                                                                                                                                           |
-| D-pad up/dn           | What D-pad up/down does on the main screen — Pattern (default), Octave, Note, Tempo, Swing, Drift, PatLen, PatDir, MIDIch, LvCCch, or CC#. See **D-pad Up/Down Behavior** for details.                                    |
+| Clk div               | Global clock divide/multiply — step length from 1/32 up to whole note, incl. triplets (default 1/16); up/down changes it; label shows * when non-default. See **Clock Divide / Multiply**.                                |
+| D-pad up/dn           | What D-pad up/down does on the main screen — Pattern (default), Octave, Note, Tempo, Swing, Drift, PatLen, PatDir, MIDIch, LvCCch, CC#, Chord, or ClkDiv. See **D-pad Up/Down Behavior** for details.                     |
 | Diagnostics           | Opens the Diagnostics submenu: LED test (sequential LED chase), Input test (button/slider tester), Hi trim (slider high-end calibration offset 0–4)                                                       |
 | Exit                  | Leave the config menu                                                                                                                                                                                                     |
 | Features              | Enter the Features submenu to toggle individual feature flags on/off                                                                                                                                                      |
@@ -811,6 +840,7 @@ Connect at **57600 baud** to see:
 | Set step probability        | Voice slider (PR mode)                                                     |
 | Enter PR mode               | Config menu → Step prob                                                    |
 | Set pitch drift             | Config menu → Pitch drift, up/down                                         |
+| Set clock divide/multiply   | Config menu → Clk div, up/down (or bind D-pad to ClkDiv)                   |
 | Set per-step drift          | Voice slider (D mode); step button toggles drift on/off                    |
 | Set per-step chord type     | Voice slider (CH mode); step button clears step's chord                    |
 | Paint chord onto new steps  | Bind D-pad to Chord → D-pad up/down picks type → activate steps            |

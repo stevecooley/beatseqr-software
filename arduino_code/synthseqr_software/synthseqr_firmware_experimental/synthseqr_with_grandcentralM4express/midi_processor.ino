@@ -58,9 +58,11 @@ void read_midi()
           }
           ext_clk_last_pulse_us = now_us;
 
-          // Count pulses per step (0–5). The 6th pulse advances the step.
+          // Count pulses per step. Normally 6 pulses = one 1/16 step, but the
+          // clock-divide setting (clock_pulses_per_step) changes the boundary
+          // so external sync follows the same musical division as internal.
           ext_clk_pulse_count++;
-          bool is_step_pulse = (ext_clk_pulse_count >= 6);
+          bool is_step_pulse = (ext_clk_pulse_count >= clock_pulses_per_step);
           if (is_step_pulse) ext_clk_pulse_count = 0;
 
           if (is_step_pulse) {
@@ -68,6 +70,7 @@ void read_midi()
             // now on this beat boundary so we start in phase.
             if (ext_clock_start_pending) {
               seq.start();
+              beat_pulse_count = 0;  // phase-align the beat flash to the start
               ext_clock_start_pending = false;
             }
           }

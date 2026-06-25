@@ -30,6 +30,18 @@ void step(int current, int last) {
 // http://arduino.cc/en/uploads/Tutorial/MIDI_bb.png
 void midi(byte channel, byte command, byte arg1, byte arg2) {
 
+  // Beat flash for the play-button LED. This callback fires once per 24-PPQN
+  // clock pulse (command 0xF8) while the sequencer is running, in both internal
+  // and external clock modes. Counting pulses here keeps the flash locked to
+  // the quarter-note beat regardless of clock_div — the LED is on for the first
+  // half of each quarter and off for the second half.
+  if (command == 0xF8 && playstatus) {
+    if (beat_pulse_count < 12) playbutton_LED.on();
+    else                       playbutton_LED.off();
+    beat_pulse_count++;
+    if (beat_pulse_count >= 24) beat_pulse_count = 0;
+  }
+
   if(command < 128) {
     // shift over command
     command <<= 4;

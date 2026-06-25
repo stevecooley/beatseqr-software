@@ -550,6 +550,9 @@ void run_LCD_update() {
               len = snprintf(line2, sizeof(line2), "Chord: %s", cname);
               break;
             }
+            case DPAD_MAIN_MODE_CLOCK_DIV:
+              len = snprintf(line2, sizeof(line2), "Clk div: %s", CLOCK_DIV[clock_div].name);
+              break;
             default: len = 0; break;
           }
           while (len < 16) line2[len++] = ' ';

@@ -350,6 +350,14 @@ void handle_dpad_main_action() {
       current_chord_type = (uint8_t)v;
       break;
     }
+    case DPAD_MAIN_MODE_CLOCK_DIV:
+      // Change the global clock division (down = faster, up = slower), matching
+      // the config-menu editor's direction. apply_clock_div() retunes both clock
+      // paths immediately.
+      if (dir > 0 && clock_div < CLOCK_DIV_COUNT - 1) clock_div++;
+      else if (dir < 0 && clock_div > 0) clock_div--;
+      apply_clock_div();
+      break;
     default: break;
   }
 

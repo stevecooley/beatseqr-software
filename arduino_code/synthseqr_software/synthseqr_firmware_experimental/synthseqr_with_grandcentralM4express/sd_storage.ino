@@ -192,6 +192,8 @@ bool save_to_sd() {
   _f.print("  \"ft_drift_mode\": ");          _f.print(ft_drift_mode ? 1 : 0);          _f.println(",");
   _f.print("  \"ft_chord_mode\": ");          _f.print(ft_chord_mode ? 1 : 0);          _f.println(",");
   _f.print("  \"ft_midi_program_mode\": ");   _f.print(ft_midi_program_mode ? 1 : 0);   _f.println(",");
+  _f.print("  \"ft_clock_div\": ");           _f.print(ft_clock_div ? 1 : 0);           _f.println(",");
+  _f.print("  \"clock_div\": ");              _f.print(clock_div);                      _f.println(",");
   _f.print("  \"current_chord_type\": ");     _f.print(current_chord_type);             _f.println(",");
   _f.print("  \"live_cc_channel\": ");        _f.print(live_cc_channel);                _f.println(",");
   _f.print("  \"live_cc_numbers\": [");
@@ -443,6 +445,13 @@ bool load_from_sd() {
     _f.seekSet(0); if (sd_find("\"ft_drift_mode\":"))          { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_drift_mode          = (bool)v; }
     _f.seekSet(0); if (sd_find("\"ft_chord_mode\":"))          { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_chord_mode          = (bool)v; }
     _f.seekSet(0); if (sd_find("\"ft_midi_program_mode\":"))   { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_midi_program_mode   = (bool)v; }
+    _f.seekSet(0); if (sd_find("\"ft_clock_div\":"))           { v = (int)sd_parse_number(); if (v == 0 || v == 1) ft_clock_div           = (bool)v; }
+  }
+
+  _f.seekSet(0);
+  if (sd_find("\"clock_div\":")) {
+    int v = (int)sd_parse_number();
+    if (v >= 0 && v < (int)CLOCK_DIV_COUNT) clock_div = (uint8_t)v;
   }
 
   _f.seekSet(0);

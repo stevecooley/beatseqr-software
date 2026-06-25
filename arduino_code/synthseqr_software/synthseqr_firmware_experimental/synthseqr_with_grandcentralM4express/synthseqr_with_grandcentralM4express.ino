@@ -70,6 +70,8 @@ void setup() {
   for (int i = 0; i < 16; i++) slider_last_raw[i] = voice_sliders[i].getValue();
   // Apply loaded pattern_length to FifteenStep (default is 16; may differ after load).
   seq.setSteps(pattern_length);
+  // Apply loaded clock-divide setting to both clock paths.
+  apply_clock_div();
   // If shuffle mode was saved, prime the permutation array for pattern_length.
   if (pattern_direction == 4) init_shuffle();
   go_to_pattern(current_pattern, 1);

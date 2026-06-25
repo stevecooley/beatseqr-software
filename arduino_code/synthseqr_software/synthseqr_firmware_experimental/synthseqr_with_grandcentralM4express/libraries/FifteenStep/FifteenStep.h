@@ -100,6 +100,10 @@ public:
   void setHardwareTimerMode(bool enabled);
   void hardwareClockPulse();
 
+  // Clock divide/multiply: number of 24-PPQN pulses per step.
+  // 6 = 1/16 (default). Larger = slower stepping, smaller = faster.
+  void setPulsesPerStep(uint8_t pulses);
+
 private:
   MIDIcallback _midi_cb;
   StepCallback _step_cb;
@@ -121,6 +125,7 @@ private:
   volatile bool _hw_step_pending;
   volatile bool _hw_clock_pending;
   volatile uint8_t _hw_pulse_count; // MIDI clock pulses since last step (0–5)
+  uint8_t _pulses_per_step;         // pulses per step (clock divide); default 6 = 1/16
   unsigned long _shuffleDivision();
   int _quantizedPosition();
   int _greater(int first, int second);

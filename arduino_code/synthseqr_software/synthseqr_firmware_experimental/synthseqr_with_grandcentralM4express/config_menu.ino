@@ -77,6 +77,7 @@ const char* dpad_main_mode_short_name(uint8_t mode) {
     case DPAD_MAIN_MODE_LIVE_CC_CH:  return "LvCCch";
     case DPAD_MAIN_MODE_CC_NUM:      return "CC#";
     case DPAD_MAIN_MODE_CHORD:       return "Chord";
+    case DPAD_MAIN_MODE_CLOCK_DIV:   return "ClkDiv";
     default:                         return "?";
   }
 }
@@ -100,6 +101,7 @@ bool dpad_main_mode_enabled(uint8_t mode) {
     case DPAD_MAIN_MODE_LIVE_CC_CH:  return ft_live_cc_mode;
     case DPAD_MAIN_MODE_CC_NUM:      return ft_cc_mode;
     case DPAD_MAIN_MODE_CHORD:       return ft_chord_mode;
+    case DPAD_MAIN_MODE_CLOCK_DIV:   return ft_clock_div;
     default:                         return true;  // Pattern, MIDIch always available
   }
 }
@@ -180,25 +182,26 @@ uint8_t next_valid_cc(uint8_t current, int dir) {
 #define CONFIG_ITEM_CHANNEL       2
 #define CONFIG_ITEM_CLEAR_RESET   3
 #define CONFIG_ITEM_CLOCK         4
-#define CONFIG_ITEM_DPAD_MAIN     5
-#define CONFIG_ITEM_DIAGNOSTICS   6
-#define CONFIG_ITEM_EXIT          7
-#define CONFIG_ITEM_FEATURES      8
-#define CONFIG_ITEM_LIVE_CC_CHAN  9
-#define CONFIG_ITEM_MODE          10
-#define CONFIG_ITEM_NOTE_RANGE    11
-#define CONFIG_ITEM_NOTE_SCALES   12
-#define CONFIG_ITEM_NOTE_SHIFT    13
-#define CONFIG_ITEM_OCTAVE_SHIFT  14
-#define CONFIG_ITEM_PAT_DIR       15
-#define CONFIG_ITEM_PAT_LENGTH    16
-#define CONFIG_ITEM_PITCH_DRIFT   17
-#define CONFIG_ITEM_SAVE             18
-#define CONFIG_ITEM_SLIDER_TAKEOVER  19
-#define CONFIG_ITEM_STEP_PROB        20
-#define CONFIG_ITEM_SWING            21
-#define CONFIG_ITEM_TEMPO            22
-#define CONFIG_MENU_ITEM_COUNT       23
+#define CONFIG_ITEM_CLOCK_DIV     5
+#define CONFIG_ITEM_DPAD_MAIN     6
+#define CONFIG_ITEM_DIAGNOSTICS   7
+#define CONFIG_ITEM_EXIT          8
+#define CONFIG_ITEM_FEATURES      9
+#define CONFIG_ITEM_LIVE_CC_CHAN  10
+#define CONFIG_ITEM_MODE          11
+#define CONFIG_ITEM_NOTE_RANGE    12
+#define CONFIG_ITEM_NOTE_SCALES   13
+#define CONFIG_ITEM_NOTE_SHIFT    14
+#define CONFIG_ITEM_OCTAVE_SHIFT  15
+#define CONFIG_ITEM_PAT_DIR       16
+#define CONFIG_ITEM_PAT_LENGTH    17
+#define CONFIG_ITEM_PITCH_DRIFT   18
+#define CONFIG_ITEM_SAVE             19
+#define CONFIG_ITEM_SLIDER_TAKEOVER  20
+#define CONFIG_ITEM_STEP_PROB        21
+#define CONFIG_ITEM_SWING            22
+#define CONFIG_ITEM_TEMPO            23
+#define CONFIG_MENU_ITEM_COUNT       24
 
 #define RESET_ITEM_CLEAR_ALL  0
 #define RESET_ITEM_CLEAR_PAT  1
@@ -228,24 +231,25 @@ static const char* config_labels[CONFIG_MENU_ITEM_COUNT] = {
   "Channel:      ",   //  2 CHANNEL       — value overwritten at draw time
   "Clear/Reset   ",   //  3 CLEAR_RESET   — opens Reset/Clear submenu
   "Clock:        ",   //  4 CLOCK         — value overwritten at draw time
-  "D-pad:        ",   //  5 DPAD_MAIN     — value overwritten at draw time
-  "Diagnostics   ",   //  6 DIAGNOSTICS
-  "Exit          ",   //  7 EXIT
-  "Features      ",   //  8 FEATURES
-  "Live CC ch:   ",   //  9 LIVE_CC_CHAN  — value overwritten at draw time
-  "Mode:         ",   // 10 MODE          — value overwritten at draw time
-  "Note range    ",   // 11 NOTE_RANGE
-  "Note scales   ",   // 12 NOTE_SCALES   — * appended when non-default
-  "Note shift    ",   // 13 NOTE_SHIFT    — * appended when non-zero
-  "Octave shift  ",   // 14 OCTAVE_SHIFT  — * appended when non-zero
-  "Pat dir:      ",   // 15 PAT_DIR       — value overwritten at draw time
-  "Pat length    ",   // 16 PAT_LENGTH    — * appended when not 16
-  "Pitch drift   ",   // 17 PITCH_DRIFT   — * appended when non-zero
-  "Save          ",   // 18 SAVE
-  "Takeover:     ",   // 19 SLIDER_TAKEOVER — value overwritten at draw time
-  "Step prob     ",   // 20 STEP_PROB       — * appended if any step < 100
-  "Swing:        ",   // 21 SWING           — value overwritten at draw time
-  "Tempo         "    // 22 TEMPO           — value overwritten at draw time; hidden when ext clock
+  "Clk div:      ",   //  5 CLOCK_DIV     — value overwritten at draw time
+  "D-pad:        ",   //  6 DPAD_MAIN     — value overwritten at draw time
+  "Diagnostics   ",   //  7 DIAGNOSTICS
+  "Exit          ",   //  8 EXIT
+  "Features      ",   //  9 FEATURES
+  "Live CC ch:   ",   // 10 LIVE_CC_CHAN  — value overwritten at draw time
+  "Mode:         ",   // 11 MODE          — value overwritten at draw time
+  "Note range    ",   // 12 NOTE_RANGE
+  "Note scales   ",   // 13 NOTE_SCALES   — * appended when non-default
+  "Note shift    ",   // 14 NOTE_SHIFT    — * appended when non-zero
+  "Octave shift  ",   // 15 OCTAVE_SHIFT  — * appended when non-zero
+  "Pat dir:      ",   // 16 PAT_DIR       — value overwritten at draw time
+  "Pat length    ",   // 17 PAT_LENGTH    — * appended when not 16
+  "Pitch drift   ",   // 18 PITCH_DRIFT   — * appended when non-zero
+  "Save          ",   // 19 SAVE
+  "Takeover:     ",   // 20 SLIDER_TAKEOVER — value overwritten at draw time
+  "Step prob     ",   // 21 STEP_PROB       — * appended if any step < 100
+  "Swing:        ",   // 22 SWING           — value overwritten at draw time
+  "Tempo         "    // 23 TEMPO           — value overwritten at draw time; hidden when ext clock
 };
 
 // Tempo resolution index while editing: 0=±10, 1=±1, 2=±0.1.
@@ -268,6 +272,11 @@ void print_config_label(uint8_t item) {
   } else if (item == CONFIG_ITEM_CLOCK) {
     // "Clock: int    " or "Clock: ext    " — 14 chars
     lcd.print(external_clock_mode ? "Clock: ext    " : "Clock: int    ");
+  } else if (item == CONFIG_ITEM_CLOCK_DIV) {
+    // "Clk div:1/16  " — 8 + 5 name + trailing pad = 14 chars. '*' when not 1/16.
+    snprintf(_buf, sizeof(_buf), "Clk div:%-5s%c", CLOCK_DIV[clock_div].name,
+             clock_div != CLOCK_DIV_DEFAULT ? '*' : ' ');
+    lcd.print(_buf);
   } else if (item == CONFIG_ITEM_CHANNEL) {
     // "Channel:   02 " — 14 chars
     snprintf(_buf, sizeof(_buf), "Channel:   %02d ", MIDICHANNEL);
@@ -356,6 +365,7 @@ static uint8_t config_menu_next(uint8_t from, int dir) {
       case CONFIG_ITEM_TEMPO:        if (external_clock_mode)     enabled = false; break;
       case CONFIG_ITEM_MODE:         if (!ft_advanced_mode)       enabled = false; break;
       case CONFIG_ITEM_CLOCK:        if (!ft_external_clock)      enabled = false; break;
+      case CONFIG_ITEM_CLOCK_DIV:    if (!ft_clock_div)           enabled = false; break;
       case CONFIG_ITEM_SWING:        if (!ft_swing)               enabled = false; break;
       case CONFIG_ITEM_DIAGNOSTICS:  if (!ft_diagnostics)         enabled = false; break;
       case CONFIG_ITEM_OCTAVE_SHIFT: if (!ft_octave_note_shift)   enabled = false; break;
@@ -482,6 +492,12 @@ void draw_config_menu() {
     }
     char line2[17];
     int len = snprintf(line2, sizeof(line2), "  %s", full);
+    while (len < 16) line2[len++] = ' ';
+    line2[16] = '\0';
+    lcd.print(line2);
+  } else if (config_editing_value && config_menu_item == CONFIG_ITEM_CLOCK_DIV) {
+    char line2[17];
+    int len = snprintf(line2, sizeof(line2), "  Step: %s", CLOCK_DIV[clock_div].name);
     while (len < 16) line2[len++] = ' ';
     line2[16] = '\0';
     lcd.print(line2);
@@ -700,6 +716,11 @@ void run_config_menu() {
       } else if (config_menu_item == CONFIG_ITEM_DPAD_MAIN) {
         dpad_main_mode = next_dpad_main_mode(dpad_main_mode, +1);
         draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_CLOCK_DIV) {
+        // up = slower stepping (next index in the fastest->slowest table)
+        if (clock_div < CLOCK_DIV_COUNT - 1) clock_div++;
+        apply_clock_div();
+        draw_config_menu();
       }
     }
     if (dpad_down_flag) {
@@ -775,6 +796,11 @@ void run_config_menu() {
         draw_config_menu();
       } else if (config_menu_item == CONFIG_ITEM_DPAD_MAIN) {
         dpad_main_mode = next_dpad_main_mode(dpad_main_mode, -1);
+        draw_config_menu();
+      } else if (config_menu_item == CONFIG_ITEM_CLOCK_DIV) {
+        // down = faster stepping (previous index toward the fast end)
+        if (clock_div > 0) clock_div--;
+        apply_clock_div();
         draw_config_menu();
       }
     }
@@ -914,6 +940,10 @@ void run_config_menu() {
         setExternalClockMode(!external_clock_mode);
         Serial.print("clock: ");
         Serial.println(external_clock_mode ? "ext" : "int");
+        draw_config_menu();
+        break;
+      case CONFIG_ITEM_CLOCK_DIV:
+        config_editing_value = true;
         draw_config_menu();
         break;
       case CONFIG_ITEM_DIAGNOSTICS:
@@ -1088,11 +1118,12 @@ void run_reset_submenu() {
 // Features submenu
 // ---------------------------------------------------------------------------
 
-#define FEATURE_COUNT 17
+#define FEATURE_COUNT 18
 
 static const char* _feature_names[FEATURE_COUNT] = {
   "Advanced mode   ",
   "CC mode         ",
+  "Clock div       ",
   "Diagnostics     ",
   "Drift mode      ",
   "Ext clock       ",
@@ -1113,6 +1144,7 @@ static const char* _feature_names[FEATURE_COUNT] = {
 static bool* _feature_flag_ptrs[FEATURE_COUNT] = {
   &ft_advanced_mode,
   &ft_cc_mode,
+  &ft_clock_div,
   &ft_diagnostics,
   &ft_drift_mode,
   &ft_external_clock,
@@ -1156,24 +1188,27 @@ static void _apply_feature_disable(uint8_t idx) {
         go_to_pattern(current_pattern, 1);
       }
       break;
-    case 3:  // drift mode — if currently in D mode, drop back to NN
+    case 2:  // clock div — revert stepping to 1/16 (apply_clock_div reads ft_clock_div)
+      apply_clock_div();
+      break;
+    case 4:  // drift mode — if currently in D mode, drop back to NN
       if (slider_mode == 7) set_slider_mode(1);
       break;
-    case 4:  // external clock
+    case 5:  // external clock
       if (external_clock_mode) setExternalClockMode(false);
       break;
-    case 6:  // live CC mode — if currently in LV mode, drop back to NN
+    case 7:  // live CC mode — if currently in LV mode, drop back to NN
       if (slider_mode == 6) set_slider_mode(1);
       break;
-    case 7:  // MIDI program — discard any in-flight capture
+    case 8:  // MIDI program — discard any in-flight capture
       midi_capture_discard();
       break;
-    case 8:  // note audition — cancel any sounding audition immediately
+    case 9:  // note audition — cancel any sounding audition immediately
 #if FEATURE_NOTE_AUDITION
       audition_cancel();
 #endif
       break;
-    case 16:  // velocity sliders — if currently in VL mode, drop back to NN
+    case 17:  // velocity sliders — if currently in VL mode, drop back to NN
       if (slider_mode == 2) set_slider_mode(1);
       break;
     default: break;
@@ -1207,6 +1242,8 @@ void run_features_submenu() {
     bool* flag = _feature_flag_ptrs[config_feature_item];
     *flag = !(*flag);
     if (!(*flag)) _apply_feature_disable(config_feature_item);
+    // Clock div takes effect immediately on enable too (apply reads ft_clock_div).
+    if (flag == &ft_clock_div) apply_clock_div();
     draw_features_submenu();
   }
 }

@@ -52,6 +52,8 @@
 //  2121    1      slider_noise_threshold (raw ADC; 12=Low 24=Med 48=High)
 //  2122    1      ft_midi_program_mode (bool)
 //  2123    1536   step_custom_chord[16][16][6] (-1 stored as 0xFF; pitch 0..127 raw)
+//  3659    1      clock_div (index into CLOCK_DIV[])
+//  3660    1      ft_clock_div (bool)
 
 #define EEPROM_MAGIC_ADDR             0
 #define EEPROM_MIDICHANNEL_ADDR       1
@@ -92,8 +94,10 @@
 #define EEPROM_SLIDER_NOISE_ADDR     2121   // 1 byte: slider_noise_threshold (12/24/48)
 #define EEPROM_FT_MIDI_PROG_ADDR     2122   // 1 byte: ft_midi_program_mode (bool)
 #define EEPROM_CUSTOM_CHORD_ADDR     2123   // 1536 bytes: step_custom_chord[16][16][6]
+#define EEPROM_CLOCK_DIV_ADDR        3659   // 1 byte: clock_div (index into CLOCK_DIV[])
+#define EEPROM_FT_CLOCK_DIV_ADDR     3660   // 1 byte: ft_clock_div (bool)
 
-#define EEPROM_MAGIC_VALUE  0xD4  // bumped: ft_midi_program_mode + step_custom_chord added
+#define EEPROM_MAGIC_VALUE  0xD5  // bumped: clock_div + ft_clock_div added
 
 void save_to_eeprom() {
   EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_VALUE);
@@ -210,6 +214,9 @@ void save_to_eeprom() {
         for (int n = 0; n < MAX_CHORD_NOTES; n++)
           EEPROM.write(addr++, (uint8_t)step_custom_chord[p][s][n]);
   }
+
+  EEPROM.write(EEPROM_CLOCK_DIV_ADDR, clock_div);
+  EEPROM.write(EEPROM_FT_CLOCK_DIV_ADDR, (uint8_t)ft_clock_div);
 
   // FlashAsEEPROM_SAMD buffers all writes in RAM until commit() is called.
   // Without this, nothing actually persists to flash across a power cycle.
@@ -435,6 +442,15 @@ bool load_from_eeprom() {
           uint8_t v = EEPROM.read(addr++);
           step_custom_chord[p][s][n] = (v <= 127) ? (int8_t)v : (int8_t)-1;
         }
+  }
+
+  {
+    uint8_t v = EEPROM.read(EEPROM_CLOCK_DIV_ADDR);
+    if (v < CLOCK_DIV_COUNT) clock_div = v;
+  }
+  {
+    uint8_t v = EEPROM.read(EEPROM_FT_CLOCK_DIV_ADDR);
+    if (v <= 1) ft_clock_div = (bool)v;
   }
 
   // Sync the active voice array to the loaded pattern's pitches, and arm

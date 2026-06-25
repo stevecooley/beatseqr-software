@@ -600,11 +600,29 @@ void FifteenStep::hardwareClockPulse()
 {
   _hw_clock_pending = true;
   _hw_pulse_count++;
-  if (_hw_pulse_count >= 6)
+  if (_hw_pulse_count >= _pulses_per_step)
   {
     _hw_pulse_count = 0;
     _hw_step_pending = true;
   }
+}
+
+// setPulsesPerStep
+//
+// Sets how many 24-PPQN clock pulses make up one step (clock divide/multiply).
+// 6 = 1/16 note (default). Larger values slow stepping down; smaller speed it
+// up. The in-progress pulse count is reset so the new division takes effect at
+// the next step boundary cleanly.
+//
+// @access public
+// @param pulses - pulses per step (clamped to >= 1)
+// @return void
+//
+void FifteenStep::setPulsesPerStep(uint8_t pulses)
+{
+  if (pulses < 1) pulses = 1;
+  _pulses_per_step = pulses;
+  _hw_pulse_count = 0;
 }
 
 // getSequence
@@ -663,6 +681,7 @@ void FifteenStep::_init(int memory)
   _hw_step_pending = false;
   _hw_clock_pending = false;
   _hw_pulse_count = 0;
+  _pulses_per_step = 6; // 1/16 note at 24 PPQN
   _sequence_size = memory / sizeof(FifteenStepNote);
   _sequence = new FifteenStepNote[_sequence_size];
 

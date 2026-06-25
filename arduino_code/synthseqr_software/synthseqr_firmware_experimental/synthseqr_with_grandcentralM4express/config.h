@@ -642,6 +642,49 @@ uint8_t shuffle_order[16] = {0, 1, 2,  3,  4,  5,  6,  7,
                              8, 9, 10, 11, 12, 13, 14, 15};
 uint8_t shuffle_pos = 0;
 
+// ---------------------------------------------------------------------------
+// Clock divide / multiply — global, applies to all patterns.
+//
+// The sequencer clock runs at 24 PPQN. One step normally advances every 6
+// pulses = a 1/16 note. clock_div selects how many of those 24-PPQN pulses
+// make one step, so each preset is an exact musical division of the tempo —
+// MIDI clock output stays a correct 24 PPQN, and gates (measured in steps)
+// scale automatically (a 16-step gate at 1/4 = a 4-bar sustain).
+//
+// Gated by ft_clock_div: when the feature is off the stepping is forced back
+// to 6 pulses (1/16) regardless of the stored clock_div index.
+// ---------------------------------------------------------------------------
+struct ClockDiv {
+  const char* name;    // LCD label (<=5 chars)
+  uint8_t     pulses;  // 24-PPQN pulses per step
+};
+// Ordered fastest -> slowest for menu scrolling. Default index 2 = 1/16.
+const ClockDiv CLOCK_DIV[] = {
+  {"1/32",   3},
+  {"1/16T",  4},
+  {"1/16",   6},   // default
+  {"1/8T",   8},
+  {"1/8",   12},
+  {"1/4T",  16},
+  {"1/4",   24},
+  {"1/2",   48},
+  {"whole", 96},
+};
+#define CLOCK_DIV_COUNT     (sizeof(CLOCK_DIV) / sizeof(CLOCK_DIV[0]))
+#define CLOCK_DIV_DEFAULT   2   // index of "1/16"
+
+// Play-button LED beat flash. Counts 24-PPQN clock pulses (0..23 = one quarter
+// note) so the LED blinks at the quarter-note rate regardless of clock_div —
+// driven from the midi() clock callback while playing, not from step boundaries
+// (which slow down with larger divisions). Reset to 0 on each play start.
+uint8_t beat_pulse_count = 0;
+
+uint8_t clock_div = CLOCK_DIV_DEFAULT;  // index into CLOCK_DIV[]
+// Derived cache of pulses-per-step used by the external-clock path in
+// midi_processor.ino. Kept in sync with seq.setPulsesPerStep() by
+// apply_clock_div(). Defaults to 6 (1/16) so behavior is unchanged at boot.
+uint8_t clock_pulses_per_step = 6;
+
 // External clock swing state.
 // When SWING > 0 in external clock mode, odd-step transitions are deferred
 // by avg_pulse_interval * SWING µs to replicate the internal-clock swing feel.
@@ -684,6 +727,7 @@ bool ft_live_cc_mode        = true;   // ON by default — slider mode 6 (LV)
 bool ft_drift_mode          = true;   // ON by default — slider mode 7 (D, per-step drift)
 bool ft_chord_mode          = true;   // ON by default — slider mode 8 (CH, per-step chord)
 bool ft_midi_program_mode   = true;   // ON by default — capture MIDI keyboard notes onto held step
+bool ft_clock_div           = true;   // ON by default — global clock divide/multiply (stepping forced to 1/16 when off)
 
 // Live CC slider mode (mode 6) state.
 // Sliders transmit MIDI CC live (not sequenced). Each of the 16 lanes has its
@@ -743,6 +787,7 @@ bool    config_about_active        = false;
 #define DPAD_MAIN_MODE_LIVE_CC_CH  9
 #define DPAD_MAIN_MODE_CC_NUM      10
 #define DPAD_MAIN_MODE_CHORD       11
-#define DPAD_MAIN_MODE_COUNT       12
+#define DPAD_MAIN_MODE_CLOCK_DIV   12
+#define DPAD_MAIN_MODE_COUNT       13
 
 uint8_t dpad_main_mode = DPAD_MAIN_MODE_PATTERN;
