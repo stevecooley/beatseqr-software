@@ -18,13 +18,19 @@ void read_midi()
     if (rx.header != 0)
     {
 
-      // MIDI thru: forward all incoming packets downstream.
-      // In external clock mode this passes the incoming clock (0xF8),
-      // Start (0xFA), and Stop (0xFC) to any device listening on this
-      // USB port. In internal clock mode, 0xF8 is not received (we're
-      // the master) so there is no feedback loop.
-      MidiUSB.sendMIDI(rx);
-      MidiUSB.flush();
+      // MIDI thru: forward incoming packets downstream — EXCEPT clock and
+      // transport (0xF8 clock, 0xFA start, 0xFC stop) while we're slaving to
+      // an external clock. Echoing those back creates a feedback loop: a DAW
+      // that is Ableton-Link-synced and also listening to incoming MIDI clock
+      // would re-sync to its own delayed/jittered echo, fighting Link and
+      // drifting. Notes/CC still pass through. In internal clock mode nothing
+      // is suppressed (we're the master and don't receive 0xF8 anyway).
+      bool is_clock_or_transport =
+          (rx.byte1 == CLOCKBYTE || rx.byte1 == MIDISTART || rx.byte1 == MIDISTOP);
+      if (!(external_clock_mode && is_clock_or_transport)) {
+        MidiUSB.sendMIDI(rx);
+        MidiUSB.flush();
+      }
 
       /*
         Serial.print("Received: ");
